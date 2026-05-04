@@ -5,7 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Change this to your backend host when deploying.
 // For local dev with Android emulator use http://10.0.2.2:3000
 // For iOS simulator use http://localhost:3000
-const String _baseUrl = 'http://172.16.17.241:3000/api';
+// API base URL. Set at build/run with `--dart-define=API_BASE_URL=http://host:port/api`.
+// Defaults to localhost (use `http://10.0.2.2:3000` for Android emulator).
+const String _baseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'http://localhost:3000/api',
+);
 
 class ApiUser {
   final String id;
