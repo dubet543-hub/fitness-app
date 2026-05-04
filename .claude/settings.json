@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter run *)",
+      "Bash(git -C \"c:\\\\Users\\\\Admin\\\\Downloads\\\\fitness_app\" status)",
+      "Bash(git -C \"c:\\\\Users\\\\Admin\\\\Downloads\\\\fitness_app\" remote -v)",
+      "Bash(git -C \"c:\\\\Users\\\\Admin\\\\Downloads\\\\fitness_app\" log --oneline -5)"
+    ]
+  }
+}
