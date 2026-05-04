@@ -65,6 +65,14 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   bool _isBusy = false;
   int _frameCount = 0;
 
+  // Camera controls
+  double _currentZoom = 1.0;
+  double _baseZoom = 1.0;
+  double _minZoom = 1.0;
+  double _maxZoom = 8.0;
+  bool _isFlashOn = false;
+  Offset? _focusPoint;
+
   // Metrics accumulators (lists to average across frames)
   final List<double> _trunkLeans = [];
   final List<double> _kneeDrives = [];
@@ -89,15 +97,22 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   Future<void> _initializeCamera() async {
     try {
       final cameras = await availableCameras();
-      final camera = cameras.isNotEmpty ? cameras.first : null;
+      final camera = cameras.isNotEmpty
+          ? cameras.firstWhere(
+              (c) => c.lensDirection == CameraLensDirection.back,
+              orElse: () => cameras.first,
+            )
+          : null;
       if (camera == null) {
         setState(() => _phase = _AnalysisPhase.setup);
         return;
       }
-
-      _controller = CameraController(camera, ResolutionPreset.high);
+      _controller = CameraController(camera, ResolutionPreset.high,
+          enableAudio: false);
       _initializeControllerFuture = _controller!.initialize();
       await _initializeControllerFuture;
+      _minZoom = await _controller!.getMinZoomLevel();
+      _maxZoom = await _controller!.getMaxZoomLevel();
       if (mounted) setState(() {});
     } catch (e) {
       if (mounted) {
@@ -106,6 +121,52 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
         );
       }
     }
+  }
+
+  Future<void> _switchCamera() async {
+    if (_controller == null) return;
+    final cameras = await availableCameras();
+    if (cameras.length < 2) return;
+    final currentDir = _controller!.description.lensDirection;
+    final next = cameras.firstWhere(
+      (c) => c.lensDirection != currentDir,
+      orElse: () => cameras.first,
+    );
+    await _controller!.dispose();
+    _controller =
+        CameraController(next, ResolutionPreset.high, enableAudio: false);
+    await _controller!.initialize();
+    _minZoom = await _controller!.getMinZoomLevel();
+    _maxZoom = await _controller!.getMaxZoomLevel();
+    if (mounted) setState(() => _currentZoom = 1.0);
+  }
+
+  Future<void> _setZoom(double zoom) async {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    final clamped = zoom.clamp(_minZoom, _maxZoom);
+    await _controller!.setZoomLevel(clamped);
+    if (mounted) setState(() => _currentZoom = clamped);
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_controller == null) return;
+    final next = _isFlashOn ? FlashMode.off : FlashMode.torch;
+    await _controller!.setFlashMode(next);
+    if (mounted) setState(() => _isFlashOn = !_isFlashOn);
+  }
+
+  Future<void> _onTapFocus(TapDownDetails details, BoxConstraints box) async {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    final x = (details.localPosition.dx / box.maxWidth).clamp(0.0, 1.0);
+    final y = (details.localPosition.dy / box.maxHeight).clamp(0.0, 1.0);
+    try {
+      await _controller!.setFocusPoint(Offset(x, y));
+      await _controller!.setExposurePoint(Offset(x, y));
+      if (!mounted) return;
+      setState(() => _focusPoint = details.localPosition);
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) setState(() => _focusPoint = null);
+    } catch (_) {}
   }
 
   void _startRecording() {
@@ -500,7 +561,7 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         border: Border.all(color: Colors.white24),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -544,95 +605,139 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   // ── Recording Phase ───────────────────────────────────────────────────────
 
   Widget _buildRecordingPhase() {
-    return _controller == null
-        ? const Center(child: CircularProgressIndicator())
-        : Stack(
-            fit: StackFit.expand,
-            children: [
-              CameraPreview(_controller!),
+    if (_controller == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return LayoutBuilder(builder: (context, constraints) {
+      return GestureDetector(
+        onScaleStart: (_) => _baseZoom = _currentZoom,
+        onScaleUpdate: (d) => _setZoom(_baseZoom * d.scale),
+        onTapDown: (d) => _onTapFocus(d, constraints),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CameraPreview(_controller!),
+
+            // Tap-to-focus ring
+            if (_focusPoint != null)
               Positioned(
-                top: 20,
-                left: 20,
-                right: 20,
+                left: _focusPoint!.dx - 28,
+                top: _focusPoint!.dy - 28,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.yellowAccent, width: 1.5),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Column(
+                ),
+              ),
+
+            // ── Top bar ───────────────────────────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Recording Running Form",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      _CamIconButton(
+                        icon: Icons.flip_camera_ios_rounded,
+                        onTap: _switchCamera,
+                      ),
+                      // Recording status pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.fiber_manual_record,
+                                color: Colors.redAccent, size: 10),
+                            const SizedBox(width: 5),
+                            Text(
+                              "$_frameCount fr  •  ${(_frameCount * 0.2).toStringAsFixed(1)}s",
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.fiber_manual_record,
-                                  color: Colors.redAccent, size: 12),
-                              const SizedBox(width: 6),
-                              Text(
-                                "Frames: $_frameCount",
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              const Icon(Icons.timer, color: Colors.tealAccent, size: 12),
-                              const SizedBox(width: 6),
-                              Text(
-                                "${(_frameCount * 0.2).toStringAsFixed(1)}s",
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      _CamIconButton(
+                        icon: _isFlashOn
+                            ? Icons.flashlight_on_rounded
+                            : Icons.flashlight_off_rounded,
+                        onTap: _toggleFlash,
+                        active: _isFlashOn,
                       ),
                     ],
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 40,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Column(
-                    children: [
-                      FloatingActionButton(
-                        onPressed: _stopRecording,
-                        backgroundColor: Colors.redAccent,
-                        child: const Icon(Icons.stop),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        "Tap to stop",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+            ),
+
+            // ── Right-side zoom controls ───────────────────────────────
+            Positioned(
+              right: 10,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: _ZoomControls(
+                  zoom: _currentZoom,
+                  minZoom: _minZoom,
+                  maxZoom: _maxZoom,
+                  onZoomIn: () => _setZoom(_currentZoom + 0.1),
+                  onZoomOut: () => _setZoom(_currentZoom - 0.1),
                 ),
               ),
-            ],
-          );
+            ),
+
+            // ── Bottom stop button ────────────────────────────────────
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: _stopRecording,
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                        ),
+                        padding: const EdgeInsets.all(5),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text("Stop Recording",
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   // ── Processing Phase ──────────────────────────────────────────────────────
@@ -679,11 +784,11 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.tealAccent.withOpacity(0.3),
-                  Colors.tealAccent.withOpacity(0.1),
+                  Colors.tealAccent.withValues(alpha: 0.3),
+                  Colors.tealAccent.withValues(alpha: 0.1),
                 ],
               ),
-              border: Border.all(color: Colors.tealAccent.withOpacity(0.5)),
+              border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.5)),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
@@ -807,6 +912,107 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   }
 }
 
+// ── Shared camera control widgets ─────────────────────────────────────────────
+
+class _CamIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool active;
+
+  const _CamIconButton({
+    required this.icon,
+    required this.onTap,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.9)
+              : Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          color: active ? Colors.black : Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _ZoomControls extends StatelessWidget {
+  final double zoom;
+  final double minZoom;
+  final double maxZoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  const _ZoomControls({
+    required this.zoom,
+    required this.minZoom,
+    required this.maxZoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ZoomBtn(icon: Icons.add_rounded, onTap: zoom < maxZoom ? onZoomIn : null),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            "${zoom.toStringAsFixed(1)}×",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        _ZoomBtn(icon: Icons.remove_rounded, onTap: zoom > minZoom ? onZoomOut : null),
+      ],
+    );
+  }
+}
+
+class _ZoomBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _ZoomBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 18,
+            color: onTap != null ? Colors.white : Colors.white30),
+      ),
+    );
+  }
+}
+
 // ── Metric Card Widget ────────────────────────────────────────────────────────
 
 class _MetricCard extends StatelessWidget {
@@ -829,8 +1035,8 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.08),
-        border: Border.all(color: statusColor.withOpacity(0.3)),
+        color: statusColor.withValues(alpha: 0.08),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -852,9 +1058,9 @@ class _MetricCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
+                  color: statusColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: statusColor.withOpacity(0.5)),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                 ),
                 child: Text(
                   value,

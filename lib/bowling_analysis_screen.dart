@@ -66,6 +66,14 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   bool _isBusy = false;
   int _frameCount = 0;
 
+  // Camera controls
+  double _currentZoom = 1.0;
+  double _baseZoom = 1.0;
+  double _minZoom = 1.0;
+  double _maxZoom = 8.0;
+  bool _isFlashOn = false;
+  Offset? _focusPoint;
+
   final List<double> _trunkLeans = [];
   final List<double> _armArcs = [];
   final List<double> _frontKnees = [];
@@ -91,9 +99,56 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       (c) => c.lensDirection == CameraLensDirection.back,
       orElse: () => cameras.first,
     );
-    _ctrl = CameraController(back, ResolutionPreset.medium, enableAudio: false);
+    _ctrl = CameraController(back, ResolutionPreset.high, enableAudio: false);
     await _ctrl!.initialize();
+    _minZoom = await _ctrl!.getMinZoomLevel();
+    _maxZoom = await _ctrl!.getMaxZoomLevel();
     if (mounted) setState(() => _camReady = true);
+  }
+
+  Future<void> _switchCamera() async {
+    if (_ctrl == null) return;
+    final cameras = await availableCameras();
+    if (cameras.length < 2) return;
+    final currentDir = _ctrl!.description.lensDirection;
+    final next = cameras.firstWhere(
+      (c) => c.lensDirection != currentDir,
+      orElse: () => cameras.first,
+    );
+    await _ctrl!.dispose();
+    _ctrl = CameraController(next, ResolutionPreset.high, enableAudio: false);
+    await _ctrl!.initialize();
+    _minZoom = await _ctrl!.getMinZoomLevel();
+    _maxZoom = await _ctrl!.getMaxZoomLevel();
+    if (mounted) setState(() { _camReady = true; _currentZoom = 1.0; });
+  }
+
+  Future<void> _setZoom(double zoom) async {
+    if (_ctrl == null || !_ctrl!.value.isInitialized) return;
+    final clamped = zoom.clamp(_minZoom, _maxZoom);
+    await _ctrl!.setZoomLevel(clamped);
+    if (mounted) setState(() => _currentZoom = clamped);
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_ctrl == null) return;
+    final next = _isFlashOn ? FlashMode.off : FlashMode.torch;
+    await _ctrl!.setFlashMode(next);
+    if (mounted) setState(() => _isFlashOn = !_isFlashOn);
+  }
+
+  Future<void> _onTapFocus(TapDownDetails details, BoxConstraints box) async {
+    if (_ctrl == null || !_ctrl!.value.isInitialized) return;
+    final x = (details.localPosition.dx / box.maxWidth).clamp(0.0, 1.0);
+    final y = (details.localPosition.dy / box.maxHeight).clamp(0.0, 1.0);
+    try {
+      await _ctrl!.setFocusPoint(Offset(x, y));
+      await _ctrl!.setExposurePoint(Offset(x, y));
+      if (!mounted) return;
+      setState(() => _focusPoint = details.localPosition);
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) setState(() => _focusPoint = null);
+    } catch (_) {}
   }
 
   void _selectType(BowlingType type) {
@@ -430,71 +485,143 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   // ── Recording ─────────────────────────────────────────────────────────────
 
   Widget _buildRecording() {
+    if (!_camReady) return const Center(child: CircularProgressIndicator());
     final isFast = _bowlingType == BowlingType.fast;
-    final color = isFast ? Colors.orangeAccent : Colors.purpleAccent;
+    final typeColor = isFast ? Colors.orangeAccent : Colors.purpleAccent;
 
-    return Stack(
-      children: [
-        if (_camReady) Positioned.fill(child: CameraPreview(_ctrl!)),
-        Positioned(
-          top: 16,
-          left: 16,
-          right: 16,
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.black87,
-              borderRadius: BorderRadius.circular(12),
+    return LayoutBuilder(builder: (context, constraints) {
+      return GestureDetector(
+        onScaleStart: (_) => _baseZoom = _currentZoom,
+        onScaleUpdate: (d) => _setZoom(_baseZoom * d.scale),
+        onTapDown: (d) => _onTapFocus(d, constraints),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CameraPreview(_ctrl!),
+
+            // Tap-to-focus ring
+            if (_focusPoint != null)
+              Positioned(
+                left: _focusPoint!.dx - 28,
+                top: _focusPoint!.dy - 28,
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.yellowAccent, width: 1.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+
+            // ── Top bar ─────────────────────────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _CamIconButton(
+                        icon: Icons.flip_camera_ios_rounded,
+                        onTap: _switchCamera,
+                      ),
+                      // Mode + frame count pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.fiber_manual_record,
+                                color: typeColor, size: 10),
+                            const SizedBox(width: 5),
+                            Text(
+                              "${isFast ? 'FAST' : 'SPIN'}  •  $_frameCount fr",
+                              style: TextStyle(
+                                  color: typeColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _CamIconButton(
+                        icon: _isFlashOn
+                            ? Icons.flashlight_on_rounded
+                            : Icons.flashlight_off_rounded,
+                        onTap: _toggleFlash,
+                        active: _isFlashOn,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+
+            // ── Right-side zoom controls ──────────────────────────────
+            Positioned(
+              right: 10,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: _ZoomControls(
+                  zoom: _currentZoom,
+                  minZoom: _minZoom,
+                  maxZoom: _maxZoom,
+                  onZoomIn: () => _setZoom(_currentZoom + 0.1),
+                  onZoomOut: () => _setZoom(_currentZoom - 0.1),
+                ),
+              ),
+            ),
+
+            // ── Bottom stop button ────────────────────────────────────
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Column(
                   children: [
-                    const Icon(Icons.fiber_manual_record,
-                        color: Colors.red, size: 14),
-                    const SizedBox(width: 6),
-                    Text(
-                      isFast ? "FAST BOWLING" : "SPIN BOWLING",
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: color),
+                    GestureDetector(
+                      onTap: _stopRecording,
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border:
+                              Border.all(color: Colors.white, width: 3),
+                        ),
+                        padding: const EdgeInsets.all(5),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
                     ),
+                    const SizedBox(height: 10),
+                    const Text("Stop & Analyse",
+                        style: TextStyle(
+                            color: Colors.white70, fontSize: 12)),
                   ],
                 ),
-                Text(
-                  "$_frameCount frames",
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.white70),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-        Positioned(
-          bottom: 40,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Column(
-              children: [
-                FloatingActionButton(
-                  onPressed: _stopRecording,
-                  backgroundColor: Colors.red,
-                  child: const Icon(Icons.stop),
-                ),
-                const SizedBox(height: 10),
-                const Text("Tap to stop & analyse",
-                    style:
-                        TextStyle(color: Colors.white, fontSize: 12)),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
+      );
+    });
   }
 
   // ── Processing ────────────────────────────────────────────────────────────
@@ -537,9 +664,9 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withOpacity(0.4)),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
             ),
             child: Row(
               children: [
@@ -700,9 +827,9 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: info.color.withOpacity(0.07),
+        color: info.color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: info.color.withOpacity(0.35)),
+        border: Border.all(color: info.color.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,7 +838,7 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: info.color.withOpacity(0.15),
+              color: info.color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: info.color, size: 20),
@@ -737,7 +864,7 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: info.color.withOpacity(0.15),
+                        color: info.color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(info.label,
@@ -753,7 +880,7 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
                 Text(ideal,
                     style: TextStyle(
                         fontSize: 10,
-                        color: Colors.grey.withOpacity(0.55))),
+                        color: Colors.grey.withValues(alpha: 0.55))),
               ],
             ),
           ),
@@ -882,9 +1009,9 @@ class _TypeCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
@@ -892,7 +1019,7 @@ class _TypeCard extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 28),
@@ -919,7 +1046,7 @@ class _TypeCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: color.withOpacity(0.12),
+                                color: color.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(m,
@@ -959,7 +1086,7 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -994,6 +1121,101 @@ class _InfoCard extends StatelessWidget {
               )),
         ],
 
+      ),
+    );
+  }
+}
+
+// -- Shared camera control widgets ---------------------------------------------
+
+class _CamIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool active;
+
+  const _CamIconButton({
+    required this.icon,
+    required this.onTap,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.9)
+              : Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 22,
+            color: active ? Colors.black : Colors.white),
+      ),
+    );
+  }
+}
+
+class _ZoomControls extends StatelessWidget {
+  final double zoom;
+  final double minZoom;
+  final double maxZoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  const _ZoomControls({
+    required this.zoom,
+    required this.minZoom,
+    required this.maxZoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ZoomBtn(icon: Icons.add_rounded, onTap: zoom < maxZoom ? onZoomIn : null),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            "${zoom.toStringAsFixed(1)}x",
+            style: const TextStyle(
+                color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 6),
+        _ZoomBtn(icon: Icons.remove_rounded, onTap: zoom > minZoom ? onZoomOut : null),
+      ],
+    );
+  }
+}
+
+class _ZoomBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _ZoomBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 18,
+            color: onTap != null ? Colors.white : Colors.white30),
       ),
     );
   }

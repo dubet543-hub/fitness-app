@@ -151,7 +151,7 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
                   color: Colors.grey[850],
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: item.color.withOpacity(0.15),
+                      backgroundColor: item.color.withValues(alpha: 0.15),
                       child: Icon(item.icon, color: item.color, size: 22),
                     ),
                     title: Text(
@@ -297,34 +297,85 @@ class _PostureScreenState extends State<PostureScreen> {
   String? errorMessage;
   bool _isCapturing = false;
 
+  // Camera controls
+  double _currentZoom = 1.0;
+  double _baseZoom = 1.0;
+  double _minZoom = 1.0;
+  double _maxZoom = 8.0;
+  bool _isFlashOn = false;
+  Offset? _focusPoint;
+
   @override
   void initState() {
     super.initState();
     _initCamera();
   }
 
-  Future<void> _initCamera() async {
+  Future<void> _initCamera({CameraDescription? camera}) async {
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         setState(() => errorMessage = "No camera found on this device");
         return;
       }
-      final back = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      );
+      final desc = camera ??
+          cameras.firstWhere(
+            (c) => c.lensDirection == CameraLensDirection.back,
+            orElse: () => cameras.first,
+          );
       await controller?.dispose();
       final newController = CameraController(
-        back,
+        desc,
         ResolutionPreset.high,
         enableAudio: false,
       );
       _initializeControllerFuture = newController.initialize();
-      setState(() => controller = newController);
+      await _initializeControllerFuture;
+      _minZoom = await newController.getMinZoomLevel();
+      _maxZoom = await newController.getMaxZoomLevel();
+      if (mounted) setState(() { controller = newController; _currentZoom = 1.0; });
     } catch (e) {
-      setState(() => errorMessage = "Camera error: $e");
+      if (mounted) setState(() => errorMessage = "Camera error: $e");
     }
+  }
+
+  Future<void> _switchCamera() async {
+    final cameras = await availableCameras();
+    if (cameras.length < 2 || controller == null) return;
+    final currentDir = controller!.description.lensDirection;
+    final next = cameras.firstWhere(
+      (c) => c.lensDirection != currentDir,
+      orElse: () => cameras.first,
+    );
+    await _initCamera(camera: next);
+  }
+
+  Future<void> _setZoom(double zoom) async {
+    if (controller == null || !controller!.value.isInitialized) return;
+    final clamped = zoom.clamp(_minZoom, _maxZoom);
+    await controller!.setZoomLevel(clamped);
+    if (mounted) setState(() => _currentZoom = clamped);
+  }
+
+  Future<void> _toggleFlash() async {
+    if (controller == null) return;
+    final next = _isFlashOn ? FlashMode.off : FlashMode.torch;
+    await controller!.setFlashMode(next);
+    if (mounted) setState(() => _isFlashOn = !_isFlashOn);
+  }
+
+  Future<void> _onTapFocus(TapDownDetails details, BoxConstraints box) async {
+    if (controller == null || !controller!.value.isInitialized) return;
+    final x = (details.localPosition.dx / box.maxWidth).clamp(0.0, 1.0);
+    final y = (details.localPosition.dy / box.maxHeight).clamp(0.0, 1.0);
+    try {
+      await controller!.setFocusPoint(Offset(x, y));
+      await controller!.setExposurePoint(Offset(x, y));
+      if (!mounted) return;
+      setState(() => _focusPoint = details.localPosition);
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) setState(() => _focusPoint = null);
+    } catch (_) {}
   }
 
   Future<void> _captureImage() async {
@@ -387,53 +438,140 @@ class _PostureScreenState extends State<PostureScreen> {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CameraPreview(controller!),
-                    Positioned(
-                      top: 12,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(20),
+                return LayoutBuilder(builder: (context, constraints) {
+                  return GestureDetector(
+                    onScaleStart: (_) => _baseZoom = _currentZoom,
+                    onScaleUpdate: (d) => _setZoom(_baseZoom * d.scale),
+                    onTapDown: (d) => _onTapFocus(d, constraints),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CameraPreview(controller!),
+
+                        // Tap-to-focus ring
+                        if (_focusPoint != null)
+                          Positioned(
+                            left: _focusPoint!.dx - 28,
+                            top: _focusPoint!.dy - 28,
+                            child: Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: Colors.yellowAccent, width: 1.5),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            hintText,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
+
+                        // ── Top bar ──────────────────────────────────
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: SafeArea(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _CamIconButton(
+                                    icon: Icons.flip_camera_ios_rounded,
+                                    onTap: _switchCamera,
+                                  ),
+                                  // Hint pill
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius:
+                                            BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        hintText,
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12),
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  _CamIconButton(
+                                    icon: _isFlashOn
+                                        ? Icons.flashlight_on_rounded
+                                        : Icons.flashlight_off_rounded,
+                                    onTap: _toggleFlash,
+                                    active: _isFlashOn,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 30,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: FloatingActionButton(
-                          onPressed: _isCapturing ? null : _captureImage,
-                          backgroundColor:
-                              _isCapturing ? Colors.grey : Colors.white,
-                          child: _isCapturing
-                              ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.black, strokeWidth: 3),
-                                )
-                              : const Icon(Icons.camera_alt,
-                                  color: Colors.black),
+
+                        // ── Right-side zoom controls ──────────────────
+                        Positioned(
+                          right: 10,
+                          top: 0,
+                          bottom: 0,
+                          child: Center(
+                            child: _ZoomControls(
+                              zoom: _currentZoom,
+                              minZoom: _minZoom,
+                              maxZoom: _maxZoom,
+                              onZoomIn: () => _setZoom(_currentZoom + 0.1),
+                              onZoomOut: () => _setZoom(_currentZoom - 0.1),
+                            ),
+                          ),
                         ),
-                      ),
+
+                        // ── Bottom capture button ─────────────────────
+                        Positioned(
+                          bottom: 36,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: GestureDetector(
+                              onTap: _isCapturing ? null : _captureImage,
+                              child: Container(
+                                width: 72,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: Colors.white, width: 3),
+                                ),
+                                padding: const EdgeInsets.all(5),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _isCapturing
+                                        ? Colors.grey
+                                        : Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: _isCapturing
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(16),
+                                          child: CircularProgressIndicator(
+                                              color: Colors.black,
+                                              strokeWidth: 2.5),
+                                        )
+                                      : const Icon(Icons.camera_alt,
+                                          color: Colors.black, size: 26),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                );
+                  );
+                });
               },
             ),
     );
@@ -1199,4 +1337,99 @@ class PosePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PosePainter old) => old.poses != poses;
+}
+
+// -- Shared camera control widgets ---------------------------------------------
+
+class _CamIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool active;
+
+  const _CamIconButton({
+    required this.icon,
+    required this.onTap,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.9)
+              : Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 22,
+            color: active ? Colors.black : Colors.white),
+      ),
+    );
+  }
+}
+
+class _ZoomControls extends StatelessWidget {
+  final double zoom;
+  final double minZoom;
+  final double maxZoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  const _ZoomControls({
+    required this.zoom,
+    required this.minZoom,
+    required this.maxZoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ZoomBtn(icon: Icons.add_rounded, onTap: zoom < maxZoom ? onZoomIn : null),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            "${zoom.toStringAsFixed(1)}x",
+            style: const TextStyle(
+                color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 6),
+        _ZoomBtn(icon: Icons.remove_rounded, onTap: zoom > minZoom ? onZoomOut : null),
+      ],
+    );
+  }
+}
+
+class _ZoomBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _ZoomBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 18,
+            color: onTap != null ? Colors.white : Colors.white30),
+      ),
+    );
+  }
 }

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SolidCore — Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --accent: #FF6B35; --bg: #0D1117; --surface: #161B22; --card: #1C2333; --border: #30363D; --text: #E6EDF3; --muted: #8B949E; }
+    * { box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; margin: 0; }
+    .sidebar { background: var(--surface); border-right: 1px solid var(--border); width: 220px; min-height: 100vh; position: fixed; top: 0; left: 0; }
+    .main { margin-left: 220px; padding: 24px; min-height: 100vh; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 10px; cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 500; transition: .15s; }
+    .nav-item:hover, .nav-item.active { background: rgba(255,107,53,.1); color: var(--accent); }
+    .section { display: none; }
+    .section.active { display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { color: var(--muted); font-weight: 600; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    td { padding: 10px 12px; border-bottom: 1px solid rgba(48,54,61,.5); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    input, select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 13px; outline: none; }
+    input:focus, select:focus { border-color: var(--accent); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: .15s; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: #e55a24; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { background: rgba(255,255,255,.05); }
+    .btn-danger { background: rgba(239,68,68,.15); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green  { background: rgba(105,240,174,.12); color: #69f0ae; }
+    .badge-yellow { background: rgba(255,214,0,.12);   color: #ffd600; }
+    .badge-orange { background: rgba(255,107,53,.12);  color: var(--accent); }
+    .badge-red    { background: rgba(239,68,68,.12);   color: #f87171; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 50; align-items: center; justify-content: center; }
+    .modal.open { display: flex; }
+    .modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 100%; max-width: 420px; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar flex flex-col py-6 px-3">
+  <div class="flex items-center gap-2 px-3 mb-8">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(255,107,53,.15)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01z"/>
+      </svg>
+    </div>
+    <span class="font-bold text-sm" style="color:var(--text)">SolidCore</span>
+    <span class="ml-auto text-xs px-2 py-0.5 rounded" style="background:rgba(255,107,53,.15);color:var(--accent)">Admin</span>
+  </div>
+  <nav class="flex flex-col gap-1 flex-1">
+    <div class="nav-item active" onclick="showSection('overview')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Overview
+    </div>
+    <div class="nav-item" onclick="showSection('athletes')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg>
+      Athletes
+    </div>
+    <div class="nav-item" onclick="showSection('sessions')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Sessions
+    </div>
+    <div class="nav-item" onclick="showSection('analytics')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Analytics
+    </div>
+    <div class="nav-item" onclick="openCreateModal()">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Create Athlete
+    </div>
+  </nav>
+  <div class="px-3 mt-4 border-t pt-4" style="border-color:var(--border)">
+    <div id="adminName" class="text-xs font-medium mb-1" style="color:var(--text)">Admin</div>
+    <div id="adminEmail" class="text-xs mb-3" style="color:var(--muted)">—</div>
+    <button onclick="logout()" class="btn btn-ghost w-full justify-center text-xs">Sign Out</button>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
+  <section id="sec-overview" class="section active">
+    <h2 class="text-xl font-bold mb-6">Dashboard Overview</h2>
+    <div class="grid grid-cols-3 gap-4 mb-6" id="statsRow">
+      <div class="stat-card">
+        <div class="text-xs mb-1" style="color:var(--muted)">Total Athletes</div>
+        <div id="stat-athletes" class="text-3xl font-bold">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs mb-1" style="color:var(--muted)">Total Sessions</div>
+        <div id="stat-sessions" class="text-3xl font-bold">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs mb-1" style="color:var(--muted)">Avg Session Load</div>
+        <div id="stat-load" class="text-3xl font-bold">—</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="card">
+        <div class="font-semibold text-sm mb-4">Sessions Per Day (Last 30 Days)</div>
+        <canvas id="chartOverviewSessions" height="200"></canvas>
+      </div>
+      <div class="card">
+        <div class="font-semibold text-sm mb-4">Recent Activity (Last 7 Days)</div>
+        <div id="recentActivity" class="space-y-2 max-h-64 overflow-y-auto"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ATHLETES ──────────────────────────────────────────────────────────── -->
+  <section id="sec-athletes" class="section">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-bold">Athletes</h2>
+      <button onclick="openCreateModal()" class="btn btn-accent">+ Create Athlete</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Email</th><th>Sport</th>
+            <th>Last Session</th><th>Last Load</th><th>Last Readiness</th>
+            <th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="athleteTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── ATHLETE DETAIL (sub-section) ─────────────────────────────────────── -->
+  <section id="sec-athlete-detail" class="section">
+    <button onclick="showSection('athletes')" class="btn btn-ghost mb-4 text-xs">← Back to Athletes</button>
+    <div class="flex items-start gap-6 mb-6">
+      <div class="card flex-1">
+        <div id="detailName" class="text-lg font-bold mb-1"></div>
+        <div id="detailEmail" class="text-sm mb-3" style="color:var(--muted)"></div>
+        <div class="grid grid-cols-4 gap-3" id="detailStats"></div>
+      </div>
+    </div>
+    <!-- Date filter -->
+    <div class="flex gap-3 mb-4">
+      <input type="date" id="detailFrom" class="text-sm" />
+      <input type="date" id="detailTo" class="text-sm" />
+      <button onclick="loadAthleteDetail()" class="btn btn-accent text-xs">Filter</button>
+      <button onclick="clearDetailFilter()" class="btn btn-ghost text-xs">Clear</button>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="card">
+        <div class="font-semibold text-sm mb-3">Session Load History</div>
+        <canvas id="chartDetailLoad" height="200"></canvas>
+      </div>
+      <div class="card">
+        <div class="font-semibold text-sm mb-3">Readiness Trend</div>
+        <canvas id="chartDetailReadiness" height="200"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="font-semibold text-sm mb-3">Session Log (Date-wise)</div>
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Primary</th><th>Skill</th><th>Total Load</th><th>Grade</th><th>Readiness</th><th>Sleep</th><th>HR Max/Avg</th></tr>
+        </thead>
+        <tbody id="detailSessionTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── SESSIONS ──────────────────────────────────────────────────────────── -->
+  <section id="sec-sessions" class="section">
+    <h2 class="text-xl font-bold mb-6">All Sessions</h2>
+    <div class="flex gap-3 mb-4">
+      <input type="date" id="sessionDate" class="text-sm" title="Filter by date" />
+      <input type="date" id="sessionFrom" class="text-sm" placeholder="From" />
+      <input type="date" id="sessionTo"   class="text-sm" placeholder="To" />
+      <select id="sessionAthlete" class="text-sm"><option value="">All athletes</option></select>
+      <button onclick="loadAllSessions()" class="btn btn-accent text-xs">Apply</button>
+      <button onclick="clearSessionFilter()" class="btn btn-ghost text-xs">Clear</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Athlete</th><th>Primary</th><th>Skill</th><th>Total Load</th><th>Grade</th><th>Readiness %</th></tr>
+        </thead>
+        <tbody id="allSessionsTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── ANALYTICS ─────────────────────────────────────────────────────────── -->
+  <section id="sec-analytics" class="section">
+    <h2 class="text-xl font-bold mb-6">Analytics</h2>
+    <div class="flex gap-3 mb-4">
+      <select id="analyticsAthlete" class="text-sm" onchange="loadAnalytics()"><option value="">Select athlete</option></select>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="card">
+        <div class="font-semibold text-sm mb-3">Session Load Over Time</div>
+        <canvas id="chartAnalyticsLoad" height="220"></canvas>
+      </div>
+      <div class="card">
+        <div class="font-semibold text-sm mb-3">ACWR Trend</div>
+        <canvas id="chartAnalyticsAcwr" height="220"></canvas>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="card">
+        <div class="font-semibold text-sm mb-3">Readiness % Over Time</div>
+        <canvas id="chartAnalyticsReadiness" height="220"></canvas>
+      </div>
+      <div class="card">
+        <div class="font-semibold text-sm mb-3">Session Type Distribution</div>
+        <canvas id="chartAnalyticsTypes" height="220"></canvas>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Create Athlete Modal -->
+<div id="createModal" class="modal" onclick="if(event.target===this)closeCreateModal()">
+  <div class="modal-box">
+    <h3 class="text-base font-bold mb-5">Create Athlete Account</h3>
+    <div id="createError" class="hidden mb-3 p-3 rounded-lg text-red-400 text-sm" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3)"></div>
+    <form id="createForm" class="space-y-3">
+      <div>
+        <label class="text-xs font-medium block mb-1" style="color:var(--muted)">Full Name *</label>
+        <input type="text" id="cName" required class="w-full text-sm" placeholder="Arjun Sharma" />
+      </div>
+      <div>
+        <label class="text-xs font-medium block mb-1" style="color:var(--muted)">Email *</label>
+        <input type="email" id="cEmail" required class="w-full text-sm" placeholder="athlete@example.com" />
+      </div>
+      <div>
+        <label class="text-xs font-medium block mb-1" style="color:var(--muted)">Temporary Password *</label>
+        <input type="password" id="cPassword" required class="w-full text-sm" placeholder="Min 8 characters" minlength="8" />
+      </div>
+      <div>
+        <label class="text-xs font-medium block mb-1" style="color:var(--muted)">Sport</label>
+        <input type="text" id="cSport" class="w-full text-sm" placeholder="Cricket, Running…" />
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="btn btn-accent flex-1">Create Account</button>
+        <button type="button" onclick="closeCreateModal()" class="btn btn-ghost flex-1">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let token = null, currentAthleteId = null;
+const charts = {};
+
+// ── Auth guard ─────────────────────────────────────────────────────────────────
+(function init() {
+  token = localStorage.getItem('sc_token');
+  const user = JSON.parse(localStorage.getItem('sc_user') || 'null');
+  if (!token || !user || user.role !== 'admin') {
+    window.location.href = '/';
+    return;
+  }
+  document.getElementById('adminName').textContent  = user.name;
+  document.getElementById('adminEmail').textContent = user.email;
+  loadOverview();
+  loadAthletes();
+})();
+
+function logout() {
+  localStorage.removeItem('sc_token');
+  localStorage.removeItem('sc_user');
+  window.location.href = '/';
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+  });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────────
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`sec-${name}`)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.trim().toLowerCase().includes(name.split('-')[0])) n.classList.add('active');
+  });
+  if (name === 'sessions') { loadAllSessions(); populateAthleteFilter(); }
+  if (name === 'analytics') { populateAnalyticsFilter(); }
+}
+
+// ── Overview ───────────────────────────────────────────────────────────────────
+async function loadOverview() {
+  const data = await api('/admin/dashboard');
+  if (!data) return;
+  document.getElementById('stat-athletes').textContent = data.totalAthletes;
+  document.getElementById('stat-sessions').textContent = data.totalSessions;
+  document.getElementById('stat-load').textContent     = data.avgLoad?.toFixed(0) || '—';
+
+  // Chart: sessions per day
+  const labels = data.sessionsPerDay.map(d => d._id);
+  const counts = data.sessionsPerDay.map(d => d.count);
+  mkChart('chartOverviewSessions', 'bar', labels, [{
+    label: 'Sessions', data: counts,
+    backgroundColor: 'rgba(255,107,53,.6)', borderColor: '#FF6B35', borderWidth: 1, borderRadius: 4,
+  }]);
+
+  // Recent activity
+  const el = document.getElementById('recentActivity');
+  el.innerHTML = data.recentSessions.slice(0, 15).map(s => `
+    <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5">
+      <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${readinessColor(s.readinessPercent)}"></div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-medium truncate">${s.athlete?.name || 'Unknown'}</div>
+        <div class="text-xs" style="color:var(--muted)">${fmtDate(s.date)} — Load: ${s.totalLoad?.toFixed(0) || '—'}</div>
+      </div>
+      <div class="text-xs font-bold" style="color:${readinessColor(s.readinessPercent)}">${s.readinessPercent?.toFixed(0) || '—'}%</div>
+    </div>`).join('');
+}
+
+// ── Athletes ───────────────────────────────────────────────────────────────────
+async function loadAthletes() {
+  const athletes = await api('/admin/athletes');
+  if (!athletes) return;
+  const tbody = document.getElementById('athleteTable');
+  tbody.innerHTML = athletes.map(a => `
+    <tr>
+      <td><span class="font-medium">${a.name}</span></td>
+      <td style="color:var(--muted)">${a.email}</td>
+      <td>${a.sport || '—'}</td>
+      <td>${a.lastSession ? fmtDate(a.lastSession) : '<span style="color:var(--muted)">Never</span>'}</td>
+      <td>${a.lastTotalLoad != null ? a.lastTotalLoad.toFixed(0) : '—'}</td>
+      <td><span class="badge ${readinessBadge(a.lastReadiness)}">${a.lastReadiness != null ? a.lastReadiness.toFixed(0)+'%' : '—'}</span></td>
+      <td><span class="badge ${a.active ? 'badge-green' : 'badge-red'}">${a.active ? 'Active' : 'Inactive'}</span></td>
+      <td class="flex gap-2">
+        <button onclick="openAthleteDetail('${a._id}','${escHtml(a.name)}','${a.email}')" class="btn btn-ghost text-xs py-1 px-2">View</button>
+        <button onclick="toggleActive('${a._id}',${a.active})" class="btn btn-danger text-xs py-1 px-2">${a.active ? 'Deactivate' : 'Activate'}</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function toggleActive(id, current) {
+  if (!confirm(`${current ? 'Deactivate' : 'Activate'} this athlete?`)) return;
+  if (current) { await api(`/admin/athletes/${id}`, { method: 'DELETE' }); }
+  else { await api(`/admin/athletes/${id}`, { method: 'PUT', body: JSON.stringify({ active: true }) }); }
+  loadAthletes();
+}
+
+// ── Athlete Detail ─────────────────────────────────────────────────────────────
+async function openAthleteDetail(id, name, email) {
+  currentAthleteId = id;
+  document.getElementById('detailName').textContent  = name;
+  document.getElementById('detailEmail').textContent = email;
+  document.getElementById('detailFrom').value = '';
+  document.getElementById('detailTo').value   = '';
+  showSection('athlete-detail');
+  await loadAthleteDetail();
+}
+
+async function loadAthleteDetail() {
+  if (!currentAthleteId) return;
+  const from = document.getElementById('detailFrom').value;
+  const to   = document.getElementById('detailTo').value;
+  let qs = '';
+  if (from) qs += `from=${from}&`;
+  if (to)   qs += `to=${to}&`;
+
+  const [sessions, summary] = await Promise.all([
+    api(`/admin/athletes/${currentAthleteId}/sessions?${qs}limit=200`),
+    api(`/admin/athletes/${currentAthleteId}/summary`),
+  ]);
+  if (!sessions || !summary) return;
+
+  // Stats
+  const acwrBadge = summary.acwr >= 1.5 ? 'badge-red' : summary.acwr >= 1.3 ? 'badge-orange' : summary.acwr >= 0.8 ? 'badge-green' : 'badge-yellow';
+  document.getElementById('detailStats').innerHTML = `
+    <div class="stat-card p-3 text-center rounded-xl">
+      <div class="text-xs mb-1" style="color:var(--muted)">Acute Load</div>
+      <div class="text-xl font-bold" style="color:#4FC3F7">${summary.acuteLoad}</div>
+    </div>
+    <div class="stat-card p-3 text-center rounded-xl">
+      <div class="text-xs mb-1" style="color:var(--muted)">Chronic Load</div>
+      <div class="text-xl font-bold" style="color:#CE93D8">${summary.chronicLoad}</div>
+    </div>
+    <div class="stat-card p-3 text-center rounded-xl">
+      <div class="text-xs mb-1" style="color:var(--muted)">ACWR</div>
+      <div class="text-xl font-bold"><span class="badge ${acwrBadge}">${summary.acwr}</span></div>
+    </div>
+    <div class="stat-card p-3 text-center rounded-xl">
+      <div class="text-xs mb-1" style="color:var(--muted)">Sessions</div>
+      <div class="text-xl font-bold" style="color:#69F0AE">${summary.totalSessions}</div>
+    </div>`;
+
+  // Charts
+  const sorted = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const labels = sorted.map(s => fmtDate(s.date));
+  const loads  = sorted.map(s => s.totalLoad || 0);
+  const reads  = sorted.map(s => s.readinessPercent || 0);
+
+  // ACWR rolling computation
+  const lambda = 2 / 29; let ewma = 0;
+  const acwrArr = sorted.map((s, i) => {
+    const load = s.totalLoad || 0;
+    ewma = i === 0 ? load : load * lambda + ewma * (1 - lambda);
+    const cutoff = new Date(s.date); cutoff.setDate(cutoff.getDate() - 7);
+    const acute = sorted.slice(0, i + 1).filter(x => new Date(x.date) >= cutoff).reduce((sum, x) => sum + (x.totalLoad || 0), 0);
+    return ewma > 0 ? +(acute / ewma).toFixed(2) : 0;
+  });
+
+  mkChart('chartDetailLoad', 'bar', labels, [{
+    label: 'Total Load', data: loads,
+    backgroundColor: 'rgba(79,195,247,.5)', borderColor: '#4FC3F7', borderWidth: 1, borderRadius: 4,
+  }]);
+  mkChart('chartDetailReadiness', 'line', labels, [{
+    label: 'Readiness %', data: reads,
+    borderColor: '#69F0AE', backgroundColor: 'rgba(105,240,174,.1)', fill: true,
+    pointRadius: 3, tension: .3,
+  }]);
+
+  // Session table
+  const tbody = document.getElementById('detailSessionTable');
+  tbody.innerHTML = sessions.map(s => `
+    <tr>
+      <td>${fmtDate(s.date)}</td>
+      <td class="text-xs">${(s.primaryTypes || []).join(', ')}</td>
+      <td class="text-xs">${(s.skillTypes || []).join(', ') || '—'}</td>
+      <td><strong>${s.totalLoad?.toFixed(0) || '—'}</strong></td>
+      <td>${s.scaledGrade?.toFixed(1) || '—'}</td>
+      <td><span class="badge ${readinessBadge(s.readinessPercent)}">${s.readinessPercent?.toFixed(0) || '—'}%</span></td>
+      <td>${s.sleep || '—'}</td>
+      <td>${s.maxHR || '—'} / ${s.avgHR || '—'}</td>
+    </tr>`).join('');
+}
+
+function clearDetailFilter() {
+  document.getElementById('detailFrom').value = '';
+  document.getElementById('detailTo').value   = '';
+  loadAthleteDetail();
+}
+
+// ── All Sessions ───────────────────────────────────────────────────────────────
+async function loadAllSessions() {
+  const date    = document.getElementById('sessionDate').value;
+  const from    = document.getElementById('sessionFrom').value;
+  const to      = document.getElementById('sessionTo').value;
+  const athlete = document.getElementById('sessionAthlete').value;
+  let qs = '';
+  if (date)    qs += `date=${date}&`;
+  if (from)    qs += `from=${from}&`;
+  if (to)      qs += `to=${to}&`;
+  if (athlete) qs += `athleteId=${athlete}&`;
+
+  const sessions = await api(`/admin/sessions?${qs}limit=300`);
+  if (!sessions) return;
+  const tbody = document.getElementById('allSessionsTable');
+  tbody.innerHTML = sessions.map(s => `
+    <tr>
+      <td>${fmtDate(s.date)}</td>
+      <td><span class="font-medium">${s.athlete?.name || '—'}</span><br/><span class="text-xs" style="color:var(--muted)">${s.athlete?.sport || ''}</span></td>
+      <td class="text-xs">${(s.primaryTypes || []).join(', ')}</td>
+      <td class="text-xs">${(s.skillTypes || []).join(', ') || '—'}</td>
+      <td><strong>${s.totalLoad?.toFixed(0) || '—'}</strong></td>
+      <td>${s.scaledGrade?.toFixed(1) || '—'}</td>
+      <td><span class="badge ${readinessBadge(s.readinessPercent)}">${s.readinessPercent?.toFixed(0) || '—'}%</span></td>
+    </tr>`).join('');
+}
+
+async function populateAthleteFilter() {
+  const athletes = await api('/admin/athletes');
+  if (!athletes) return;
+  const sel = document.getElementById('sessionAthlete');
+  sel.innerHTML = '<option value="">All athletes</option>' +
+    athletes.map(a => `<option value="${a._id}">${a.name}</option>`).join('');
+}
+
+function clearSessionFilter() {
+  ['sessionDate','sessionFrom','sessionTo','sessionAthlete'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = '';
+  });
+  loadAllSessions();
+}
+
+// ── Analytics ──────────────────────────────────────────────────────────────────
+async function populateAnalyticsFilter() {
+  const athletes = await api('/admin/athletes');
+  if (!athletes) return;
+  const sel = document.getElementById('analyticsAthlete');
+  sel.innerHTML = '<option value="">Select athlete</option>' +
+    athletes.map(a => `<option value="${a._id}">${a.name}</option>`).join('');
+}
+
+async function loadAnalytics() {
+  const id = document.getElementById('analyticsAthlete').value;
+  if (!id) return;
+  const sessions = await api(`/admin/athletes/${id}/sessions?limit=200`);
+  if (!sessions) return;
+
+  const sorted = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const labels = sorted.map(s => fmtDate(s.date));
+  const loads  = sorted.map(s => s.totalLoad || 0);
+  const reads  = sorted.map(s => s.readinessPercent || 0);
+
+  // ACWR
+  const lambda = 2 / 29; let ewma = 0;
+  const acwrArr = sorted.map((s, i) => {
+    const load = s.totalLoad || 0;
+    ewma = i === 0 ? load : load * lambda + ewma * (1 - lambda);
+    const cutoff = new Date(s.date); cutoff.setDate(cutoff.getDate() - 7);
+    const acute = sorted.slice(0, i + 1).filter(x => new Date(x.date) >= cutoff).reduce((sum, x) => sum + (x.totalLoad || 0), 0);
+    return ewma > 0 ? +(acute / ewma).toFixed(2) : 0;
+  });
+
+  mkChart('chartAnalyticsLoad', 'bar', labels, [{
+    label: 'Total Load', data: loads,
+    backgroundColor: 'rgba(79,195,247,.5)', borderColor: '#4FC3F7', borderWidth: 1, borderRadius: 4,
+  }]);
+  mkChart('chartAnalyticsAcwr', 'line', labels, [
+    { label: 'ACWR', data: acwrArr, borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', fill: true, pointRadius: 3, tension: .3 },
+    { label: '1.5 Danger', data: labels.map(() => 1.5), borderColor: '#f87171', borderDash: [4,4], pointRadius: 0, borderWidth: 1 },
+    { label: '0.8 Min',    data: labels.map(() => 0.8), borderColor: '#60a5fa', borderDash: [4,4], pointRadius: 0, borderWidth: 1 },
+  ]);
+  mkChart('chartAnalyticsReadiness', 'line', labels, [{
+    label: 'Readiness %', data: reads,
+    borderColor: '#69F0AE', backgroundColor: 'rgba(105,240,174,.08)', fill: true, pointRadius: 3, tension: .3,
+  }]);
+
+  // Type distribution
+  const typeCounts = {};
+  sorted.forEach(s => (s.primaryTypes || []).forEach(t => typeCounts[t] = (typeCounts[t] || 0) + 1));
+  mkChart('chartAnalyticsTypes', 'doughnut',
+    Object.keys(typeCounts),
+    [{ data: Object.values(typeCounts), backgroundColor: ['#FF6B35','#4FC3F7','#69F0AE','#CE93D8','#FFD600','#f87171','#60a5fa'] }]
+  );
+}
+
+// ── Create Athlete Modal ───────────────────────────────────────────────────────
+function openCreateModal()  { document.getElementById('createModal').classList.add('open'); }
+function closeCreateModal() { document.getElementById('createModal').classList.remove('open'); document.getElementById('createForm').reset(); }
+
+document.getElementById('createForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('createError');
+  errEl.classList.add('hidden');
+  const data = await api('/admin/athletes', {
+    method: 'POST',
+    body: JSON.stringify({
+      name:     document.getElementById('cName').value.trim(),
+      email:    document.getElementById('cEmail').value.trim(),
+      password: document.getElementById('cPassword').value,
+      sport:    document.getElementById('cSport').value.trim(),
+    }),
+  });
+  if (!data) return;
+  if (data.error) { errEl.textContent = data.error; errEl.classList.remove('hidden'); return; }
+  closeCreateModal();
+  loadAthletes();
+  alert(`Athlete "${data.name}" created successfully!`);
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function mkChart(id, type, labels, datasets) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#8B949E', font: { size: 11 } } } },
+      scales: type === 'doughnut' ? {} : {
+        x: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: 'rgba(48,54,61,.5)' } },
+        y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: 'rgba(48,54,61,.5)' } },
+      },
+    },
+  });
+}
+
+function fmtDate(d) {
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function readinessColor(pct) {
+  if (pct == null) return '#8B949E';
+  if (pct >= 75) return '#69F0AE';
+  if (pct >= 50) return '#FFD600';
+  if (pct >= 25) return '#FF6B35';
+  return '#f87171';
+}
+
+function readinessBadge(pct) {
+  if (pct == null) return '';
+  if (pct >= 75) return 'badge-green';
+  if (pct >= 50) return 'badge-yellow';
+  if (pct >= 25) return 'badge-orange';
+  return 'badge-red';
+}
+
+function escHtml(str) { return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+</html>

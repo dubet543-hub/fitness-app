@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SolidCore — My Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { background: #0D1117; font-family: 'Inter', system-ui, sans-serif; color: #E6EDF3; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0D1117; }
+    ::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
+    .card  { background: #161B22; border: 1px solid #30363D; }
+    .card2 { background: #1C2333; border: 1px solid #30363D; }
+    .accent { color: #FF6B35; }
+    .btn-accent { background: #FF6B35; }
+    .btn-accent:hover { background: #e55a24; }
+    .btn-ghost { background: transparent; border: 1px solid #30363D; color: #8B949E; }
+    .btn-ghost:hover { border-color: #8B949E; color: #E6EDF3; }
+    input, select { background: #0D1117; border: 1px solid #30363D; color: #E6EDF3; }
+    input:focus, select:focus { border-color: #FF6B35; outline: none; }
+    table { border-collapse: separate; border-spacing: 0; }
+    thead th { background: #1C2333; position: sticky; top: 0; z-index: 1; }
+    tbody tr:hover { background: #1C2333; cursor: pointer; }
+    tbody tr { border-bottom: 1px solid #21262D; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+    .badge-green  { background: rgba(34,197,94,.15);  color: #4ade80; }
+    .badge-yellow { background: rgba(234,179,8,.15);  color: #facc15; }
+    .badge-red    { background: rgba(239,68,68,.15);  color: #f87171; }
+    .badge-blue   { background: rgba(59,130,246,.15); color: #60a5fa; }
+    .badge-gray   { background: rgba(107,114,128,.15);color: #9ca3af; }
+    .stat-card { background: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 20px 24px; }
+    .stat-label { font-size: 11px; color: #8B949E; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #E6EDF3; line-height: 1; }
+    .stat-sub   { font-size: 12px; color: #8B949E; margin-top: 4px; }
+    #modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:50; align-items:center; justify-content:center; }
+    #modal-backdrop.open { display:flex; }
+    .tab-btn { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s; color: #8B949E; }
+    .tab-btn.active { background: #FF6B35; color: #fff; }
+    .tab-btn:not(.active):hover { color: #E6EDF3; background: #1C2333; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ── Top Nav ─────────────────────────────────────────────────────────────── -->
+<nav class="sticky top-0 z-40 border-b border-[#30363D]" style="background:#161B22">
+  <div class="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-full bg-[#1C2333] border border-[#30363D] flex items-center justify-center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01z"/>
+        </svg>
+      </div>
+      <span class="text-sm font-bold text-white tracking-tight">SolidCore</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div id="nav-user" class="text-right hidden sm:block">
+        <div id="nav-name" class="text-sm font-semibold text-white"></div>
+        <div id="nav-email" class="text-xs text-[#8B949E]"></div>
+      </div>
+      <div id="nav-avatar" class="w-9 h-9 rounded-full bg-[#FF6B35] flex items-center justify-center text-white text-sm font-bold"></div>
+      <button onclick="logout()" class="btn-ghost text-xs px-3 py-1.5 rounded-lg transition">Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main ────────────────────────────────────────────────────────────────── -->
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+
+  <!-- Welcome + summary period -->
+  <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Welcome back, <span id="hero-name" class="accent"></span></h1>
+      <p class="text-sm text-[#8B949E] mt-1">Your training overview · <span id="sport-label" class="text-[#E6EDF3]">—</span></p>
+    </div>
+    <!-- Date range -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <input id="from-date" type="date" class="text-xs rounded-lg px-3 py-2 transition" />
+      <span class="text-[#8B949E] text-xs">to</span>
+      <input id="to-date" type="date" class="text-xs rounded-lg px-3 py-2 transition" />
+      <button onclick="applyFilter()" class="btn-accent text-xs px-4 py-2 rounded-lg text-white font-semibold transition">Apply</button>
+      <button onclick="clearFilter()" class="btn-ghost text-xs px-3 py-2 rounded-lg transition">Clear</button>
+    </div>
+  </div>
+
+  <!-- Stat row -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Acute Load (7d)</div>
+      <div class="stat-value" id="st-acute">—</div>
+      <div class="stat-sub">AU</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Chronic Load</div>
+      <div class="stat-value" id="st-chronic">—</div>
+      <div class="stat-sub">EWMA 28d</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ACWR</div>
+      <div class="stat-value" id="st-acwr">—</div>
+      <div class="stat-sub" id="st-acwr-label">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Readiness</div>
+      <div class="stat-value" id="st-ready">—</div>
+      <div class="stat-sub">%</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-2" id="tabs">
+    <button class="tab-btn active" onclick="switchTab('charts',this)">Charts</button>
+    <button class="tab-btn" onclick="switchTab('sessions',this)">Session Log</button>
+  </div>
+
+  <!-- ── Charts panel ──────────────────────────────────────────────────────── -->
+  <div id="panel-charts" class="space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Load bar -->
+      <div class="card rounded-xl p-5">
+        <div class="text-sm font-semibold text-white mb-4">Session Load History</div>
+        <div class="relative h-48"><canvas id="chart-load"></canvas></div>
+      </div>
+      <!-- ACWR line -->
+      <div class="card rounded-xl p-5">
+        <div class="text-sm font-semibold text-white mb-4">ACWR Trend</div>
+        <div class="relative h-48"><canvas id="chart-acwr"></canvas></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Readiness line -->
+      <div class="card rounded-xl p-5">
+        <div class="text-sm font-semibold text-white mb-4">Readiness Trend (%)</div>
+        <div class="relative h-48"><canvas id="chart-readiness"></canvas></div>
+      </div>
+      <!-- Type doughnut -->
+      <div class="card rounded-xl p-5">
+        <div class="text-sm font-semibold text-white mb-4">Training Type Distribution</div>
+        <div class="flex items-center justify-center h-48"><canvas id="chart-types" style="max-height:180px;max-width:180px"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Session log panel ─────────────────────────────────────────────────── -->
+  <div id="panel-sessions" class="hidden">
+    <div class="card rounded-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-[#30363D] flex items-center justify-between">
+        <div class="text-sm font-semibold text-white">Session History</div>
+        <div id="session-count" class="text-xs text-[#8B949E]"></div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-[#8B949E]">
+              <th class="px-4 py-3 font-medium">Date</th>
+              <th class="px-4 py-3 font-medium">Primary Types</th>
+              <th class="px-4 py-3 font-medium">Skill Types</th>
+              <th class="px-4 py-3 font-medium">Total Load</th>
+              <th class="px-4 py-3 font-medium">Grade</th>
+              <th class="px-4 py-3 font-medium">Readiness</th>
+            </tr>
+          </thead>
+          <tbody id="sessions-body"></tbody>
+        </table>
+        <div id="sessions-empty" class="hidden text-center py-16 text-[#8B949E] text-sm">No sessions found for this period.</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Session Detail Modal ──────────────────────────────────────────────── -->
+<div id="modal-backdrop" onclick="closeModal(event)">
+  <div class="card rounded-2xl w-full max-w-lg mx-4 p-6 space-y-5" onclick="event.stopPropagation()">
+    <div class="flex items-start justify-between">
+      <div>
+        <div class="text-base font-bold text-white" id="modal-date"></div>
+        <div class="text-xs text-[#8B949E] mt-0.5" id="modal-subtitle"></div>
+      </div>
+      <button onclick="closeModal()" class="text-[#8B949E] hover:text-white transition text-xl leading-none">&times;</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3" id="modal-stats"></div>
+
+    <div>
+      <div class="text-xs text-[#8B949E] uppercase tracking-wide mb-2">Primary Training</div>
+      <div id="modal-primary" class="space-y-2 text-sm"></div>
+    </div>
+    <div id="modal-skill-block">
+      <div class="text-xs text-[#8B949E] uppercase tracking-wide mb-2">Skill / Supplemental</div>
+      <div id="modal-skills" class="space-y-2 text-sm"></div>
+    </div>
+    <div id="modal-notes-block" class="hidden">
+      <div class="text-xs text-[#8B949E] uppercase tracking-wide mb-1">Notes</div>
+      <p id="modal-notes" class="text-sm text-[#8B949E]"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let TOKEN = null;
+let USER  = null;
+let ALL_SESSIONS = [];
+let charts = {};
+
+// ── Auth guard ─────────────────────────────────────────────────────────────
+(function() {
+  TOKEN = localStorage.getItem('sc_token');
+  const raw = localStorage.getItem('sc_user');
+  if (!TOKEN || !raw) { window.location.href = '/'; return; }
+  USER = JSON.parse(raw);
+  if (USER.role === 'admin') { window.location.href = '/admin'; return; }
+
+  document.getElementById('nav-name').textContent  = USER.name || 'Athlete';
+  document.getElementById('nav-email').textContent = USER.email || '';
+  document.getElementById('nav-user').classList.remove('hidden');
+  document.getElementById('nav-avatar').textContent = (USER.name || 'A')[0].toUpperCase();
+  document.getElementById('hero-name').textContent  = (USER.name || 'Athlete').split(' ')[0];
+  document.getElementById('sport-label').textContent = USER.sport || 'General';
+})();
+
+function logout() {
+  localStorage.removeItem('sc_token');
+  localStorage.removeItem('sc_user');
+  window.location.href = '/';
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const h = { get: (url) => fetch(`${API}${url}`, { headers: { Authorization: `Bearer ${TOKEN}` } }).then(r => r.json()) };
+
+function fmtDate(d)  { return d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'; }
+function fmtNum(n,d=0){ return n != null ? Number(n).toFixed(d) : '—'; }
+
+function acwrBadge(v) {
+  if (v == null || v === 0) return '<span class="badge badge-gray">No data</span>';
+  if (v < 0.8)  return `<span class="badge badge-blue">${v.toFixed(2)} Low</span>`;
+  if (v <= 1.3) return `<span class="badge badge-green">${v.toFixed(2)} Optimal</span>`;
+  if (v <= 1.5) return `<span class="badge badge-yellow">${v.toFixed(2)} Caution</span>`;
+  return `<span class="badge badge-red">${v.toFixed(2)} High Risk</span>`;
+}
+
+function readinessBadge(v) {
+  if (v == null) return '<span class="badge badge-gray">—</span>';
+  const cls = v >= 70 ? 'badge-green' : v >= 40 ? 'badge-yellow' : 'badge-red';
+  return `<span class="badge ${cls}">${v.toFixed(0)}%</span>`;
+}
+
+function gradeBadge(v) {
+  if (v == null) return '—';
+  const cls = v >= 7 ? 'badge-red' : v >= 4 ? 'badge-yellow' : 'badge-green';
+  return `<span class="badge ${cls}">${v.toFixed(1)}</span>`;
+}
+
+// ── ACWR computation (mirrors backend EWMA) ────────────────────────────────
+function computeRollingACWR(sessions) {
+  const sorted = [...sessions].sort((a,b) => new Date(a.date) - new Date(b.date));
+  if (!sorted.length) return [];
+  const lambda = 2 / 29;
+  let ewma = sorted[0].totalLoad || 0;
+  const results = [];
+  const now = Date.now();
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0) ewma = (sorted[i].totalLoad || 0) * lambda + ewma * (1 - lambda);
+    const cutoff = new Date(sorted[i].date); cutoff.setDate(cutoff.getDate() - 6);
+    const acute = sorted.slice(0, i + 1)
+      .filter(s => new Date(s.date) >= cutoff)
+      .reduce((s, x) => s + (x.totalLoad || 0), 0);
+    const acwr = ewma > 0 ? acute / ewma : 0;
+    results.push({ date: sorted[i].date, acwr: Math.round(acwr * 100) / 100 });
+  }
+  return results;
+}
+
+// ── Charts ─────────────────────────────────────────────────────────────────
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', borderColor: '#30363D', borderWidth: 1, titleColor: '#E6EDF3', bodyColor: '#8B949E' } },
+  scales: {
+    x: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
+    y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
+  },
+};
+
+function mkChart(id, type, data, opts = {}) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, { type, data, options: { ...CHART_DEFAULTS, ...opts } });
+}
+
+function buildCharts(sessions) {
+  const sorted = [...sessions].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const labels = sorted.map(s => fmtDate(s.date));
+
+  // Load bar
+  mkChart('chart-load', 'bar', {
+    labels,
+    datasets: [{ data: sorted.map(s => s.totalLoad || 0), backgroundColor: '#FF6B35', borderRadius: 4, borderSkipped: false }],
+  }, { plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: ctx => ` ${ctx.parsed.y} AU` } } } });
+
+  // ACWR line
+  const acwrData = computeRollingACWR(sorted);
+  mkChart('chart-acwr', 'line', {
+    labels: acwrData.map(d => fmtDate(d.date)),
+    datasets: [
+      { data: acwrData.map(d => d.acwr), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', tension: .35, pointRadius: 2, fill: true },
+      { data: Array(acwrData.length).fill(1.5), borderColor: '#f87171', borderDash: [4,4], borderWidth: 1, pointRadius: 0, fill: false },
+      { data: Array(acwrData.length).fill(0.8), borderColor: '#4ade80', borderDash: [4,4], borderWidth: 1, pointRadius: 0, fill: false },
+    ],
+  }, { plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } });
+
+  // Readiness line
+  mkChart('chart-readiness', 'line', {
+    labels,
+    datasets: [{ data: sorted.map(s => s.readinessPercent ?? null), borderColor: '#818CF8', backgroundColor: 'rgba(129,140,248,.1)', tension: .35, pointRadius: 2, fill: true, spanGaps: true }],
+  }, {});
+
+  // Type doughnut
+  const typeCounts = {};
+  sessions.forEach(s => {
+    (s.primaryTypes || []).forEach(t => { typeCounts[t] = (typeCounts[t] || 0) + 1; });
+    (s.skillTypes   || []).forEach(t => { typeCounts[t] = (typeCounts[t] || 0) + 1; });
+  });
+  const typeKeys = Object.keys(typeCounts);
+  const COLORS = ['#FF6B35','#818CF8','#34D399','#FBBF24','#60A5FA','#F472B6','#A78BFA','#6EE7B7'];
+  if (charts['chart-types']) charts['chart-types'].destroy();
+  const ctx = document.getElementById('chart-types').getContext('2d');
+  charts['chart-types'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: typeKeys,
+      datasets: [{ data: typeKeys.map(k => typeCounts[k]), backgroundColor: typeKeys.map((_,i) => COLORS[i % COLORS.length]), borderWidth: 0, hoverOffset: 6 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '65%',
+      plugins: { legend: { position: 'bottom', labels: { color: '#8B949E', font: { size: 10 }, boxWidth: 10, padding: 10 } }, tooltip: { backgroundColor: '#1C2333', borderColor: '#30363D', borderWidth: 1, titleColor: '#E6EDF3', bodyColor: '#8B949E' } },
+    },
+  });
+}
+
+// ── Session table ──────────────────────────────────────────────────────────
+function buildTable(sessions) {
+  const body  = document.getElementById('sessions-body');
+  const empty = document.getElementById('sessions-empty');
+  const count = document.getElementById('session-count');
+  body.innerHTML = '';
+  count.textContent = `${sessions.length} session${sessions.length !== 1 ? 's' : ''}`;
+  if (!sessions.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  const sorted = [...sessions].sort((a,b) => new Date(b.date) - new Date(a.date));
+  sorted.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="px-4 py-3 whitespace-nowrap text-[#E6EDF3]">${fmtDate(s.date)}</td>
+      <td class="px-4 py-3 text-[#8B949E] text-xs">${(s.primaryTypes||[]).join(', ') || '—'}</td>
+      <td class="px-4 py-3 text-[#8B949E] text-xs">${(s.skillTypes||[]).join(', ') || '—'}</td>
+      <td class="px-4 py-3 font-mono text-[#E6EDF3]">${fmtNum(s.totalLoad)}</td>
+      <td class="px-4 py-3">${gradeBadge(s.scaledGrade)}</td>
+      <td class="px-4 py-3">${readinessBadge(s.readinessPercent)}</td>
+    `;
+    tr.addEventListener('click', () => openModal(s));
+    body.appendChild(tr);
+  });
+}
+
+// ── Stat cards ─────────────────────────────────────────────────────────────
+function updateStats(sessions) {
+  const sorted = [...sessions].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+  const acute  = sessions.filter(s => new Date(s.date) >= cutoff).reduce((sum,s) => sum + (s.totalLoad||0), 0);
+
+  const lambda = 2 / 29;
+  let ewma = sorted[0]?.totalLoad || 0;
+  for (let i = 1; i < sorted.length; i++) ewma = (sorted[i].totalLoad || 0) * lambda + ewma * (1 - lambda);
+  const acwr = ewma > 0 ? acute / ewma : 0;
+
+  const last = sorted[sorted.length - 1];
+
+  document.getElementById('st-acute').textContent   = Math.round(acute);
+  document.getElementById('st-chronic').textContent = ewma.toFixed(1);
+  document.getElementById('st-acwr').innerHTML      = acwrBadge(Math.round(acwr*100)/100);
+  document.getElementById('st-ready').textContent   = last?.readinessPercent != null ? last.readinessPercent.toFixed(0) : '—';
+  document.getElementById('st-acwr-label').textContent = acwr < 0.8 ? 'Low' : acwr <= 1.3 ? 'Optimal' : acwr <= 1.5 ? 'Caution' : 'High Risk';
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function openModal(s) {
+  document.getElementById('modal-date').textContent     = fmtDate(s.date);
+  document.getElementById('modal-subtitle').textContent = `${(s.primaryTypes||[]).join(', ')} · ${(s.skillTypes||[]).join(', ')}`.replace(/^·\s*/, '').replace(/\s*·\s*$/, '') || 'Training session';
+
+  const statsEl = document.getElementById('modal-stats');
+  statsEl.innerHTML = [
+    ['Total Load', `${fmtNum(s.totalLoad)} AU`],
+    ['Grade', s.scaledGrade != null ? s.scaledGrade.toFixed(1) : '—'],
+    ['Readiness', s.readinessPercent != null ? `${s.readinessPercent.toFixed(0)}%` : '—'],
+    ['Duration', s.primaryDuration ? `${s.primaryDuration} min` : '—'],
+  ].map(([l,v]) => `<div class="card2 rounded-lg px-4 py-3"><div class="text-xs text-[#8B949E]">${l}</div><div class="text-base font-semibold text-white mt-0.5">${v}</div></div>`).join('');
+
+  // Primary
+  const primEl = document.getElementById('modal-primary');
+  const entries = [];
+  if (s.primaryTypes?.length)   entries.push(`<span class="text-[#8B949E]">Types:</span> ${s.primaryTypes.join(', ')}`);
+  if (s.primaryRpe != null)     entries.push(`<span class="text-[#8B949E]">RPE:</span> ${s.primaryRpe}`);
+  if (s.primaryDuration != null)entries.push(`<span class="text-[#8B949E]">Duration:</span> ${s.primaryDuration} min`);
+  if (s.primaryLoad != null)    entries.push(`<span class="text-[#8B949E]">Load:</span> ${s.primaryLoad} AU`);
+  primEl.innerHTML = entries.map(e => `<div class="text-[#E6EDF3]">${e}</div>`).join('');
+
+  // Skill
+  const skillBlock = document.getElementById('modal-skill-block');
+  const skillEl    = document.getElementById('modal-skills');
+  const skillEntries = [];
+  if (s.skillTypes?.length)       skillEntries.push(`<span class="text-[#8B949E]">Types:</span> ${s.skillTypes.join(', ')}`);
+  if (s.skillRpe != null)         skillEntries.push(`<span class="text-[#8B949E]">RPE:</span> ${s.skillRpe}`);
+  if (s.skillDuration != null)    skillEntries.push(`<span class="text-[#8B949E]">Duration:</span> ${s.skillDuration} min`);
+  if (skillEntries.length) {
+    skillBlock.classList.remove('hidden');
+    skillEl.innerHTML = skillEntries.map(e => `<div class="text-[#E6EDF3]">${e}</div>`).join('');
+  } else { skillBlock.classList.add('hidden'); }
+
+  // Notes
+  const notesBlock = document.getElementById('modal-notes-block');
+  if (s.notes) {
+    notesBlock.classList.remove('hidden');
+    document.getElementById('modal-notes').textContent = s.notes;
+  } else { notesBlock.classList.add('hidden'); }
+
+  document.getElementById('modal-backdrop').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-backdrop'))
+    document.getElementById('modal-backdrop').classList.remove('open');
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-charts').classList.toggle('hidden',   tab !== 'charts');
+  document.getElementById('panel-sessions').classList.toggle('hidden', tab !== 'sessions');
+}
+
+// ── Filter ─────────────────────────────────────────────────────────────────
+function applyFilter() {
+  const from = document.getElementById('from-date').value;
+  const to   = document.getElementById('to-date').value;
+  let url = '/sessions?limit=500';
+  if (from) url += `&from=${from}`;
+  if (to)   url += `&to=${to}`;
+  loadSessions(url);
+}
+
+function clearFilter() {
+  document.getElementById('from-date').value = '';
+  document.getElementById('to-date').value   = '';
+  loadSessions('/sessions?limit=500');
+}
+
+// ── Data load ──────────────────────────────────────────────────────────────
+async function loadSessions(url = '/sessions?limit=500') {
+  try {
+    const sessions = await h.get(url);
+    ALL_SESSIONS = Array.isArray(sessions) ? sessions : [];
+    updateStats(ALL_SESSIONS);
+    buildCharts(ALL_SESSIONS);
+    buildTable(ALL_SESSIONS);
+  } catch (err) {
+    console.error('Failed to load sessions:', err);
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadSessions();
+</script>
+</body>
+</html>

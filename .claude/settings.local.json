@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"\\(Get-Content lib/bowling_analysis_screen.dart\\) -replace '\\\\.withOpacity\\\\\\(', '.withValues\\(alpha: ' | Set-Content lib/bowling_analysis_screen.dart\")",
+      "Bash(powershell -Command \"\\(Get-Content lib/posture_screen.dart\\) -replace '\\\\.withOpacity\\\\\\(', '.withValues\\(alpha: ' | Set-Content lib/posture_screen.dart\")",
+      "Bash(powershell -Command \"Select-String -Path lib\\\\posture_screen.dart -Pattern 'camera|Camera|CameraController|CameraPreview|zoom|aspectRatio|AspectRatio' | Select-Object LineNumber, Line | Format-Table -AutoSize\")"
+    ]
+  }
+}

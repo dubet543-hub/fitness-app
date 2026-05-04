@@ -1,6 +1,15 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'api_service.dart';
+
+const Color _kBg = Color(0xFF0D1117);
+const Color _kSurface = Color(0xFF161B22);
+const Color _kCard = Color(0xFF1C2333);
+const Color _kAccent = Color(0xFFFF6B35);
+const Color _kBorder = Color(0xFF30363D);
+const Color _kTextPrimary = Color(0xFFE6EDF3);
+const Color _kTextSecondary = Color(0xFF8B949E);
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -265,7 +274,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_primaryTypes.isEmpty) {
       _snack("Select at least one Primary Session Type");
       return;
@@ -294,9 +303,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
       }
     }
 
+    final now = DateTime.now();
+
     setState(() {
       _sessions.add(TrainingSession(
-        date: DateTime.now(),
+        date: now,
         sleep: _sleep,
         wellness: _wellness,
         soreness: _soreness,
@@ -329,6 +340,48 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
 
     _tabController.animateTo(1);
     _snack("Session logged!");
+
+    // Sync to backend (non-blocking — failure is silently ignored so offline
+    // use still works; the local list already has the entry).
+    try {
+      await ApiService.submitSession({
+        'date': now.toIso8601String(),
+        'sleep': _sleep,
+        'wellness': _wellness,
+        'soreness': _soreness,
+        'fatigue': _fatigue,
+        'primaryTypes': _primaryTypes.map((e) => e.name).toList(),
+        'primaryDuration': primaryDur,
+        'primaryRpe': _primaryRpe,
+        if (_hasSecondary) ...{
+          'secondaryTypes': _secondaryTypes.map((e) => e.name).toList(),
+          'secondaryDuration': int.tryParse(_secondaryDurCtrl.text.trim()),
+          'secondaryRpe': _secondaryRpe,
+        },
+        if (int.tryParse(_distanceCtrl.text.trim()) != null)
+          'distance': int.parse(_distanceCtrl.text.trim()),
+        if (int.tryParse(_sprintsCtrl.text.trim()) != null)
+          'sprints': int.parse(_sprintsCtrl.text.trim()),
+        if (int.tryParse(_maxHRCtrl.text.trim()) != null)
+          'maxHR': int.parse(_maxHRCtrl.text.trim()),
+        if (int.tryParse(_avgHRCtrl.text.trim()) != null)
+          'avgHR': int.parse(_avgHRCtrl.text.trim()),
+        if (_hasSkill) ...{
+          'skillTypes': _skillTypes.map((e) => e.name).toList(),
+          'skillDuration': int.tryParse(_skillDurCtrl.text.trim()),
+          'skillRpe': _skillRpe,
+          if (_skillTypes.contains(SkillSessionType.bowling) &&
+              int.tryParse(_ballsCtrl.text.trim()) != null)
+            'ballsBowled': int.parse(_ballsCtrl.text.trim()),
+          if (int.tryParse(_skillMaxHRCtrl.text.trim()) != null)
+            'skillMaxHR': int.parse(_skillMaxHRCtrl.text.trim()),
+          if (int.tryParse(_skillAvgHRCtrl.text.trim()) != null)
+            'skillAvgHR': int.parse(_skillAvgHRCtrl.text.trim()),
+        },
+      });
+    } catch (_) {
+      // Backend unavailable — local session already saved above.
+    }
   }
 
   void _clearForm() {
@@ -369,14 +422,31 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Training Load"),
+        backgroundColor: _kSurface,
+        title: const Text(
+          "Training Load",
+          style: TextStyle(color: _kTextPrimary, fontWeight: FontWeight.w700),
+        ),
         centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.edit_note), text: "Log Session"),
-            Tab(icon: Icon(Icons.dashboard), text: "Dashboard"),
-          ],
+        iconTheme: const IconThemeData(color: _kTextPrimary),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(49),
+          child: Column(
+            children: [
+              const Divider(height: 1, color: _kBorder),
+              TabBar(
+                controller: _tabController,
+                labelColor: _kAccent,
+                unselectedLabelColor: _kTextSecondary,
+                indicatorColor: _kAccent,
+                indicatorSize: TabBarIndicatorSize.label,
+                tabs: const [
+                  Tab(icon: Icon(Icons.edit_note_rounded), text: "Log Session"),
+                  Tab(icon: Icon(Icons.dashboard_rounded), text: "Dashboard"),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
@@ -627,12 +697,18 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
 
           ElevatedButton.icon(
             onPressed: _submit,
-            icon: const Icon(Icons.check_circle_outline),
+            icon: const Icon(Icons.check_circle_outline_rounded),
             label: const Text("Submit Session"),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.greenAccent,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: _kAccent,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 24),
@@ -649,11 +725,26 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     final last = _sessions.isNotEmpty ? _sessions.last : null;
 
     if (_sessions.isEmpty) {
-      return const Center(
-        child: Text(
-          "No sessions yet.\nTap 'Log Session' to begin.",
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.bar_chart_rounded, size: 52, color: _kBorder),
+            const SizedBox(height: 16),
+            const Text(
+              "No sessions yet",
+              style: TextStyle(
+                color: _kTextPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              "Tap 'Log Session' to get started.",
+              style: TextStyle(color: _kTextSecondary, fontSize: 13),
+            ),
+          ],
         ),
       );
     }
@@ -914,9 +1005,9 @@ class _ReadinessRow extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: _color(value).withOpacity(0.2),
+                color: _color(value).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: _color(value).withOpacity(0.6)),
+                border: Border.all(color: _color(value).withValues(alpha: 0.6)),
               ),
               child: Text(
                 value.toString(),
@@ -1018,17 +1109,24 @@ class _ChipSelector<T> extends StatelessWidget {
       children: values.map((v) {
         final on = selected.contains(v);
         return FilterChip(
-          label: Text(label(v),
-              style: TextStyle(
-                  fontSize: 12,
-                  color: on ? Colors.black : Colors.white70)),
+          label: Text(
+            label(v),
+            style: TextStyle(
+              fontSize: 12,
+              color: on ? Colors.white : _kTextSecondary,
+              fontWeight: on ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
           selected: on,
           onSelected: (_) => onToggle(v),
-          selectedColor: Colors.greenAccent,
-          backgroundColor: Colors.white12,
-          checkmarkColor: Colors.black,
-          side: BorderSide(
-              color: on ? Colors.greenAccent : Colors.white24),
+          selectedColor: _kAccent,
+          backgroundColor: _kBg,
+          checkmarkColor: Colors.white,
+          side: BorderSide(color: on ? _kAccent : _kBorder),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
         );
       }).toList(),
     );
@@ -1049,10 +1147,27 @@ class _NumField extends StatelessWidget {
       controller: ctrl,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: const TextStyle(color: _kTextPrimary, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
-        border: const OutlineInputBorder(),
+        labelStyle: const TextStyle(color: _kTextSecondary, fontSize: 13),
+        filled: true,
+        fillColor: _kBg,
         isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _kBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _kBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _kAccent),
+        ),
       ),
     );
   }
@@ -1067,7 +1182,7 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text,
-        style: const TextStyle(fontSize: 12, color: Colors.grey));
+        style: const TextStyle(fontSize: 12, color: _kTextSecondary));
   }
 }
 
@@ -1127,19 +1242,19 @@ class _AcwrGauge extends StatelessWidget {
                 Expanded(
                     flex: 40,
                     child: Container(
-                        color: Colors.blueAccent.withOpacity(0.7))),
+                        color: Colors.blueAccent.withValues(alpha: 0.7))),
                 Expanded(
                     flex: 50,
                     child: Container(
-                        color: Colors.greenAccent.withOpacity(0.85))),
+                        color: Colors.greenAccent.withValues(alpha: 0.85))),
                 Expanded(
                     flex: 10,
                     child: Container(
-                        color: Colors.orangeAccent.withOpacity(0.85))),
+                        color: Colors.orangeAccent.withValues(alpha: 0.85))),
                 Expanded(
                     flex: 100,
                     child: Container(
-                        color: Colors.redAccent.withOpacity(0.7))),
+                        color: Colors.redAccent.withValues(alpha: 0.7))),
               ],
             ),
           ),
@@ -1239,7 +1354,7 @@ class _LoadBarChart extends StatelessWidget {
                   Container(
                     height: 90 * frac + 4,
                     decoration: BoxDecoration(
-                      color: Colors.tealAccent.withOpacity(0.8),
+                      color: Colors.tealAccent.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -1277,7 +1392,7 @@ class _SessionTile extends StatelessWidget {
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
-        backgroundColor: session.readinessColor.withOpacity(0.25),
+        backgroundColor: session.readinessColor.withValues(alpha: 0.25),
         radius: 20,
         child: Text(
           "${session.readinessPercent.toStringAsFixed(0)}%",
@@ -1323,25 +1438,25 @@ class _MetricTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        border: Border.all(color: color.withOpacity(0.4)),
-        borderRadius: BorderRadius.circular(10),
+        color: color.withValues(alpha: 0.1),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style:
-                  const TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
+              style: const TextStyle(fontSize: 11, color: _kTextSecondary)),
+          const SizedBox(height: 6),
           Text(value,
               style: TextStyle(
                   fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: color)),
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  letterSpacing: -0.5)),
+          const SizedBox(height: 2),
           Text(subtitle,
-              style:
-                  const TextStyle(fontSize: 10, color: Colors.grey)),
+              style: const TextStyle(fontSize: 10, color: _kTextSecondary)),
         ],
       ),
     );
@@ -1590,11 +1705,11 @@ class _BarLinePainter extends CustomPainter {
         Rect.fromLTWH(0, tPad, size.width, chartH),
         const Radius.circular(4),
       ),
-      Paint()..color = Colors.white.withOpacity(0.04),
+      Paint()..color = Colors.white.withValues(alpha: 0.04),
     );
 
     // Bars — max 82% height so there's always headroom
-    final barPaint = Paint()..color = barColor.withOpacity(0.75);
+    final barPaint = Paint()..color = barColor.withValues(alpha: 0.75);
     for (int i = 0; i < n; i++) {
       final x = i * slotW + (slotW - barW) / 2;
       final bh = (barValues[i] / maxBar) * chartH * 0.82;
@@ -1705,7 +1820,7 @@ class _ReadinessPainter extends CustomPainter {
         Rect.fromLTWH(0, tPad, size.width, chartH),
         const Radius.circular(4),
       ),
-      Paint()..color = Colors.white.withOpacity(0.04),
+      Paint()..color = Colors.white.withValues(alpha: 0.04),
     );
 
     // 75% reference line (green zone threshold)
@@ -1714,10 +1829,10 @@ class _ReadinessPainter extends CustomPainter {
       Offset(0, refY),
       Offset(size.width, refY),
       Paint()
-        ..color = Colors.greenAccent.withOpacity(0.3)
+        ..color = Colors.greenAccent.withValues(alpha: 0.3)
         ..strokeWidth = 1,
     );
-    _text(canvas, "75%", 16, refY - 9, Colors.greenAccent.withOpacity(0.6), 7);
+    _text(canvas, "75%", 16, refY - 9, Colors.greenAccent.withValues(alpha: 0.6), 7);
 
     // Line
     final linePaint = Paint()
@@ -1740,7 +1855,7 @@ class _ReadinessPainter extends CustomPainter {
     fillPath.close();
     canvas.drawPath(
       fillPath,
-      Paint()..color = Colors.yellowAccent.withOpacity(0.08),
+      Paint()..color = Colors.yellowAccent.withValues(alpha: 0.08),
     );
 
     // Dots + labels
@@ -1786,26 +1901,31 @@ class _SectionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(12),
+        color: _kCard,
+        border: Border.all(color: _kBorder),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white70)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _kTextPrimary,
+              letterSpacing: 0.1,
+            ),
+          ),
           if (subtitle != null)
             Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(subtitle!,
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.grey)),
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                subtitle!,
+                style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+              ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           child,
         ],
       ),
