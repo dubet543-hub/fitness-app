@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/services.dart';
 import 'api_service.dart';
 import 'posture_screen.dart';
@@ -8,6 +9,9 @@ import 'bowling_analysis_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Load environment variables from .env (preferred), then assets/config.json.
+  await dotenv.load(fileName: '.env');
+  await ApiService.loadConfig();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

@@ -1,16 +1,41 @@
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Change this to your backend host when deploying.
 // For local dev with Android emulator use http://10.0.2.2:3000
 // For iOS simulator use http://localhost:3000
-// API base URL. Set at build/run with `--dart-define=API_BASE_URL=http://host:port/api`.
-// Defaults to localhost (use `http://10.0.2.2:3000` for Android emulator).
-const String _baseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://localhost:3000/api',
-);
+// API base URL. It can be provided at build time with `--dart-define=API_BASE_URL=...`
+// or at runtime by placing `assets/config.json` with { "API_BASE_URL": "http://host:port/api" }.
+String _baseUrl =
+    String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:3000/api');
+
+class _ConfigLoader {
+  static Future<void> load() async {
+    // Prefer runtime .env (flutter_dotenv) when available.
+    try {
+      final envUrl = dotenv.env['API_BASE_URL'];
+      if (envUrl != null && envUrl.isNotEmpty) {
+        _baseUrl = envUrl;
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback to assets/config.json if present.
+    try {
+      final raw = await rootBundle.loadString('assets/config.json');
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final url = map['API_BASE_URL'] as String?;
+      if (url != null && url.isNotEmpty) {
+        _baseUrl = url;
+      }
+    } catch (_) {
+      // ignore: no-op — use defaults if asset missing or invalid
+    }
+  }
+}
 
 class ApiUser {
   final String id;
@@ -40,6 +65,8 @@ class ApiUser {
 }
 
 class ApiService {
+  /// Call at app startup to load runtime config from `assets/config.json`.
+  static Future<void> loadConfig() => _ConfigLoader.load();
   static const _tokenKey = 'sc_token';
   static const _userKey  = 'sc_user';
 
