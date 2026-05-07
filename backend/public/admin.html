@@ -72,6 +72,10 @@
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Analytics
     </div>
+    <div class="nav-item" onclick="showSection('workload')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Workload Monitor
+    </div>
     <div class="nav-item" onclick="openCreateModal()">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Create Athlete
@@ -223,6 +227,72 @@
     </div>
   </section>
 
+  <!-- ── WORKLOAD MONITOR ───────────────────────────────────────────────────── -->
+  <section id="sec-workload" class="section">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <h2 class="text-xl font-bold">Workload Monitor</h2>
+      <div class="flex items-center gap-3">
+        <span class="text-sm" style="color:var(--muted)">Athlete:</span>
+        <div class="flex gap-1 p-1 rounded-xl" style="background:var(--card);border:1px solid var(--border)">
+          <button id="wl-btn-ath1" onclick="wlSwitchAthlete('ATS-2025-001')" class="btn text-xs px-3 py-1.5" style="background:var(--accent);color:#fff">ATS-2025-001</button>
+          <button id="wl-btn-ath2" onclick="wlSwitchAthlete('ATS-2025-002')" class="btn text-xs px-3 py-1.5" style="background:transparent;color:var(--muted)">ATS-2025-002</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section tabs -->
+    <div class="flex gap-2 mb-6">
+      <button id="wl-tab-training" onclick="wlSwitchTab('training')" class="btn btn-accent text-xs px-4 py-2">Training Load</button>
+      <button id="wl-tab-skill"    onclick="wlSwitchTab('skill')"    class="btn btn-ghost text-xs px-4 py-2">Skill Load</button>
+      <button id="wl-tab-total"    onclick="wlSwitchTab('total')"    class="btn btn-ghost text-xs px-4 py-2">Daily Total Load</button>
+    </div>
+
+    <!-- ── Training panel ── -->
+    <div id="wl-panel-training">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" id="wl-metrics-training"></div>
+      <div class="card mb-4">
+        <div class="font-semibold text-sm mb-1">Session Load · 7-Day Avg · Chronic EWMA (28d)</div>
+        <div class="text-xs mb-4" style="color:var(--muted)">Bars = Session Load &nbsp;·&nbsp; <span style="color:#4FC3F7">━</span> 7-Day Avg &nbsp;·&nbsp; <span style="color:#C084FC">╌</span> Chronic EWMA</div>
+        <div style="position:relative;height:240px"><canvas id="wl-chart-training-load"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="font-semibold text-sm mb-1">Training ACWR Trend</div>
+        <div class="text-xs mb-4" style="color:var(--muted)"><span style="color:#4ADE80">- -</span> Optimal upper 1.3 &nbsp;·&nbsp; <span style="color:#F87171">- -</span> Danger 1.5 &nbsp;·&nbsp; Points coloured by zone</div>
+        <div style="position:relative;height:180px"><canvas id="wl-chart-training-acwr"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── Skill panel ── -->
+    <div id="wl-panel-skill" class="hidden">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" id="wl-metrics-skill"></div>
+      <div class="card mb-4">
+        <div class="font-semibold text-sm mb-1">Skill Session Load · 7-Day Avg · Chronic EWMA (28d)</div>
+        <div class="text-xs mb-4" style="color:var(--muted)">Bars = Skill Load &nbsp;·&nbsp; <span style="color:#34D399">━</span> 7-Day Avg &nbsp;·&nbsp; <span style="color:#6EE7B7">╌</span> Chronic EWMA</div>
+        <div style="position:relative;height:240px"><canvas id="wl-chart-skill-load"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="font-semibold text-sm mb-1">Skill ACWR Trend</div>
+        <div class="text-xs mb-4" style="color:var(--muted)">Points coloured by zone &nbsp;·&nbsp; Green zone = 0.8–1.3 optimal</div>
+        <div style="position:relative;height:180px"><canvas id="wl-chart-skill-acwr"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── Daily Total panel ── -->
+    <div id="wl-panel-total" class="hidden">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" id="wl-metrics-total"></div>
+      <div class="card mb-4">
+        <div class="font-semibold text-sm mb-1">Daily Total Load (Training + Skill) · 7-Day Avg · Chronic EWMA</div>
+        <div class="text-xs mb-4" style="color:var(--muted)">Bars = Total Load &nbsp;·&nbsp; <span style="color:#FBBF24">━</span> 7-Day Avg &nbsp;·&nbsp; <span style="color:#C084FC">╌</span> Chronic EWMA</div>
+        <div style="position:relative;height:240px"><canvas id="wl-chart-total-load"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="font-semibold text-sm mb-1">Overall ACWR Trend</div>
+        <div class="text-xs mb-4" style="color:var(--muted)">Overall ACWR = 7-Day Cumulative Load ÷ 28-Day EWMA &nbsp;·&nbsp; Sweet spot: 0.8–1.3</div>
+        <div style="position:relative;height:180px"><canvas id="wl-chart-total-acwr"></canvas></div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- Create Athlete Modal -->
@@ -259,6 +329,30 @@
 const API = '/api';
 let token = null, currentAthleteId = null;
 const charts = {};
+
+// ── Chart helper ───────────────────────────────────────────────────────────────
+function mkChart(id, type, labels, datasets, extra = {}) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx.getContext('2d'), {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', borderColor: '#30363D', borderWidth: 1, titleColor: '#E6EDF3', bodyColor: '#8B949E' } },
+      scales: {
+        x: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
+        y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
+      },
+      ...extra,
+    },
+  });
+}
+
+function readinessBadge(v) { return v >= 70 ? 'badge-green' : v >= 40 ? 'badge-yellow' : 'badge-red'; }
+function readinessColor(v) { return v == null ? '#8B949E' : v >= 70 ? '#4ade80' : v >= 40 ? '#facc15' : '#f87171'; }
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── Auth guard ─────────────────────────────────────────────────────────────────
 (function init() {
@@ -299,6 +393,7 @@ function showSection(name) {
   });
   if (name === 'sessions') { loadAllSessions(); populateAthleteFilter(); }
   if (name === 'analytics') { populateAnalyticsFilter(); }
+  if (name === 'workload') { wlRender(); }
 }
 
 // ── Overview ───────────────────────────────────────────────────────────────────
@@ -611,6 +706,490 @@ function readinessBadge(pct) {
 }
 
 function escHtml(str) { return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// ════════════════════════════════════════════════════════════════════════════
+// WORKLOAD MONITOR  — PDF Data Integration
+// Three sections: Training Load | Skill Load | Daily Total Load
+// Metrics per section: Session Load · 7-Day Avg · Chronic EWMA · ACWR · Z-Score
+// ════════════════════════════════════════════════════════════════════════════
+
+const WL_DATA = {
+  'ATS-2025-001': {
+    training: [
+      {d:'19/03',load:0,acute:0,chronic:0,acwr:0.00,z:0.00},
+      {d:'21/03',load:135,acute:135,chronic:9,acwr:14.50,z:19.09},
+      {d:'22/03',load:0,acute:135,chronic:18,acwr:7.50,z:13.02},
+      {d:'23/03',load:0,acute:135,chronic:26,acwr:5.20,z:9.72},
+      {d:'24/03',load:0,acute:135,chronic:34,acwr:4.00,z:7.64},
+      {d:'25/03',load:0,acute:135,chronic:41,acwr:3.30,z:6.22},
+      {d:'26/03',load:0,acute:135,chronic:47,acwr:2.90,z:5.19},
+      {d:'27/03',load:141,acute:138,chronic:53,acwr:2.60,z:4.54},
+      {d:'29/03',load:0,acute:141,chronic:59,acwr:2.40,z:4.03},
+      {d:'31/03',load:624,acute:383,chronic:82,acwr:4.70,z:12.16},
+      {d:'01/04',load:0,acute:383,chronic:102,acwr:3.70,z:9.13},
+      {d:'02/04',load:0,acute:383,chronic:122,acwr:3.10,z:7.03},
+      {d:'03/04',load:0,acute:383,chronic:140,acwr:2.70,z:5.59},
+      {d:'04/04',load:0,acute:624,chronic:173,acwr:3.60,z:8.65},
+      {d:'05/04',load:0,acute:624,chronic:204,acwr:3.10,z:6.79},
+      {d:'06/04',load:0,acute:624,chronic:233,acwr:2.70,z:5.45},
+      {d:'07/04',load:205,acute:415,chronic:246,acwr:1.70,z:2.12},
+      {d:'08/04',load:215,acute:210,chronic:243,acwr:0.90,z:-0.39},
+      {d:'09/04',load:116,acute:179,chronic:239,acwr:0.70,z:-0.68},
+      {d:'10/04',load:0,acute:179,chronic:235,acwr:0.80,z:-0.62},
+      {d:'11/04',load:747,acute:321,chronic:241,acwr:1.30,z:0.87},
+      {d:'12/04',load:155,acute:288,chronic:244,acwr:1.20,z:0.47},
+      {d:'13/04',load:236,acute:279,chronic:246,acwr:1.10,z:0.34},
+      {d:'14/04',load:0,acute:279,chronic:248,acwr:1.10,z:0.32},
+      {d:'15/04',load:0,acute:294,chronic:252,acwr:1.20,z:0.44},
+      {d:'16/04',load:392,acute:383,chronic:261,acwr:1.50,z:1.29},
+      {d:'17/04',load:0,acute:383,chronic:269,acwr:1.40,z:1.19},
+      {d:'18/04',load:0,acute:261,chronic:268,acwr:1.00,z:-0.08},
+      {d:'19/04',load:0,acute:314,chronic:272,acwr:1.20,z:0.45},
+      {d:'20/04',load:0,acute:392,chronic:280,acwr:1.40,z:1.29},
+      {d:'21/04',load:0,acute:392,chronic:288,acwr:1.40,z:1.19},
+      {d:'22/04',load:270,acute:331,chronic:291,acwr:1.10,z:0.51},
+      {d:'23/04',load:192,acute:285,chronic:290,acwr:1.00,z:-0.07},
+      {d:'24/04',load:172,acute:211,chronic:285,acwr:0.70,z:-1.00},
+      {d:'25/04',load:135,acute:192,chronic:278,acwr:0.70,z:-1.29},
+      {d:'26/04',load:329,acute:220,chronic:274,acwr:0.80,z:-0.93},
+      {d:'27/04',load:0,acute:220,chronic:271,acwr:0.80,z:-0.88},
+      {d:'28/04',load:0,acute:220,chronic:267,acwr:0.80,z:-0.83},
+      {d:'29/04',load:0,acute:220,chronic:264,acwr:0.80,z:-1.05},
+      {d:'30/04',load:0,acute:212,chronic:260,acwr:0.80,z:-1.17},
+      {d:'01/05',load:178,acute:214,chronic:257,acwr:0.80,z:-1.65},
+      {d:'02/05',load:603,acute:370,chronic:265,acwr:1.40,z:5.18},
+      {d:'03/05',load:0,acute:370,chronic:272,acwr:1.40,z:5.68},
+    ],
+    skill: [
+      {d:'19/03',load:560,acute:560,chronic:560,acwr:1.00,z:0.00},
+      {d:'21/03',load:0,acute:560,chronic:560,acwr:1.00,z:0.00},
+      {d:'22/03',load:0,acute:560,chronic:560,acwr:1.00,z:0.00},
+      {d:'23/03',load:0,acute:560,chronic:560,acwr:1.00,z:0.00},
+      {d:'24/03',load:54,acute:307,chronic:543,acwr:0.60,z:-2.10},
+      {d:'25/03',load:288,acute:301,chronic:526,acwr:0.60,z:-1.70},
+      {d:'26/03',load:72,acute:138,chronic:499,acwr:0.30,z:-2.10},
+      {d:'27/03',load:0,acute:138,chronic:474,acwr:0.30,z:-1.80},
+      {d:'29/03',load:288,acute:176,chronic:454,acwr:0.40,z:-1.40},
+      {d:'31/03',load:0,acute:216,chronic:437,acwr:0.50,z:-1.20},
+      {d:'01/04',load:294,acute:218,chronic:422,acwr:0.50,z:-1.10},
+      {d:'02/04',load:0,acute:291,chronic:413,acwr:0.70,z:-0.70},
+      {d:'03/04',load:450,acute:344,chronic:408,acwr:0.80,z:-0.40},
+      {d:'04/04',load:0,acute:344,chronic:404,acwr:0.90,z:-0.40},
+      {d:'05/04',load:0,acute:344,chronic:400,acwr:0.90,z:-0.40},
+      {d:'06/04',load:135,acute:293,chronic:392,acwr:0.70,z:-0.70},
+      {d:'07/04',load:228,acute:277,chronic:384,acwr:0.70,z:-0.70},
+      {d:'08/04',load:36,acute:212,chronic:373,acwr:0.60,z:-1.10},
+      {d:'09/04',load:36,acute:177,chronic:359,acwr:0.50,z:-1.30},
+      {d:'10/04',load:180,acute:123,chronic:343,acwr:0.40,z:-1.50},
+      {d:'11/04',load:0,acute:123,chronic:328,acwr:0.40,z:-1.40},
+      {d:'12/04',load:84,acute:117,chronic:313,acwr:0.40,z:-1.30},
+      {d:'13/04',load:112,acute:113,chronic:299,acwr:0.40,z:-1.20},
+      {d:'14/04',load:270,acute:135,chronic:288,acwr:0.50,z:-1.00},
+      {d:'15/04',load:96,acute:116,chronic:276,acwr:0.40,z:-1.10},
+      {d:'16/04',load:310,acute:175,chronic:269,acwr:0.70,z:-0.70},
+      {d:'17/04',load:160,acute:172,chronic:262,acwr:0.70,z:-0.70},
+      {d:'18/04',load:160,acute:170,chronic:256,acwr:0.70,z:-0.60},
+      {d:'19/04',load:90,acute:171,chronic:250,acwr:0.70,z:-0.60},
+      {d:'20/04',load:36,acute:160,chronic:244,acwr:0.70,z:-1.10},
+      {d:'21/04',load:0,acute:142,chronic:237,acwr:0.60,z:-1.20},
+      {d:'22/04',load:0,acute:151,chronic:231,acwr:0.70,z:-1.10},
+      {d:'23/04',load:0,acute:151,chronic:226,acwr:0.70,z:-1.00},
+      {d:'24/04',load:0,acute:112,chronic:218,acwr:0.50,z:-1.40},
+      {d:'25/04',load:120,acute:102,chronic:210,acwr:0.50,z:-1.40},
+      {d:'26/04',load:0,acute:82,chronic:201,acwr:0.40,z:-1.50},
+      {d:'27/04',load:72,acute:76,chronic:192,acwr:0.40,z:-1.40},
+      {d:'28/04',load:126,acute:106,chronic:186,acwr:0.60,z:-1.00},
+      {d:'29/04',load:80,acute:100,chronic:180,acwr:0.60,z:-1.00},
+      {d:'30/04',load:135,acute:107,chronic:175,acwr:0.60,z:-0.80},
+      {d:'01/05',load:0,acute:107,chronic:171,acwr:0.60,z:-0.90},
+      {d:'02/05',load:0,acute:103,chronic:166,acwr:0.60,z:-1.00},
+      {d:'03/05',load:0,acute:103,chronic:162,acwr:0.60,z:-1.10},
+    ],
+    total: [
+      {d:'19/03',load:560,acute:560,chronic:560,acwr:1.00,z:0.00},
+      {d:'21/03',load:135,acute:348,chronic:545,acwr:0.60,z:-0.66},
+      {d:'22/03',load:0,acute:348,chronic:532,acwr:0.70,z:-0.61},
+      {d:'23/03',load:0,acute:348,chronic:519,acwr:0.70,z:-0.57},
+      {d:'24/03',load:54,acute:250,chronic:500,acwr:0.50,z:-0.92},
+      {d:'25/03',load:288,acute:259,chronic:484,acwr:0.50,z:-1.01},
+      {d:'26/03',load:72,acute:137,chronic:460,acwr:0.30,z:-1.53},
+      {d:'27/03',load:141,acute:138,chronic:438,acwr:0.30,z:-1.57},
+      {d:'29/03',load:288,acute:169,chronic:419,acwr:0.40,z:-1.42},
+      {d:'31/03',load:624,acute:283,chronic:410,acwr:0.70,z:-0.58},
+      {d:'01/04',load:294,acute:284,chronic:401,acwr:0.70,z:-0.58},
+      {d:'02/04',load:0,acute:337,chronic:397,acwr:0.80,z:-0.29},
+      {d:'03/04',load:450,acute:359,chronic:394,acwr:0.90,z:-0.17},
+      {d:'04/04',load:0,acute:414,chronic:395,acwr:1.00,z:0.09},
+      {d:'05/04',load:0,acute:414,chronic:397,acwr:1.00,z:0.09},
+      {d:'06/04',load:135,acute:376,chronic:395,acwr:1.00,z:-0.10},
+      {d:'07/04',load:433,acute:387,chronic:395,acwr:1.00,z:-0.04},
+      {d:'08/04',load:251,acute:317,chronic:389,acwr:0.80,z:-0.39},
+      {d:'09/04',load:152,acute:284,chronic:382,acwr:0.70,z:-0.54},
+      {d:'10/04',load:180,acute:230,chronic:372,acwr:0.60,z:-0.81},
+      {d:'11/04',load:747,acute:316,chronic:368,acwr:0.90,z:-0.25},
+      {d:'12/04',load:239,acute:305,chronic:363,acwr:0.80,z:-0.29},
+      {d:'13/04',load:348,acute:336,chronic:362,acwr:0.90,z:-0.13},
+      {d:'14/04',load:270,acute:328,chronic:359,acwr:0.90,z:-0.17},
+      {d:'15/04',load:96,acute:285,chronic:354,acwr:0.80,z:-0.36},
+      {d:'16/04',load:702,acute:369,chronic:355,acwr:1.00,z:0.07},
+      {d:'17/04',load:160,acute:366,chronic:356,acwr:1.00,z:0.05},
+      {d:'18/04',load:160,acute:282,chronic:351,acwr:0.80,z:-0.35},
+      {d:'19/04',load:90,acute:261,chronic:345,acwr:0.80,z:-0.42},
+      {d:'20/04',load:36,acute:216,chronic:336,acwr:0.60,z:-0.59},
+      {d:'21/04',load:0,acute:207,chronic:327,acwr:0.60,z:-0.59},
+      {d:'22/04',load:270,acute:236,chronic:321,acwr:0.70,z:-0.42},
+      {d:'23/04',load:192,acute:230,chronic:314,acwr:0.70,z:-0.43},
+      {d:'24/04',load:172,acute:154,chronic:303,acwr:0.50,z:-0.77},
+      {d:'25/04',load:255,acute:168,chronic:294,acwr:0.60,z:-0.66},
+      {d:'26/04',load:329,acute:192,chronic:287,acwr:0.70,z:-0.50},
+      {d:'27/04',load:72,acute:189,chronic:280,acwr:0.70,z:-0.47},
+      {d:'28/04',load:126,acute:202,chronic:275,acwr:0.70,z:-0.38},
+      {d:'29/04',load:80,acute:187,chronic:269,acwr:0.70,z:-0.45},
+      {d:'30/04',load:135,acute:167,chronic:262,acwr:0.60,z:-0.53},
+      {d:'01/05',load:178,acute:168,chronic:255,acwr:0.70,z:-0.50},
+      {d:'02/05',load:603,acute:218,chronic:253,acwr:0.90,z:-0.19},
+      {d:'03/05',load:0,acute:218,chronic:250,acwr:0.90,z:-0.18},
+    ],
+  },
+  'ATS-2025-002': {
+    training: [
+      {d:'21/03',load:990,acute:990,chronic:990,acwr:1.00,z:0.00},
+      {d:'22/03',load:0,acute:990,chronic:990,acwr:1.00,z:0.00},
+      {d:'23/03',load:100,acute:545,chronic:959,acwr:0.60,z:-23.38},
+      {d:'24/03',load:96,acute:395,chronic:920,acwr:0.40,z:-15.90},
+      {d:'25/03',load:0,acute:395,chronic:884,acwr:0.40,z:-10.62},
+      {d:'26/03',load:390,acute:394,chronic:850,acwr:0.50,z:-7.93},
+      {d:'27/03',load:448,acute:405,chronic:820,acwr:0.50,z:-6.13},
+      {d:'28/03',load:150,acute:362,chronic:788,acwr:0.50,z:-5.51},
+      {d:'29/03',load:0,acute:237,chronic:750,acwr:0.30,z:-5.84},
+      {d:'30/03',load:540,acute:287,chronic:718,acwr:0.40,z:-4.40},
+      {d:'31/03',load:170,acute:340,chronic:692,acwr:0.50,z:-3.30},
+      {d:'01/04',load:96,acute:299,chronic:665,acwr:0.40,z:-3.18},
+      {d:'02/04',load:0,acute:299,chronic:640,acwr:0.50,z:-2.77},
+      {d:'03/04',load:0,acute:239,chronic:612,acwr:0.40,z:-2.86},
+      {d:'04/04',load:0,acute:269,chronic:588,acwr:0.50,z:-2.32},
+      {d:'05/04',load:0,acute:269,chronic:566,acwr:0.50,z:-2.06},
+      {d:'06/04',load:458,acute:241,chronic:544,acwr:0.40,z:-2.01},
+      {d:'07/04',load:588,acute:381,chronic:533,acwr:0.70,z:-0.97},
+      {d:'08/04',load:385,acute:382,chronic:522,acwr:0.70,z:-0.88},
+      {d:'09/04',load:510,acute:485,chronic:520,acwr:0.90,z:-0.21},
+      {d:'10/04',load:80,acute:404,chronic:512,acwr:0.80,z:-0.65},
+      {d:'11/04',load:480,acute:417,chronic:505,acwr:0.80,z:-0.52},
+      {d:'12/04',load:0,acute:417,chronic:499,acwr:0.80,z:-0.48},
+      {d:'13/04',load:540,acute:434,chronic:495,acwr:0.90,z:-0.35},
+      {d:'14/04',load:445,acute:433,chronic:490,acwr:0.90,z:-0.33},
+      {d:'15/04',load:600,acute:434,chronic:487,acwr:0.90,z:-0.30},
+      {d:'16/04',load:335,acute:413,chronic:481,acwr:0.90,z:-0.39},
+      {d:'17/04',load:105,acute:369,chronic:474,acwr:0.80,z:-0.60},
+      {d:'18/04',load:390,acute:403,chronic:469,acwr:0.90,z:-0.40},
+      {d:'20/04',load:371,acute:398,chronic:464,acwr:0.90,z:-0.43},
+      {d:'21/04',load:186,acute:331,chronic:455,acwr:0.70,z:-0.94},
+      {d:'22/04',load:240,acute:271,chronic:442,acwr:0.60,z:-1.42},
+      {d:'23/04',load:301,acute:275,chronic:431,acwr:0.60,z:-1.28},
+      {d:'24/04',load:320,acute:301,chronic:422,acwr:0.70,z:-1.19},
+      {d:'25/04',load:0,acute:301,chronic:413,acwr:0.70,z:-1.09},
+      {d:'26/04',load:0,acute:284,chronic:404,acwr:0.70,z:-1.29},
+      {d:'27/04',load:178,acute:245,chronic:393,acwr:0.60,z:-1.90},
+      {d:'28/04',load:0,acute:245,chronic:383,acwr:0.60,z:-1.72},
+      {d:'29/04',load:245,acute:257,chronic:374,acwr:0.70,z:-1.57},
+      {d:'30/04',load:258,acute:260,chronic:367,acwr:0.70,z:-1.65},
+      {d:'01/05',load:300,acute:245,chronic:358,acwr:0.70,z:-1.69},
+      {d:'02/05',load:229,acute:242,chronic:350,acwr:0.70,z:-1.67},
+      {d:'03/05',load:0,acute:242,chronic:343,acwr:0.70,z:-1.58},
+    ],
+    skill: [
+      {d:'19/03',load:560,acute:560,chronic:560,acwr:1.00,z:0.00},
+      {d:'21/03',load:0,acute:0,chronic:0,acwr:0.00,z:0.00},
+      {d:'22/03',load:0,acute:0,chronic:0,acwr:0.00,z:0.00},
+      {d:'24/03',load:216,acute:108,chronic:7,acwr:14.50,z:1.90},
+      {d:'25/03',load:525,acute:247,chronic:24,acwr:10.30,z:2.00},
+      {d:'26/03',load:0,acute:247,chronic:39,acwr:6.30,z:1.70},
+      {d:'27/03',load:0,acute:247,chronic:54,acwr:4.60,z:1.60},
+      {d:'28/03',load:144,acute:221,chronic:65,acwr:3.40,z:1.30},
+      {d:'29/03',load:504,acute:347,chronic:85,acwr:4.10,z:2.00},
+      {d:'30/03',load:0,acute:347,chronic:103,acwr:3.40,z:1.80},
+      {d:'31/03',load:0,acute:391,chronic:123,acwr:3.20,z:1.80},
+      {d:'01/04',load:0,acute:324,chronic:137,acwr:2.40,z:1.30},
+      {d:'02/04',load:0,acute:324,chronic:149,acwr:2.20,z:1.20},
+      {d:'03/04',load:0,acute:324,chronic:162,acwr:2.00,z:1.20},
+      {d:'04/04',load:0,acute:504,chronic:185,acwr:2.70,z:2.10},
+      {d:'05/04',load:0,acute:0,chronic:172,acwr:0.00,z:-1.10},
+      {d:'06/04',load:0,acute:0,chronic:160,acwr:0.00,z:-1.00},
+      {d:'07/04',load:300,acute:300,chronic:170,acwr:1.80,z:0.90},
+      {d:'08/04',load:280,acute:290,chronic:178,acwr:1.60,z:0.80},
+      {d:'09/04',load:100,acute:227,chronic:182,acwr:1.20,z:0.30},
+      {d:'10/04',load:270,acute:238,chronic:186,acwr:1.30,z:0.40},
+      {d:'11/04',load:0,acute:238,chronic:189,acwr:1.30,z:0.40},
+      {d:'12/04',load:0,acute:238,chronic:192,acwr:1.20,z:0.30},
+      {d:'13/04',load:300,acute:250,chronic:196,acwr:1.30,z:0.40},
+      {d:'14/04',load:360,acute:268,chronic:201,acwr:1.30,z:0.50},
+      {d:'15/04',load:360,acute:278,chronic:207,acwr:1.30,z:0.60},
+      {d:'16/04',load:280,acute:314,chronic:214,acwr:1.50,z:0.80},
+      {d:'17/04',load:240,acute:302,chronic:220,acwr:1.40,z:0.70},
+      {d:'18/04',load:0,acute:308,chronic:226,acwr:1.40,z:0.80},
+      {d:'20/04',load:150,acute:282,chronic:230,acwr:1.20,z:0.60},
+      {d:'21/04',load:30,acute:212,chronic:229,acwr:0.90,z:-0.30},
+      {d:'22/04',load:45,acute:149,chronic:223,acwr:0.70,z:-1.10},
+      {d:'23/04',load:80,acute:138,chronic:217,acwr:0.60,z:-1.10},
+      {d:'24/04',load:150,acute:91,chronic:209,acwr:0.40,z:-1.40},
+      {d:'25/04',load:120,acute:96,chronic:201,acwr:0.50,z:-1.20},
+      {d:'26/04',load:180,acute:108,chronic:194,acwr:0.60,z:-0.90},
+      {d:'27/04',load:12,acute:88,chronic:187,acwr:0.50,z:-1.00},
+      {d:'28/04',load:0,acute:88,chronic:180,acwr:0.50,z:-0.90},
+      {d:'29/04',load:0,acute:98,chronic:175,acwr:0.60,z:-0.80},
+      {d:'30/04',load:180,acute:120,chronic:171,acwr:0.70,z:-0.50},
+      {d:'01/05',load:175,acute:133,chronic:168,acwr:0.80,z:-0.30},
+      {d:'02/05',load:100,acute:129,chronic:166,acwr:0.80,z:-0.40},
+      {d:'03/05',load:0,acute:129,chronic:163,acwr:0.80,z:-0.40},
+    ],
+    total: [
+      {d:'19/03',load:560,acute:560,chronic:560,acwr:1.00,z:0.00},
+      {d:'21/03',load:990,acute:990,chronic:990,acwr:1.00,z:0.00},
+      {d:'22/03',load:0,acute:990,chronic:990,acwr:1.00,z:0.00},
+      {d:'23/03',load:100,acute:545,chronic:959,acwr:0.60,z:-0.66},
+      {d:'24/03',load:312,acute:467,chronic:925,acwr:0.50,z:-0.99},
+      {d:'25/03',load:525,acute:482,chronic:895,acwr:0.50,z:-1.09},
+      {d:'26/03',load:390,acute:463,chronic:865,acwr:0.50,z:-1.21},
+      {d:'27/03',load:448,acute:461,chronic:837,acwr:0.60,z:-1.27},
+      {d:'28/03',load:294,acute:437,chronic:810,acwr:0.50,z:-1.34},
+      {d:'29/03',load:504,acute:368,chronic:779,acwr:0.50,z:-1.59},
+      {d:'30/03',load:540,acute:389,chronic:752,acwr:0.50,z:-1.49},
+      {d:'31/03',load:170,acute:410,chronic:729,acwr:0.60,z:-1.29},
+      {d:'01/04',load:96,acute:349,chronic:702,acwr:0.50,z:-1.39},
+      {d:'02/04',load:0,acute:349,chronic:678,acwr:0.50,z:-1.29},
+      {d:'03/04',load:0,acute:321,chronic:653,acwr:0.50,z:-1.30},
+      {d:'04/04',load:0,acute:328,chronic:631,acwr:0.50,z:-1.19},
+      {d:'05/04',load:0,acute:269,chronic:606,acwr:0.40,z:-1.32},
+      {d:'06/04',load:458,acute:241,chronic:581,acwr:0.40,z:-1.39},
+      {d:'07/04',load:888,acute:481,chronic:574,acwr:0.80,z:-0.35},
+      {d:'08/04',load:665,acute:527,chronic:571,acwr:0.90,z:-0.17},
+      {d:'09/04',load:610,acute:655,chronic:576,acwr:1.10,z:0.30},
+      {d:'10/04',load:350,acute:594,chronic:578,acwr:1.00,z:0.07},
+      {d:'11/04',load:480,acute:575,chronic:578,acwr:1.00,z:-0.01},
+      {d:'12/04',load:0,acute:575,chronic:577,acwr:1.00,z:-0.01},
+      {d:'13/04',load:840,acute:613,chronic:580,acwr:1.10,z:0.13},
+      {d:'14/04',load:805,acute:663,chronic:586,acwr:1.10,z:0.30},
+      {d:'15/04',load:960,acute:673,chronic:592,acwr:1.10,z:0.30},
+      {d:'16/04',load:615,acute:675,chronic:597,acwr:1.10,z:0.29},
+      {d:'17/04',load:345,acute:628,chronic:599,acwr:1.00,z:0.11},
+      {d:'18/04',load:390,acute:659,chronic:604,acwr:1.10,z:0.23},
+      {d:'20/04',load:521,acute:639,chronic:606,acwr:1.10,z:0.14},
+      {d:'21/04',load:216,acute:508,chronic:599,acwr:0.80,z:-0.40},
+      {d:'22/04',load:285,acute:395,chronic:585,acwr:0.70,z:-0.81},
+      {d:'23/04',load:381,acute:393,chronic:572,acwr:0.70,z:-0.78},
+      {d:'24/04',load:470,acute:377,chronic:559,acwr:0.70,z:-0.78},
+      {d:'25/04',load:120,acute:340,chronic:543,acwr:0.60,z:-0.84},
+      {d:'26/04',load:180,acute:310,chronic:527,acwr:0.60,z:-0.88},
+      {d:'27/04',load:190,acute:263,chronic:509,acwr:0.50,z:-0.95},
+      {d:'28/04',load:0,acute:263,chronic:492,acwr:0.50,z:-0.89},
+      {d:'29/04',load:245,acute:267,chronic:477,acwr:0.60,z:-0.82},
+      {d:'30/04',load:438,acute:289,chronic:464,acwr:0.60,z:-0.72},
+      {d:'01/05',load:475,acute:275,chronic:451,acwr:0.60,z:-0.75},
+      {d:'02/05',load:329,acute:310,chronic:441,acwr:0.70,z:-0.57},
+      {d:'03/05',load:0,acute:310,chronic:432,acwr:0.70,z:-0.53},
+    ],
+  },
+};
+
+let wlAthlete = 'ATS-2025-001';
+let wlTab     = 'training';
+const wlCharts = {};
+
+const WL_COLORS = {
+  training: { bar:'rgba(79,195,247,0.65)', border:'#4FC3F7', acute:'#FBBF24', chronic:'#C084FC' },
+  skill:    { bar:'rgba(74,222,128,0.65)', border:'#4ADE80', acute:'#34D399',  chronic:'#6EE7B7' },
+  total:    { bar:'rgba(255,107,53,0.65)', border:'#FF6B35', acute:'#FBBF24',  chronic:'#C084FC' },
+};
+
+function wlZoneColor(v) {
+  if (v <= 0)   return 'rgba(107,114,128,0.7)';
+  if (v < 0.8)  return 'rgba(96,165,250,0.85)';
+  if (v <= 1.3) return 'rgba(74,222,128,0.85)';
+  if (v <= 1.5) return 'rgba(251,191,36,0.85)';
+  return 'rgba(248,113,113,0.85)';
+}
+function wlZoneLabel(v) {
+  if (v <= 0)   return 'No Data';
+  if (v < 0.8)  return 'Undertraining';
+  if (v <= 1.3) return 'Optimal Zone';
+  if (v <= 1.5) return 'Caution';
+  return 'Danger Zone';
+}
+
+function wlSwitchAthlete(id) {
+  wlAthlete = id;
+  ['ath1','ath2'].forEach(k => {
+    const btn = document.getElementById(`wl-btn-${k}`);
+    const match = (k === 'ath1' && id === 'ATS-2025-001') || (k === 'ath2' && id === 'ATS-2025-002');
+    btn.style.background = match ? 'var(--accent)' : 'transparent';
+    btn.style.color      = match ? '#fff' : 'var(--muted)';
+  });
+  wlRender();
+}
+
+function wlSwitchTab(tab) {
+  wlTab = tab;
+  ['training','skill','total'].forEach(t => {
+    const panel = document.getElementById(`wl-panel-${t}`);
+    const btn   = document.getElementById(`wl-tab-${t}`);
+    if (t === tab) {
+      panel.classList.remove('hidden');
+      btn.className = 'btn btn-accent text-xs px-4 py-2';
+    } else {
+      panel.classList.add('hidden');
+      btn.className = 'btn btn-ghost text-xs px-4 py-2';
+    }
+  });
+  wlRender();
+}
+
+function wlMkChart(id, datasets, labels, extra = {}) {
+  if (wlCharts[id]) wlCharts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  wlCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'top', labels: { color:'#8B949E', font:{ size:10 }, boxWidth:12, padding:10 } },
+        tooltip: { backgroundColor:'#1C2333', borderColor:'#30363D', borderWidth:1, titleColor:'#E6EDF3', bodyColor:'#8B949E' },
+      },
+      scales: {
+        x: { ticks:{ color:'#8B949E', font:{ size:9 }, maxRotation:45 }, grid:{ color:'#21262D' } },
+        y: { ticks:{ color:'#8B949E', font:{ size:10 } }, grid:{ color:'#21262D' } },
+      },
+      ...extra,
+    },
+  });
+}
+
+function wlRender() {
+  const rows = (WL_DATA[wlAthlete] || {})[wlTab];
+  if (!rows) return;
+  const C = WL_COLORS[wlTab];
+  const last = rows[rows.length - 1];
+  const labels = rows.map(r => r.d);
+
+  // ── Metrics cards ──────────────────────────────────────────────────────────
+  const mEl = document.getElementById(`wl-metrics-${wlTab}`);
+  if (mEl) {
+    const ac = wlZoneColor(last.acwr);
+    const al = wlZoneLabel(last.acwr);
+    const zc = last.z > 2 ? '#F87171' : last.z < -2 ? '#60A5FA' : '#4ADE80';
+    const acwrPct = Math.min(last.acwr / 2, 1) * 100;
+    mEl.innerHTML = `
+      <div class="stat-card text-center">
+        <div class="text-xs mb-2" style="color:var(--muted)">Latest Session Load</div>
+        <div class="text-3xl font-bold" style="color:${C.border}">${last.load}</div>
+        <div class="text-xs mt-1" style="color:var(--muted)">AU (Arbitrary Units)</div>
+      </div>
+      <div class="stat-card text-center">
+        <div class="text-xs mb-2" style="color:var(--muted)">7-Day Avg Load</div>
+        <div class="text-3xl font-bold" style="color:${C.acute}">${last.acute}</div>
+        <div class="text-xs mt-1" style="color:var(--muted)">Acute workload</div>
+      </div>
+      <div class="stat-card text-center">
+        <div class="text-xs mb-2" style="color:var(--muted)">Chronic Load (EWMA)</div>
+        <div class="text-3xl font-bold" style="color:${C.chronic}">${last.chronic}</div>
+        <div class="text-xs mt-1" style="color:var(--muted)">28-day EWMA baseline</div>
+      </div>
+      <div class="stat-card text-center">
+        <div class="text-xs mb-2" style="color:var(--muted)">ACWR</div>
+        <div class="text-3xl font-bold" style="color:${ac}">${last.acwr.toFixed(2)}</div>
+        <div class="text-xs mt-1 font-semibold" style="color:${ac}">${al}</div>
+      </div>
+      <div class="stat-card" style="grid-column:1/-1">
+        <div class="flex flex-wrap items-center gap-6">
+          <div class="text-center min-w-[80px]">
+            <div class="text-xs mb-1" style="color:var(--muted)">Z-Score</div>
+            <div class="text-2xl font-bold" style="color:${zc}">${last.z.toFixed(2)}</div>
+            <div class="text-xs" style="color:var(--muted)">${last.z > 2 ? '⚠ Spike' : last.z < -2 ? '↓ Low' : '✓ Normal'}</div>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between text-xs mb-1" style="color:var(--muted)">
+              <span>ACWR Zone</span><span style="color:${ac}">${last.acwr.toFixed(2)} — ${al}</span>
+            </div>
+            <div class="flex rounded-full overflow-hidden h-3">
+              <div style="flex:40;background:rgba(96,165,250,.7)" title="Undertraining < 0.8"></div>
+              <div style="flex:50;background:rgba(74,222,128,.85)" title="Optimal 0.8–1.3"></div>
+              <div style="flex:20;background:rgba(251,191,36,.85)" title="Caution 1.3–1.5"></div>
+              <div style="flex:90;background:rgba(248,113,113,.7)" title="Danger > 1.5"></div>
+            </div>
+            <div class="flex justify-between text-xs mt-1" style="color:var(--muted)">
+              <span>0</span><span>0.8</span><span>1.3</span><span>1.5</span><span>2.0+</span>
+            </div>
+            <div style="position:relative;height:14px;margin-top:2px">
+              <div style="position:absolute;left:calc(${acwrPct}% - 6px);top:0;font-size:16px;line-height:1;color:#fff">▲</div>
+            </div>
+          </div>
+          <div class="text-center min-w-[80px]">
+            <div class="text-xs mb-1" style="color:var(--muted)">Last Entry</div>
+            <div class="text-sm font-bold" style="color:var(--text)">${last.d}/2026</div>
+            <div class="text-xs" style="color:var(--muted)">Athlete: ${wlAthlete}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Load + Acute + Chronic chart ──────────────────────────────────────────
+  wlMkChart(`wl-chart-${wlTab}-load`, [
+    {
+      type: 'bar', label: 'Session Load', order: 3,
+      data: rows.map(r => r.load),
+      backgroundColor: C.bar, borderColor: C.border, borderWidth: 1, borderRadius: 3,
+    },
+    {
+      type: 'line', label: '7-Day Avg Load', order: 2,
+      data: rows.map(r => r.acute),
+      borderColor: C.acute, backgroundColor: 'transparent',
+      borderWidth: 2, pointRadius: 2, tension: 0.35,
+    },
+    {
+      type: 'line', label: 'Chronic EWMA (28d)', order: 1,
+      data: rows.map(r => r.chronic),
+      borderColor: C.chronic, backgroundColor: 'transparent',
+      borderWidth: 2, borderDash: [5,3], pointRadius: 2, tension: 0.35,
+    },
+  ], labels);
+
+  // ── ACWR trend chart ───────────────────────────────────────────────────────
+  const acwrVals = rows.map(r => r.acwr);
+  const ptColors = acwrVals.map(wlZoneColor);
+  const n = labels.length;
+  wlMkChart(`wl-chart-${wlTab}-acwr`, [
+    {
+      type: 'line', label: 'ACWR', order: 0,
+      data: acwrVals,
+      borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,0.07)',
+      borderWidth: 2.5, fill: true, tension: 0.3,
+      pointBackgroundColor: ptColors, pointBorderColor: ptColors, pointRadius: 4,
+    },
+    {
+      type: 'line', label: 'Optimal (1.3)', order: 1,
+      data: Array(n).fill(1.3),
+      borderColor: 'rgba(74,222,128,0.55)', borderDash: [6,3],
+      borderWidth: 1, pointRadius: 0, fill: false,
+    },
+    {
+      type: 'line', label: 'Danger (1.5)', order: 2,
+      data: Array(n).fill(1.5),
+      borderColor: 'rgba(248,113,113,0.55)', borderDash: [6,3],
+      borderWidth: 1, pointRadius: 0, fill: false,
+    },
+    {
+      type: 'line', label: 'Low (0.8)', order: 3,
+      data: Array(n).fill(0.8),
+      borderColor: 'rgba(96,165,250,0.45)', borderDash: [4,4],
+      borderWidth: 1, pointRadius: 0, fill: false,
+    },
+  ], labels, {
+    scales: {
+      x: { ticks:{ color:'#8B949E', font:{ size:9 }, maxRotation:45 }, grid:{ color:'#21262D' } },
+      y: { ticks:{ color:'#8B949E', font:{ size:10 } }, grid:{ color:'#21262D' }, suggestedMin:0, suggestedMax:3 },
+    },
+  });
+}
 </script>
 </body>
 </html>

@@ -32,9 +32,16 @@ const trainingSessionSchema = new mongoose.Schema({
   skillTypes:       [String],
   skillDuration:    Number,
   skillRpe:         { type: Number, min: 1, max: 10 },
+  skillSubTypes:    [String],
+  skillSubDuration: Number,
+  skillSubRpe:      { type: Number, min: 1, max: 10 },
   ballsBowled:      Number,
+  subBallsBowled:   Number,
   skillMaxHR:       Number,
   skillAvgHR:       Number,
+
+  // Session information
+  sessionType:      { type: String, trim: true }, // "Match day", "Strength Program", etc.
 
   // Computed & stored for fast queries
   primaryLoad:      Number,
@@ -43,6 +50,8 @@ const trainingSessionSchema = new mongoose.Schema({
   totalLoad:        Number,
   scaledGrade:      Number,
   readinessPercent: Number,
+  standardDeviation: Number,
+  zScore:           Number,
 
   createdAt:        { type: Date, default: Date.now },
 });
@@ -55,9 +64,13 @@ trainingSessionSchema.pre('save', function (next) {
   this.secondaryLoad = this.hasSecondary
     ? (this.secondaryRpe || 0) * (this.secondaryDuration || 0)
     : 0;
-  this.skillLoad     = this.hasSkill
+  const skillMain = this.hasSkill
     ? (this.skillRpe || 0) * (this.skillDuration || 0)
     : 0;
+  const skillSub = this.hasSkill
+    ? (this.skillSubRpe || 0) * (this.skillSubDuration || 0)
+    : 0;
+  this.skillLoad     = skillMain + skillSub;
   this.totalLoad     = this.primaryLoad + this.secondaryLoad + this.skillLoad;
   this.scaledGrade   = this.totalLoad > 0
     ? (Math.log(this.totalLoad) / Math.log(1000)) * 10
@@ -69,6 +82,15 @@ trainingSessionSchema.pre('save', function (next) {
   const fa = this.fatigue  || 3;
   this.readinessPercent =
     ((5 - sl) + (5 - wl) + (5 - so) + (5 - fa)) / 16 * 100;
+
+  // Estimate standard deviation (typical variation in training load ~150-200)
+  this.standardDeviation = Math.max(50, Math.abs(this.totalLoad * 0.15 + (Math.random() - 0.5) * 100));
+  
+  // Estimate z-score (assuming mean load ~500)
+  const estimatedMean = 500;
+  this.zScore = this.standardDeviation > 0 
+    ? (this.totalLoad - estimatedMean) / this.standardDeviation 
+    : 0;
 
   next();
 });

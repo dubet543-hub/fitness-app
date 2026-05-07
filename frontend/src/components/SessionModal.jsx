@@ -18,7 +18,7 @@ export default function SessionModal({ session: s, onClose }) {
           <div>
             <div className="text-base font-bold text-tp">{fmtDate(s.date)}</div>
             <div className="text-xs text-ts mt-0.5">
-              {[...(s.primaryTypes || []), ...(s.skillTypes || [])].join(' · ') || 'Training session'}
+              {s.sessionType || [...(s.primaryTypes || []), ...(s.skillTypes || [])].join(' · ') || 'Training session'}
             </div>
           </div>
           <button onClick={onClose} className="text-ts hover:text-tp transition text-2xl leading-none">&times;</button>
@@ -31,6 +31,8 @@ export default function SessionModal({ session: s, onClose }) {
             ['Grade', s.scaledGrade != null ? s.scaledGrade.toFixed(1) : '—'],
             ['Readiness', s.readinessPercent != null ? `${s.readinessPercent.toFixed(0)}%` : '—'],
             ['Duration', s.primaryDuration ? `${s.primaryDuration} min` : '—'],
+            ['Z-Score', s.zScore != null ? s.zScore.toFixed(2) : '—'],
+            ['Std Dev', s.standardDeviation != null ? s.standardDeviation.toFixed(1) : '—'],
           ].map(([l, v]) => (
             <div key={l} className="bg-card rounded-lg px-4 py-3">
               <div className="text-xs text-ts">{l}</div>
@@ -50,14 +52,30 @@ export default function SessionModal({ session: s, onClose }) {
           </div>
         </div>
 
+        {/* Secondary */}
+        {(s.secondaryTypes?.length > 0 || s.secondaryDuration != null || s.secondaryRpe != null) && (
+          <div>
+            <div className="text-xs text-ts uppercase tracking-wide mb-2">Secondary Training</div>
+            <div className="space-y-1 text-sm">
+              {s.secondaryTypes?.length > 0 && <div><span className="text-ts">Types: </span>{s.secondaryTypes.join(', ')}</div>}
+              {s.secondaryRpe != null && <div><span className="text-ts">RPE: </span>{s.secondaryRpe}</div>}
+              {s.secondaryDuration != null && <div><span className="text-ts">Duration: </span>{s.secondaryDuration} min</div>}
+              {s.secondaryLoad != null && <div><span className="text-ts">Load: </span>{s.secondaryLoad} AU</div>}
+            </div>
+          </div>
+        )}
+
         {/* Skill */}
-        {(s.skillTypes?.length > 0) && (
+        {(s.skillTypes?.length > 0 || s.skillSubTypes?.length > 0) && (
           <div>
             <div className="text-xs text-ts uppercase tracking-wide mb-2">Skill / Supplemental</div>
             <div className="space-y-1 text-sm">
-              <div><span className="text-ts">Types: </span>{s.skillTypes.join(', ')}</div>
+              {s.skillTypes?.length > 0 && <div><span className="text-ts">Types: </span>{s.skillTypes.join(', ')}</div>}
               {s.skillRpe != null      && <div><span className="text-ts">RPE: </span>{s.skillRpe}</div>}
               {s.skillDuration != null && <div><span className="text-ts">Duration: </span>{s.skillDuration} min</div>}
+              {s.skillSubTypes?.length > 0 && <div><span className="text-ts">Subordinate Types: </span>{s.skillSubTypes.join(', ')}</div>}
+              {s.skillSubRpe != null && <div><span className="text-ts">Subordinate RPE: </span>{s.skillSubRpe}</div>}
+              {s.skillSubDuration != null && <div><span className="text-ts">Subordinate Duration: </span>{s.skillSubDuration} min</div>}
             </div>
           </div>
         )}

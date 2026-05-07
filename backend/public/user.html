@@ -115,31 +115,92 @@
   </div>
 
   <!-- ── Charts panel ──────────────────────────────────────────────────────── -->
-  <div id="panel-charts" class="space-y-6">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Load bar -->
-      <div class="card rounded-xl p-5">
-        <div class="text-sm font-semibold text-white mb-4">Session Load History</div>
-        <div class="relative h-48"><canvas id="chart-load"></canvas></div>
+  <div id="panel-charts" class="space-y-8">
+
+    <!-- ─ Section 1: Training Load ──────────────────────────────────────── -->
+    <div>
+      <div class="flex items-center gap-2 mb-4">
+        <span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:#4FC3F7"></span>
+        <span class="text-sm font-bold text-white">Training Session Load</span>
+        <span class="text-xs text-[#8B949E] ml-1">Primary + Secondary</span>
       </div>
-      <!-- ACWR line -->
-      <div class="card rounded-xl p-5">
-        <div class="text-sm font-semibold text-white mb-4">ACWR Trend</div>
-        <div class="relative h-48"><canvas id="chart-acwr"></canvas></div>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4" id="metrics-training">
+        <div class="col-span-2 sm:col-span-5 text-[#8B949E] text-sm py-2">Loading…</div>
       </div>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Readiness line -->
-      <div class="card rounded-xl p-5">
-        <div class="text-sm font-semibold text-white mb-4">Readiness Trend (%)</div>
-        <div class="relative h-48"><canvas id="chart-readiness"></canvas></div>
-      </div>
-      <!-- Type doughnut -->
-      <div class="card rounded-xl p-5">
-        <div class="text-sm font-semibold text-white mb-4">Training Type Distribution</div>
-        <div class="flex items-center justify-center h-48"><canvas id="chart-types" style="max-height:180px;max-width:180px"></canvas></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card rounded-xl p-4">
+          <div class="text-xs text-[#8B949E] font-medium uppercase tracking-wide mb-3">Load &amp; EWMA</div>
+          <div class="relative h-44"><canvas id="uc-training-load"></canvas></div>
+        </div>
+        <div class="card rounded-xl p-4">
+          <div class="text-xs text-[#8B949E] font-medium uppercase tracking-wide mb-3">ACWR Trend</div>
+          <div class="relative h-44"><canvas id="uc-training-acwr"></canvas></div>
+        </div>
       </div>
     </div>
+
+    <div class="border-t border-[#21262D]"></div>
+
+    <!-- ─ Section 2: Skill Load ──────────────────────────────────────────── -->
+    <div>
+      <div class="flex items-center gap-2 mb-4">
+        <span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:#4ADE80"></span>
+        <span class="text-sm font-bold text-white">Skill Session Load</span>
+        <span class="text-xs text-[#8B949E] ml-1">Bowling · Batting · Fielding</span>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4" id="metrics-skill">
+        <div class="col-span-2 sm:col-span-5 text-[#8B949E] text-sm py-2">Loading…</div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card rounded-xl p-4">
+          <div class="text-xs text-[#8B949E] font-medium uppercase tracking-wide mb-3">Load &amp; EWMA</div>
+          <div class="relative h-44"><canvas id="uc-skill-load"></canvas></div>
+        </div>
+        <div class="card rounded-xl p-4">
+          <div class="text-xs text-[#8B949E] font-medium uppercase tracking-wide mb-3">ACWR Trend</div>
+          <div class="relative h-44"><canvas id="uc-skill-acwr"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-[#21262D]"></div>
+
+    <!-- ─ Section 3: Daily Total Load ───────────────────────────────────── -->
+    <div>
+      <div class="flex items-center gap-2 mb-4">
+        <span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:#FF6B35"></span>
+        <span class="text-sm font-bold text-white">Daily Total Load</span>
+        <span class="text-xs text-[#8B949E] ml-1">Training + Skill Combined</span>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4" id="metrics-total">
+        <div class="col-span-2 sm:col-span-5 text-[#8B949E] text-sm py-2">Loading…</div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card rounded-xl p-4">
+          <div class="text-xs text-[#8B949E] font-medium uppercase tracking-wide mb-3">Load &amp; EWMA</div>
+          <div class="relative h-44"><canvas id="uc-total-load"></canvas></div>
+        </div>
+        <div class="card rounded-xl p-4">
+          <div class="text-xs text-[#8B949E] font-medium uppercase tracking-wide mb-3">ACWR Trend</div>
+          <div class="relative h-44"><canvas id="uc-total-acwr"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-[#21262D]"></div>
+
+    <!-- ─ Readiness + Type Distribution ─────────────────────────────────── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="card rounded-xl p-4">
+        <div class="text-sm font-semibold text-white mb-3">Readiness Trend (%)</div>
+        <div class="relative h-44"><canvas id="chart-readiness"></canvas></div>
+      </div>
+      <div class="card rounded-xl p-4">
+        <div class="text-sm font-semibold text-white mb-3">Training Type Distribution</div>
+        <div class="flex items-center justify-center h-44"><canvas id="chart-types" style="max-height:170px;max-width:170px"></canvas></div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ── Session log panel ─────────────────────────────────────────────────── -->
@@ -186,6 +247,10 @@
     <div>
       <div class="text-xs text-[#8B949E] uppercase tracking-wide mb-2">Primary Training</div>
       <div id="modal-primary" class="space-y-2 text-sm"></div>
+    </div>
+    <div id="modal-secondary-block" class="hidden">
+      <div class="text-xs text-[#8B949E] uppercase tracking-wide mb-2">Secondary Training</div>
+      <div id="modal-secondary" class="space-y-2 text-sm"></div>
     </div>
     <div id="modal-skill-block">
       <div class="text-xs text-[#8B949E] uppercase tracking-wide mb-2">Skill / Supplemental</div>
@@ -253,26 +318,6 @@ function gradeBadge(v) {
   return `<span class="badge ${cls}">${v.toFixed(1)}</span>`;
 }
 
-// ── ACWR computation (mirrors backend EWMA) ────────────────────────────────
-function computeRollingACWR(sessions) {
-  const sorted = [...sessions].sort((a,b) => new Date(a.date) - new Date(b.date));
-  if (!sorted.length) return [];
-  const lambda = 2 / 29;
-  let ewma = sorted[0].totalLoad || 0;
-  const results = [];
-  const now = Date.now();
-  for (let i = 0; i < sorted.length; i++) {
-    if (i > 0) ewma = (sorted[i].totalLoad || 0) * lambda + ewma * (1 - lambda);
-    const cutoff = new Date(sorted[i].date); cutoff.setDate(cutoff.getDate() - 6);
-    const acute = sorted.slice(0, i + 1)
-      .filter(s => new Date(s.date) >= cutoff)
-      .reduce((s, x) => s + (x.totalLoad || 0), 0);
-    const acwr = ewma > 0 ? acute / ewma : 0;
-    results.push({ date: sorted[i].date, acwr: Math.round(acwr * 100) / 100 });
-  }
-  return results;
-}
-
 // ── Charts ─────────────────────────────────────────────────────────────────
 const CHART_DEFAULTS = {
   responsive: true,
@@ -290,52 +335,140 @@ function mkChart(id, type, data, opts = {}) {
   charts[id] = new Chart(ctx, { type, data, options: { ...CHART_DEFAULTS, ...opts } });
 }
 
-function buildCharts(sessions) {
+// ── Per-section ACWR / EWMA computation ────────────────────────────────────
+function computeSection(sessions, loadFn) {
   const sorted = [...sessions].sort((a,b) => new Date(a.date) - new Date(b.date));
-  const labels = sorted.map(s => fmtDate(s.date));
+  if (!sorted.length) return { rows: [], last: null };
+  const lambda = 2 / 29;
+  let ewma = loadFn(sorted[0]);
+  const loads = [];
+  const rows  = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const load = loadFn(sorted[i]);
+    if (i > 0) ewma = load * lambda + ewma * (1 - lambda);
+    const cutoff = new Date(sorted[i].date); cutoff.setDate(cutoff.getDate() - 6);
+    const win   = sorted.slice(0, i + 1).filter(s => new Date(s.date) >= cutoff);
+    const acute = win.reduce((s,x) => s + loadFn(x), 0) / win.length;
+    const acwr  = ewma > 0 ? acute / ewma : 0;
+    loads.push(load);
+    const mean = loads.reduce((s,x) => s+x, 0) / loads.length;
+    const sd   = Math.sqrt(loads.reduce((s,x) => s + (x-mean)**2, 0) / loads.length);
+    const z    = sd > 0 ? (load - mean) / sd : 0;
+    rows.push({
+      date: sorted[i].date,
+      load:    Math.round(load),
+      acute:   Math.round(acute),
+      chronic: Math.round(ewma),
+      acwr:    Math.round(acwr * 100) / 100,
+      z:       Math.round(z    * 100) / 100,
+    });
+  }
+  return { rows, last: rows[rows.length - 1] };
+}
 
-  // Load bar
-  mkChart('chart-load', 'bar', {
-    labels,
-    datasets: [{ data: sorted.map(s => s.totalLoad || 0), backgroundColor: '#FF6B35', borderRadius: 4, borderSkipped: false }],
-  }, { plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: ctx => ` ${ctx.parsed.y} AU` } } } });
+// ── Render one workload section ─────────────────────────────────────────────
+function renderSection(key, result, barColor) {
+  const { rows, last } = result;
+  const metricsEl = document.getElementById(`metrics-${key}`);
+  if (!last || rows.every(r => r.load === 0)) {
+    metricsEl.innerHTML = '<div class="col-span-2 sm:col-span-5 text-[#8B949E] text-sm py-2">No data recorded yet.</div>';
+    return;
+  }
+  const acwrColor = last.acwr < 0.8 ? '#60a5fa' : last.acwr <= 1.3 ? '#4ade80' : last.acwr <= 1.5 ? '#facc15' : '#f87171';
+  const zColor    = last.z > 2 ? '#f87171' : last.z < -2 ? '#60a5fa' : '#E6EDF3';
+  metricsEl.innerHTML = [
+    ['Latest Load',  last.load    + ' AU',                                   barColor],
+    ['7-Day Avg',    last.acute   + ' AU',                                   '#E6EDF3'],
+    ['Chronic EWMA', last.chronic + ' AU',                                   '#E6EDF3'],
+    ['ACWR',         last.acwr.toFixed(2),                                   acwrColor],
+    ['Z-Score',      (last.z >= 0 ? '+' : '') + last.z.toFixed(2),          zColor],
+  ].map(([l,v,c]) => `
+    <div class="card2 rounded-xl px-4 py-3">
+      <div class="text-xs text-[#8B949E] mb-1">${l}</div>
+      <div class="text-base font-bold" style="color:${c}">${v}</div>
+    </div>
+  `).join('');
 
-  // ACWR line
-  const acwrData = computeRollingACWR(sorted);
-  mkChart('chart-acwr', 'line', {
-    labels: acwrData.map(d => fmtDate(d.date)),
-    datasets: [
-      { data: acwrData.map(d => d.acwr), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', tension: .35, pointRadius: 2, fill: true },
-      { data: Array(acwrData.length).fill(1.5), borderColor: '#f87171', borderDash: [4,4], borderWidth: 1, pointRadius: 0, fill: false },
-      { data: Array(acwrData.length).fill(0.8), borderColor: '#4ade80', borderDash: [4,4], borderWidth: 1, pointRadius: 0, fill: false },
-    ],
-  }, { plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } });
+  const labels = rows.map(r => new Date(r.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }));
 
-  // Readiness line
+  // Combo: bars (load) + solid line (7-day avg) + dashed line (chronic EWMA)
+  const loadId = `uc-${key}-load`;
+  if (charts[loadId]) charts[loadId].destroy();
+  charts[loadId] = new Chart(document.getElementById(loadId), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { type:'bar',  label:'Session Load',  data: rows.map(r=>r.load),    backgroundColor: barColor+'55', borderColor: barColor, borderWidth:1, borderRadius:3 },
+        { type:'line', label:'7-Day Avg',     data: rows.map(r=>r.acute),   borderColor: barColor, backgroundColor:'transparent', borderWidth:2, pointRadius:2, tension:.3 },
+        { type:'line', label:'Chronic EWMA',  data: rows.map(r=>r.chronic), borderColor:'#8B949E', backgroundColor:'transparent', borderWidth:1.5, borderDash:[5,4], pointRadius:0, tension:.3 },
+      ],
+    },
+    options: {
+      ...CHART_DEFAULTS,
+      plugins: { ...CHART_DEFAULTS.plugins, legend: { display:true, labels:{ color:'#8B949E', font:{size:10}, boxWidth:10, padding:10 } } },
+    },
+  });
+
+  // ACWR trend with zone-coloured points and reference lines
+  const acwrId = `uc-${key}-acwr`;
+  if (charts[acwrId]) charts[acwrId].destroy();
+  charts[acwrId] = new Chart(document.getElementById(acwrId), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label:'ACWR', data: rows.map(r=>r.acwr),
+          borderColor: barColor, backgroundColor: barColor+'22', fill:true, tension:.35, pointRadius:3,
+          pointBackgroundColor: rows.map(r => r.acwr < 0.8 ? '#60a5fa' : r.acwr <= 1.3 ? '#4ade80' : r.acwr <= 1.5 ? '#facc15' : '#f87171'),
+        },
+        { label:'Optimal', data: Array(rows.length).fill(1.3), borderColor:'#4ade80', borderDash:[4,4], borderWidth:1, pointRadius:0, fill:false },
+        { label:'Danger',  data: Array(rows.length).fill(1.5), borderColor:'#f87171', borderDash:[4,4], borderWidth:1, pointRadius:0, fill:false },
+        { label:'Low',     data: Array(rows.length).fill(0.8), borderColor:'#60a5fa', borderDash:[4,4], borderWidth:1, pointRadius:0, fill:false },
+      ],
+    },
+    options: {
+      ...CHART_DEFAULTS,
+      plugins: { ...CHART_DEFAULTS.plugins, legend:{ display:false } },
+      scales: { ...CHART_DEFAULTS.scales, y:{ ...CHART_DEFAULTS.scales.y, suggestedMin:0, suggestedMax:2.5 } },
+    },
+  });
+}
+
+function buildCharts(sessions) {
+  renderSection('training', computeSection(sessions, s => (s.primaryLoad||0) + (s.secondaryLoad||0)), '#4FC3F7');
+  renderSection('skill',    computeSection(sessions, s => s.skillLoad||0),                            '#4ADE80');
+  renderSection('total',    computeSection(sessions, s => s.totalLoad||0),                            '#FF6B35');
+
+  // Readiness trend
+  const sorted = [...sessions].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const labels = sorted.map(s => new Date(s.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }));
   mkChart('chart-readiness', 'line', {
     labels,
-    datasets: [{ data: sorted.map(s => s.readinessPercent ?? null), borderColor: '#818CF8', backgroundColor: 'rgba(129,140,248,.1)', tension: .35, pointRadius: 2, fill: true, spanGaps: true }],
+    datasets: [{ data: sorted.map(s => s.readinessPercent ?? null), borderColor:'#818CF8', backgroundColor:'rgba(129,140,248,.1)', tension:.35, pointRadius:2, fill:true, spanGaps:true }],
   }, {});
 
   // Type doughnut
   const typeCounts = {};
   sessions.forEach(s => {
-    (s.primaryTypes || []).forEach(t => { typeCounts[t] = (typeCounts[t] || 0) + 1; });
-    (s.skillTypes   || []).forEach(t => { typeCounts[t] = (typeCounts[t] || 0) + 1; });
+    (s.primaryTypes  ||[]).forEach(t => { typeCounts[t] = (typeCounts[t]||0)+1; });
+    (s.secondaryTypes||[]).forEach(t => { typeCounts[t] = (typeCounts[t]||0)+1; });
+    (s.skillTypes    ||[]).forEach(t => { typeCounts[t] = (typeCounts[t]||0)+1; });
+    (s.skillSubTypes ||[]).forEach(t => { typeCounts[t] = (typeCounts[t]||0)+1; });
   });
   const typeKeys = Object.keys(typeCounts);
   const COLORS = ['#FF6B35','#818CF8','#34D399','#FBBF24','#60A5FA','#F472B6','#A78BFA','#6EE7B7'];
   if (charts['chart-types']) charts['chart-types'].destroy();
-  const ctx = document.getElementById('chart-types').getContext('2d');
-  charts['chart-types'] = new Chart(ctx, {
+  charts['chart-types'] = new Chart(document.getElementById('chart-types'), {
     type: 'doughnut',
     data: {
       labels: typeKeys,
-      datasets: [{ data: typeKeys.map(k => typeCounts[k]), backgroundColor: typeKeys.map((_,i) => COLORS[i % COLORS.length]), borderWidth: 0, hoverOffset: 6 }],
+      datasets: [{ data: typeKeys.map(k=>typeCounts[k]), backgroundColor: typeKeys.map((_,i)=>COLORS[i%COLORS.length]), borderWidth:0, hoverOffset:6 }],
     },
     options: {
-      responsive: true, maintainAspectRatio: true, cutout: '65%',
-      plugins: { legend: { position: 'bottom', labels: { color: '#8B949E', font: { size: 10 }, boxWidth: 10, padding: 10 } }, tooltip: { backgroundColor: '#1C2333', borderColor: '#30363D', borderWidth: 1, titleColor: '#E6EDF3', bodyColor: '#8B949E' } },
+      responsive:true, maintainAspectRatio:true, cutout:'65%',
+      plugins: { legend:{ position:'bottom', labels:{ color:'#8B949E', font:{size:10}, boxWidth:10, padding:10 } }, tooltip:{ backgroundColor:'#1C2333', borderColor:'#30363D', borderWidth:1, titleColor:'#E6EDF3', bodyColor:'#8B949E' } },
     },
   });
 }
@@ -408,6 +541,19 @@ function openModal(s) {
   if (s.primaryLoad != null)    entries.push(`<span class="text-[#8B949E]">Load:</span> ${s.primaryLoad} AU`);
   primEl.innerHTML = entries.map(e => `<div class="text-[#E6EDF3]">${e}</div>`).join('');
 
+  // Secondary
+  const secondaryBlock = document.getElementById('modal-secondary-block');
+  const secondaryEl = document.getElementById('modal-secondary');
+  const secondaryEntries = [];
+  if (s.secondaryTypes?.length)   secondaryEntries.push(`<span class="text-[#8B949E]">Types:</span> ${s.secondaryTypes.join(', ')}`);
+  if (s.secondaryRpe != null)     secondaryEntries.push(`<span class="text-[#8B949E]">RPE:</span> ${s.secondaryRpe}`);
+  if (s.secondaryDuration != null)secondaryEntries.push(`<span class="text-[#8B949E]">Duration:</span> ${s.secondaryDuration} min`);
+  if (s.secondaryLoad != null)    secondaryEntries.push(`<span class="text-[#8B949E]">Load:</span> ${s.secondaryLoad} AU`);
+  if (secondaryEntries.length) {
+    secondaryBlock.classList.remove('hidden');
+    secondaryEl.innerHTML = secondaryEntries.map(e => `<div class="text-[#E6EDF3]">${e}</div>`).join('');
+  } else { secondaryBlock.classList.add('hidden'); }
+
   // Skill
   const skillBlock = document.getElementById('modal-skill-block');
   const skillEl    = document.getElementById('modal-skills');
@@ -415,6 +561,9 @@ function openModal(s) {
   if (s.skillTypes?.length)       skillEntries.push(`<span class="text-[#8B949E]">Types:</span> ${s.skillTypes.join(', ')}`);
   if (s.skillRpe != null)         skillEntries.push(`<span class="text-[#8B949E]">RPE:</span> ${s.skillRpe}`);
   if (s.skillDuration != null)    skillEntries.push(`<span class="text-[#8B949E]">Duration:</span> ${s.skillDuration} min`);
+  if (s.skillSubTypes?.length)    skillEntries.push(`<span class="text-[#8B949E]">Subordinate Types:</span> ${s.skillSubTypes.join(', ')}`);
+  if (s.skillSubRpe != null)      skillEntries.push(`<span class="text-[#8B949E]">Subordinate RPE:</span> ${s.skillSubRpe}`);
+  if (s.skillSubDuration != null) skillEntries.push(`<span class="text-[#8B949E]">Subordinate Duration:</span> ${s.skillSubDuration} min`);
   if (skillEntries.length) {
     skillBlock.classList.remove('hidden');
     skillEl.innerHTML = skillEntries.map(e => `<div class="text-[#E6EDF3]">${e}</div>`).join('');

@@ -388,7 +388,9 @@ function AthCharts({ sessions, showTypes = false }) {
   const typeCounts = useMemo(() => {
     const c = {};
     sessions.forEach(s => {
-      [...(s.primaryTypes || []), ...(s.skillTypes || [])].forEach(t => { c[t] = (c[t] || 0) + 1; });
+      [...(s.primaryTypes || []), ...(s.secondaryTypes || []), ...(s.skillTypes || []), ...(s.skillSubTypes || [])].forEach(t => {
+        c[t] = (c[t] || 0) + 1;
+      });
     });
     return c;
   }, [sessions]);

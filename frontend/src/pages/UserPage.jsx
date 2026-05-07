@@ -31,7 +31,9 @@ export default function UserPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+  }, []);
 
   const stats = useMemo(() => computeStats(sessions), [sessions]);
   const sorted = useMemo(() => [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date)), [sessions]);
@@ -41,7 +43,9 @@ export default function UserPage() {
   const typeCounts = useMemo(() => {
     const c = {};
     sessions.forEach(s => {
-      [...(s.primaryTypes || []), ...(s.skillTypes || [])].forEach(t => { c[t] = (c[t] || 0) + 1; });
+      [...(s.primaryTypes || []), ...(s.secondaryTypes || []), ...(s.skillTypes || []), ...(s.skillSubTypes || [])].forEach(t => {
+        c[t] = (c[t] || 0) + 1;
+      });
     });
     return c;
   }, [sessions]);
