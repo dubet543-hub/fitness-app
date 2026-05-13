@@ -117,33 +117,58 @@ router.get('/athletes/:id/sessions', async (req, res) => {
   }
 });
 
-// GET /api/admin/athletes/:id/summary  — computed ACWR, acute/chronic load
+// GET /api/admin/athletes/:id/summary  — computed ACWR, acute/chronic load, z-score, targets
 router.get('/athletes/:id/summary', async (req, res) => {
   try {
     const sessions = await TrainingSession.find({ athlete: req.params.id })
       .sort({ date: 1 })
-      .select('date totalLoad readinessPercent');
+      .select('date totalLoad trainingLoad skillLoad readinessPercent scaledGrade');
 
-    if (!sessions.length) return res.json({ acuteLoad: 0, chronicLoad: 0, acwr: 0 });
+    if (!sessions.length) return res.json({
+      acuteLoad: 0, chronicLoad: 0, acwr: 0,
+      stdDev: 0, zScore: 0, targetLow: 0, targetHigh: 0,
+    });
 
     const now    = new Date();
     const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7);
-    const acuteLoad = sessions
-      .filter(s => new Date(s.date) >= cutoff)
-      .reduce((sum, s) => sum + (s.totalLoad || 0), 0);
 
+    const loads = sessions.map(s => s.totalLoad || 0);
     const lambda = 2 / 29;
-    let ewma = sessions[0].totalLoad || 0;
-    for (let i = 1; i < sessions.length; i++) {
-      ewma = (sessions[i].totalLoad || 0) * lambda + ewma * (1 - lambda);
+
+    // Per-session 7-day acute averages
+    const acuteByIdx = sessions.map((s, i) => {
+      const sessionDate = new Date(s.date);
+      const dayCutoff = new Date(sessionDate); dayCutoff.setDate(dayCutoff.getDate() - 7);
+      const sum7 = sessions.slice(0, i + 1)
+        .filter(r => new Date(r.date) > dayCutoff)
+        .reduce((acc, r) => acc + (r.totalLoad || 0), 0);
+      return sum7 / 7;
+    });
+
+    // Chronic = EWMA of acute values (not raw loads)
+    let chronic = 0;
+    for (let i = 0; i < acuteByIdx.length; i++) {
+      chronic = i === 0 ? acuteByIdx[i] : acuteByIdx[i] * lambda + chronic * (1 - lambda);
     }
-    const chronicLoad = ewma;
+    const acuteLoad  = acuteByIdx[acuteByIdx.length - 1];
+    const chronicLoad = chronic;
     const acwr        = chronicLoad > 0 ? acuteLoad / chronicLoad : 0;
 
+    // Running std dev of all loads
+    const mean  = loads.reduce((a, b) => a + b, 0) / loads.length;
+    const sigma = Math.sqrt(loads.map(l => Math.pow(l - mean, 2)).reduce((a, b) => a + b, 0) / loads.length);
+    const lastLoad = loads[loads.length - 1];
+
+    const zScore = sigma === 0 ? 0 : (lastLoad - chronicLoad) / sigma;
+
     res.json({
-      acuteLoad:    Math.round(acuteLoad),
+      acuteLoad:    Math.round(acuteLoad * 10) / 10,
       chronicLoad:  Math.round(chronicLoad * 10) / 10,
       acwr:         Math.round(acwr * 100) / 100,
+      stdDev:       Math.round(sigma * 10) / 10,
+      zScore:       Math.round(zScore * 100) / 100,
+      targetLow:    Math.round(chronicLoad * 0.8),
+      targetHigh:   Math.round(chronicLoad * 1.3),
       totalSessions: sessions.length,
       lastReadiness: sessions[sessions.length - 1]?.readinessPercent || null,
     });

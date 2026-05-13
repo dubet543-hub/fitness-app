@@ -10,6 +10,33 @@ const trainingSessionSchema = new mongoose.Schema({
   soreness:         { type: Number, min: 1, max: 5 },
   fatigue:          { type: Number, min: 1, max: 5 },
 
+  // Sleep details (always collected)
+  sleepTimeToBed:   { type: String }, // "HH:MM" 24h format
+  sleepWakeUpTime:  { type: String }, // "HH:MM" 24h format
+  sleepDisturbances:       { type: Boolean, default: false },
+  sleepDisturbanceDetails: { type: String },
+  sleepRoomTemp:    { type: String },
+  sleepRoomNoise:   { type: String },
+  sleepRoomLight:   { type: String },
+  sleepDuration:    { type: Number }, // hours, computed from bed/wake times
+
+  // Mood questions (collected when wellness >= 3 OR fatigue >= 3)
+  // motivation: very_low | low | moderate | high | very_high
+  moodMotivation:   { type: String },
+  // appetite: no_change | decreased | increased
+  moodAppetite:     { type: String },
+  // external factors: academic | family | relationship | financial | injury | coach_team | none
+  moodExternalFactors: [String],
+  // psychologist: yes_urgent | yes_this_week | maybe | no
+  moodNeedsPsychologist: { type: String },
+
+  // Fatigue questions (collected when wellness >= 3 OR fatigue >= 3)
+  // symptoms: heavy_legs | headache | loss_of_appetite | increased_hr | slow_recovery | frequent_illness | joint_pain | none
+  fatigueSymptoms:  [String],
+  // performance: significant | slight | stable | improved
+  fatiguePerformanceDecrease: { type: String },
+  fatiguePerformanceDescription: { type: String },
+
   // Primary session
   primaryTypes:     [String],
   primaryDuration:  Number,
@@ -59,7 +86,18 @@ const trainingSessionSchema = new mongoose.Schema({
 trainingSessionSchema.index({ athlete: 1, date: -1 });
 trainingSessionSchema.index({ date: -1 });
 
+function parseSleepDuration(bedTime, wakeTime) {
+  if (!bedTime || !wakeTime) return undefined;
+  const [bh, bm] = bedTime.split(':').map(Number);
+  const [wh, wm] = wakeTime.split(':').map(Number);
+  if (isNaN(bh) || isNaN(bm) || isNaN(wh) || isNaN(wm)) return undefined;
+  let diffMins = (wh * 60 + wm) - (bh * 60 + bm);
+  if (diffMins < 0) diffMins += 24 * 60; // midnight crossing
+  return Math.round((diffMins / 60) * 100) / 100;
+}
+
 trainingSessionSchema.pre('save', function (next) {
+  this.sleepDuration = parseSleepDuration(this.sleepTimeToBed, this.sleepWakeUpTime);
   this.primaryLoad   = (this.primaryRpe || 0) * (this.primaryDuration || 0);
   this.secondaryLoad = this.hasSecondary
     ? (this.secondaryRpe || 0) * (this.secondaryDuration || 0)
@@ -83,14 +121,9 @@ trainingSessionSchema.pre('save', function (next) {
   this.readinessPercent =
     ((5 - sl) + (5 - wl) + (5 - so) + (5 - fa)) / 16 * 100;
 
-  // Estimate standard deviation (typical variation in training load ~150-200)
-  this.standardDeviation = Math.max(50, Math.abs(this.totalLoad * 0.15 + (Math.random() - 0.5) * 100));
-  
-  // Estimate z-score (assuming mean load ~500)
-  const estimatedMean = 500;
-  this.zScore = this.standardDeviation > 0 
-    ? (this.totalLoad - estimatedMean) / this.standardDeviation 
-    : 0;
+  // Z-Score and stdDev require historical context; computed in summary endpoint, not per-session
+  this.standardDeviation = 0;
+  this.zScore = 0;
 
   next();
 });

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/notification_service.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -8,6 +10,8 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
+  bool _morningReminder = true;
+  bool _eveningReminder = true;
   bool sessionReminders = true;
   bool goalAchieved = true;
   bool weeklySummary = false;
@@ -15,6 +19,34 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool teamUpdates = false;
   bool pushNotifications = true;
   bool emailDigest = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _morningReminder = prefs.getBool('notif_morning') ?? true;
+      _eveningReminder = prefs.getBool('notif_evening') ?? true;
+    });
+  }
+
+  Future<void> _setMorning(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notif_morning', v);
+    await NotificationService.scheduleMorning(enabled: v);
+    setState(() => _morningReminder = v);
+  }
+
+  Future<void> _setEvening(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notif_evening', v);
+    await NotificationService.scheduleEvening(enabled: v);
+    setState(() => _eveningReminder = v);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +58,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
       body: ListView(
         padding: const EdgeInsets.only(top: 8, bottom: 24),
         children: [
+          _SectionLabel('Wellness Reminders'),
+          _ToggleGroup(items: [
+            _ToggleItem(
+              title: 'Morning check-in',
+              subtitle: '7:00 AM · Log Sleep, Readiness, Soreness & Fatigue',
+              value: _morningReminder,
+              onChanged: _setMorning,
+            ),
+            _ToggleItem(
+              title: 'Evening reminder',
+              subtitle: "8:00 PM · Remind me to log today's wellness data",
+              value: _eveningReminder,
+              onChanged: _setEvening,
+            ),
+          ]),
           _SectionLabel('Activity'),
           _ToggleGroup(items: [
             _ToggleItem(title: 'Session reminders', subtitle: 'Daily workout reminders',

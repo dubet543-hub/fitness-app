@@ -6,6 +6,7 @@ import '../training_load_screen.dart';
 import '../running_analysis_screen.dart';
 import '../bowling_analysis_screen.dart';
 import 'workload_monitor_screen.dart';
+import 'wellness_log_screen.dart';
 
 class HomeTab extends StatelessWidget {
   final String  name;
@@ -212,6 +213,14 @@ class HomeTab extends StatelessWidget {
                   gradientColors: const [Color(0xFF3A1200), Color(0xFF210A00)],
                   onTap: () => Navigator.push(context, _route(const WorkloadMonitorScreen())),
                 ),
+                _FeatureCard(
+                  icon: Icons.health_and_safety_rounded,
+                  title: 'Wellness\nLog',
+                  subtitle: 'Sleep · Mood · Fatigue',
+                  accentColor: const Color(0xFF818CF8),
+                  gradientColors: const [Color(0xFF1E1B4B), Color(0xFF0F0D2E)],
+                  onTap: () => Navigator.push(context, _route(const WellnessLogScreen())),
+                ),
               ]),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -219,6 +228,7 @@ class HomeTab extends StatelessWidget {
                 mainAxisSpacing: 12,
                 childAspectRatio: 0.88,
               ),
+
             ),
           ),
 

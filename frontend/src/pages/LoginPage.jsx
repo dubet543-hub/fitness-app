@@ -1,21 +1,20 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, setSession, getUser } from '../api';
 
 export default function LoginPage() {
   const nav = useNavigate();
-
-  // Already logged in
-  const user = getUser();
-  if (user) {
-    nav(user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
-    return null;
-  }
-
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+
+  useEffect(() => {
+    const user = getUser();
+    if (user) {
+      nav(user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
+    }
+  }, [nav]);
 
   async function handleSubmit(e) {
     e.preventDefault();

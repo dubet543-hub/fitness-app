@@ -200,6 +200,22 @@ class ApiService {
     return list.cast<Map<String, dynamic>>();
   }
 
+  /// GET /api/auth/me — verify token is still valid; returns null on 401/error.
+  static Future<ApiUser?> verifyToken() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/auth/me'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        return ApiUser.fromJson(_body(res));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// DELETE /api/sessions/:id
   static Future<void> deleteSession(String id) async {
     final res = await http.delete(

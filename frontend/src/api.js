@@ -3,7 +3,14 @@ const BASE = '/api';
 export const getToken = () => localStorage.getItem('sc_token');
 export const getUser  = () => {
   const raw = localStorage.getItem('sc_user');
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem('sc_user');
+    localStorage.removeItem('sc_token');
+    return null;
+  }
 };
 export const setSession = (token, user) => {
   localStorage.setItem('sc_token', token);
@@ -23,8 +30,18 @@ async function req(method, path, body) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`Server returned ${res.status} instead of JSON. Check that the backend is running.`);
+    }
+  }
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed with status ${res.status}`);
+  }
   return data;
 }
 

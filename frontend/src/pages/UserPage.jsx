@@ -7,7 +7,7 @@ import SessionModal from '../components/SessionModal';
 import { api, getUser } from '../api';
 import { computeStats, computeRollingACWR } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
-import { CHART_OPTS, DONUT_OPTS, COLORS } from '../utils/chartDefaults';
+import { CHART_OPTS, ACWR_OPTS, DONUT_OPTS, COLORS } from '../utils/chartDefaults';
 import { acwrColor, acwrLabel, readinessColor } from '../components/Badge';
 
 export default function UserPage() {
@@ -88,6 +88,24 @@ export default function UserPage() {
           </StatCard>
         </div>
 
+        {/* Load Guidance row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatCard label="Tomorrow's Target Load" sub="Chronic × 0.8 – 1.3">
+            {stats.chronicLoad > 0
+              ? <span className="text-green-400 font-bold">{stats.targetLow} – {stats.targetHigh}</span>
+              : '—'}
+          </StatCard>
+          <StatCard label="Z-Score" sub="(Load − Chronic) / StdDev">
+            <span style={{ color: Math.abs(stats.zScore) > 2 ? '#f87171' : '#2dd4bf' }}>
+              {stats.zScore !== 0 ? fmtNum(stats.zScore, 2) : '—'}
+              {Math.abs(stats.zScore) > 2 ? ' ⚠' : ''}
+            </span>
+          </StatCard>
+          <StatCard label="Std Deviation" sub="Historical load distribution">
+            {stats.stdDev > 0 ? stats.stdDev : '—'}
+          </StatCard>
+        </div>
+
         {/* Tabs */}
         <div className="flex gap-2">
           {['charts', 'sessions'].map(t => (
@@ -114,17 +132,18 @@ export default function UserPage() {
                   options={CHART_OPTS}
                 />
               </ChartCard>
-              <ChartCard title="ACWR Trend">
+              <ChartCard title="ACWR Trend" acwrLegend>
                 <Line
                   data={{
                     labels: acwrData.map(d => fmtDate(d.date)),
                     datasets: [
-                      { data: acwrData.map(d => d.acwr), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', tension: .35, pointRadius: 2, fill: true },
-                      { data: Array(acwrData.length).fill(1.5), borderColor: '#f87171', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
-                      { data: Array(acwrData.length).fill(0.8), borderColor: '#4ade80', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
+                      { data: acwrData.map(d => Math.min(d.acwr, 2.5)), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', tension: .4, cubicInterpolationMode: 'monotone', pointRadius: 2, fill: true },
+                      { data: Array(acwrData.length).fill(1.5), borderColor: '#F87171', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
+                      { data: Array(acwrData.length).fill(1.3), borderColor: '#34D399', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
+                      { data: Array(acwrData.length).fill(0.8), borderColor: '#60A5FA', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
                     ],
                   }}
-                  options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, legend: { display: false } } }}
+                  options={{ ...ACWR_OPTS, plugins: { ...ACWR_OPTS.plugins, legend: { display: false } } }}
                 />
               </ChartCard>
             </div>
@@ -209,11 +228,32 @@ export default function UserPage() {
   );
 }
 
-function ChartCard({ title, children }) {
+function AcwrZoneLegend() {
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      {[
+        { color: '#60A5FA', label: '0.8', zone: 'Under' },
+        { color: '#34D399', label: '1.3', zone: 'Sweet' },
+        { color: '#F87171', label: '1.5', zone: 'Caution' },
+      ].map(({ color, label, zone }) => (
+        <span key={label} className="inline-flex items-center gap-1 text-[10px]">
+          <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: color }} />
+          <span style={{ color }} className="font-semibold">{label}</span>
+          <span className="text-ts">({zone})</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ChartCard({ title, children, acwrLegend = false, fixedHeight = true }) {
   return (
     <div className="bg-surface border border-bdr rounded-xl p-5">
-      <div className="text-sm font-semibold text-tp mb-4">{title}</div>
-      <div className="relative h-48">{children}</div>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="text-sm font-semibold text-tp">{title}</div>
+        {acwrLegend && <AcwrZoneLegend />}
+      </div>
+      <div className={fixedHeight ? 'relative h-48' : ''}>{children}</div>
     </div>
   );
 }

@@ -4,13 +4,15 @@ import NavBar from '../components/NavBar';
 import StatCard from '../components/StatCard';
 import Badge from '../components/Badge';
 import SessionModal from '../components/SessionModal';
+import WorkloadMonitorPage from './WorkloadMonitorPage';
 import { api } from '../api';
-import { computeRollingACWR } from '../utils/acwr';
+import { buildDailyRecords, buildFlutterSeries, computeRollingACWR, computeStats, dayKey } from '../utils/acwr';
+import { monitorSeriesForAthlete } from '../utils/flutterWorkloadMonitorData';
 import { fmtDate, fmtNum } from '../utils/fmt';
-import { CHART_OPTS, DONUT_OPTS, COLORS } from '../utils/chartDefaults';
+import { CHART_OPTS, ACWR_OPTS, DONUT_OPTS, COLORS } from '../utils/chartDefaults';
 import { acwrColor, acwrLabel, readinessColor } from '../components/Badge';
 
-const SECTIONS = ['Overview', 'Athletes', 'Sessions', 'Analytics', 'Create Athlete'];
+const SECTIONS = ['Overview', 'Athletes', 'Sessions', 'Analytics', 'Workload Monitor', 'Create Athlete'];
 
 export default function AdminPage() {
   const [section, setSection]         = useState('Overview');
@@ -244,18 +246,41 @@ export default function AdminPage() {
               {athDetail && (
                 <>
                   {/* Summary stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <StatCard label="Acute Load" sub="AU">{athDetail.summary.acuteLoad}</StatCard>
-                    <StatCard label="Chronic Load">{athDetail.summary.chronicLoad}</StatCard>
-                    <StatCard label="ACWR">
-                      <Badge color={acwrColor(athDetail.summary.acwr)}>
-                        {athDetail.summary.acwr || 0} {acwrLabel(athDetail.summary.acwr)}
-                      </Badge>
-                    </StatCard>
-                    <StatCard label="Sessions">{athDetail.summary.totalSessions || 0}</StatCard>
-                  </div>
+                  {(() => {
+                    const ds = displayStats(athDetail.sessions, selectedAthlete);
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          <StatCard label="Acute Load (7d)" sub="AU">{ds.acuteLoad}</StatCard>
+                          <StatCard label="Chronic Load" sub="EWMA 28d">{ds.chronicLoad}</StatCard>
+                          <StatCard label="ACWR">
+                            <Badge color={acwrColor(ds.acwr)}>
+                              {ds.acwr || 0} {acwrLabel(ds.acwr)}
+                            </Badge>
+                          </StatCard>
+                          <StatCard label="Data Points">{ds.points || 0}</StatCard>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <StatCard label="Tomorrow's Target Load" sub="Chronic × 0.8 – 1.3">
+                            {ds.chronicLoad > 0
+                              ? <span className="text-green-400 font-bold">{ds.targetLow} – {ds.targetHigh}</span>
+                              : '—'}
+                          </StatCard>
+                          <StatCard label="Z-Score" sub="(Load − Chronic) / StdDev">
+                            <span style={{ color: Math.abs(ds.zScore ?? 0) > 2 ? '#f87171' : '#2dd4bf' }}>
+                              {ds.zScore != null ? fmtNum(ds.zScore, 2) : '—'}
+                              {Math.abs(ds.zScore ?? 0) > 2 ? ' ⚠' : ''}
+                            </span>
+                          </StatCard>
+                          <StatCard label="Std Deviation" sub="Historical load distribution">
+                            {ds.stdDev > 0 ? ds.stdDev : '—'}
+                          </StatCard>
+                        </div>
+                      </>
+                    );
+                  })()}
 
-                  <AthCharts sessions={athDetail.sessions} />
+                  <AthCharts sessions={athDetail.sessions} athlete={selectedAthlete} />
 
                   {/* Session log */}
                   <div className="bg-surface border border-bdr rounded-xl overflow-hidden">
@@ -333,9 +358,20 @@ export default function AdminPage() {
                   {athletes.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
                 </select>
               </div>
-              {analSessions.length > 0 && <AthCharts sessions={analSessions} showTypes />}
+              {analSessions.length > 0 && (
+                <AthCharts
+                  sessions={analSessions}
+                  showTypes
+                  athlete={athletes.find(a => a._id === analAthId)}
+                />
+              )}
               {analAthId && analSessions.length === 0 && <p className="text-ts text-sm">No sessions found.</p>}
             </div>
+          )}
+
+          {/* ── Workload Monitor ── */}
+          {section === 'Workload Monitor' && (
+            <WorkloadMonitorPage athletes={athletes} />
           )}
 
           {/* ── Create Athlete ── */}
@@ -380,10 +416,13 @@ export default function AdminPage() {
 }
 
 // ── Shared chart section for athlete detail + analytics ────────────────────
-function AthCharts({ sessions, showTypes = false }) {
+function AthCharts({ sessions, showTypes = false, athlete = null }) {
   const sorted = useMemo(() => [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date)), [sessions]);
   const labels = sorted.map(s => fmtDate(s.date));
   const acwrData = useMemo(() => computeRollingACWR(sessions), [sessions]);
+  const [workloadTab, setWorkloadTab] = useState('total');
+  const workloadSeries = useMemo(() => buildWorkloadSeries(sessions, athlete), [sessions, athlete]);
+  const activeWorkload = workloadSeries[workloadTab] || [];
 
   const typeCounts = useMemo(() => {
     const c = {};
@@ -397,6 +436,12 @@ function AthCharts({ sessions, showTypes = false }) {
 
   return (
     <div className="space-y-6">
+      <WorkloadResult
+        active={workloadTab}
+        onChange={setWorkloadTab}
+        series={activeWorkload}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <ChartCard title="Load History">
           <Bar
@@ -404,17 +449,18 @@ function AthCharts({ sessions, showTypes = false }) {
             options={CHART_OPTS}
           />
         </ChartCard>
-        <ChartCard title="ACWR Trend">
+        <ChartCard title="ACWR Trend" acwrLegend>
           <Line
             data={{
               labels: acwrData.map(d => fmtDate(d.date)),
               datasets: [
-                { data: acwrData.map(d => d.acwr), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', tension: .35, pointRadius: 2, fill: true },
-                { data: Array(acwrData.length).fill(1.5), borderColor: '#f87171', borderDash: [4,4], borderWidth: 1, pointRadius: 0, fill: false },
-                { data: Array(acwrData.length).fill(0.8), borderColor: '#4ade80', borderDash: [4,4], borderWidth: 1, pointRadius: 0, fill: false },
+                { data: acwrData.map(d => Math.min(d.acwr, 2.5)), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', tension: .4, cubicInterpolationMode: 'monotone', pointRadius: 2, fill: true },
+                { data: Array(acwrData.length).fill(1.5), borderColor: '#F87171', borderDash: [6,4], borderWidth: 2, pointRadius: 0, fill: false },
+                { data: Array(acwrData.length).fill(1.3), borderColor: '#34D399', borderDash: [6,4], borderWidth: 2, pointRadius: 0, fill: false },
+                { data: Array(acwrData.length).fill(0.8), borderColor: '#60A5FA', borderDash: [6,4], borderWidth: 2, pointRadius: 0, fill: false },
               ],
             }}
-            options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, legend: { display: false } } }}
+            options={{ ...ACWR_OPTS, plugins: { ...ACWR_OPTS.plugins, legend: { display: false } } }}
           />
         </ChartCard>
       </div>
@@ -443,10 +489,228 @@ function AthCharts({ sessions, showTypes = false }) {
   );
 }
 
-function ChartCard({ title, children }) {
+function buildWorkloadSeries(sessions, athlete) {
+  const monitorSeries = monitorSeriesForAthlete(athlete);
+  if (monitorSeries) return monitorSeries;
+
+  const records = buildDailyRecords(sessions);
+  return {
+    training: buildFlutterSeries(records, r => r.trainingLoad),
+    skill: buildFlutterSeries(records, r => r.skillLoad),
+    total: buildFlutterSeries(records, r => r.totalLoad),
+  };
+}
+
+function displayStats(sessions, athlete) {
+  const monitor = monitorSeriesForAthlete(athlete);
+  if (monitor?.total?.length) {
+    const latest = monitor.total[monitor.total.length - 1];
+    const chronic = latest.chronic;
+    return {
+      acuteLoad:   Math.round(latest.acute),
+      chronicLoad: chronic.toFixed(1),
+      acwr:        latest.acwr,
+      zScore:      latest.z ?? 0,
+      targetLow:   Math.round(chronic * 0.8),
+      targetHigh:  Math.round(chronic * 1.3),
+      points:      monitor.total.length,
+    };
+  }
+  const stats = computeStats(sessions);
+  return {
+    acuteLoad:   stats.acuteLoad,
+    chronicLoad: stats.chronicLoad,
+    acwr:        stats.acwr,
+    zScore:      stats.zScore,
+    stdDev:      stats.stdDev,
+    targetLow:   stats.targetLow,
+    targetHigh:  stats.targetHigh,
+    points:      sessions.length,
+  };
+}
+
+function WorkloadResult({ active, onChange, series }) {
+  const latest = series[series.length - 1];
+  const tabs = [
+    { id: 'training', label: 'Training' },
+    { id: 'skill', label: 'Skill' },
+    { id: 'total', label: 'Daily Total' },
+  ];
+
+  if (!latest) {
+    return (
+      <div className="bg-surface border border-bdr rounded-xl p-6 text-center text-ts text-sm">
+        No workload result available yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface border border-bdr rounded-xl p-5 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-tp">Workload Result</div>
+          <div className="text-xs text-ts mt-1">Training, skill, and daily total load just like the mobile app.</div>
+        </div>
+        <div className="inline-flex bg-card border border-bdr rounded-lg p-1">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => onChange(t.id)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                active === t.id ? 'bg-accent text-white' : 'text-ts hover:text-tp'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        <MiniMetric label="Session Load" value={fmtNum(latest.load)} sub="Latest" tone="orange" />
+        <MiniMetric label="7-day Acute" value={fmtNum(latest.acute)} sub="Rolling sum" tone="blue" />
+        <MiniMetric label="Chronic" value={latest.chronic.toFixed(1)} sub="EWMA 28d" tone="yellow" />
+        <MiniMetric label="ACWR" value={latest.acwr > 0 ? latest.acwr.toFixed(2) : '0'} sub={acwrLabel(latest.acwr)} tone={acwrTone(latest.acwr)} />
+        <MiniMetric label="Z-Score" value={latest.z != null ? latest.z.toFixed(2) : '0.00'} sub={Math.abs(latest.z || 0) > 2 ? 'Flag' : 'Normal'} tone={Math.abs(latest.z || 0) > 2 ? 'red' : 'green'} />
+        <MiniMetric label="Data Points" value={series.length} sub="Days logged" tone="gray" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="bg-card border border-bdr rounded-xl p-4">
+          <div className="text-xs font-semibold text-tp mb-3">ACWR Zone</div>
+          <AcwrGauge value={latest.acwr} />
+        </div>
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <ChartCard title="Load History">
+            <Bar
+              data={{
+                labels: series.map(d => d.label || fmtDate(d.date)),
+                datasets: [
+                  { label: 'Load', data: series.map(d => Math.round(d.load)), backgroundColor: '#FF6B35', borderRadius: 4 },
+                  { label: '7-day Acute', data: series.map(d => Math.round(d.acute)), backgroundColor: '#38BDF8', borderRadius: 4 },
+                  { label: 'Chronic', data: series.map(d => Math.round(d.chronic)), backgroundColor: '#FBBF24', borderRadius: 4 },
+                ],
+              }}
+              options={CHART_OPTS}
+            />
+          </ChartCard>
+          <ChartCard title="ACWR Trend" acwrLegend>
+            <Line
+              data={{
+                labels: series.map(d => d.label || fmtDate(d.date)),
+                datasets: [
+                  { data: series.map(d => Math.min(Number(d.acwr.toFixed(2)), 2.5)), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,.1)', tension: .4, cubicInterpolationMode: 'monotone', pointRadius: 2, fill: true },
+                  { data: Array(series.length).fill(1.5), borderColor: '#F87171', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
+                  { data: Array(series.length).fill(1.3), borderColor: '#34D399', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
+                  { data: Array(series.length).fill(0.8), borderColor: '#60A5FA', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
+                ],
+              }}
+              options={{ ...ACWR_OPTS, plugins: { ...ACWR_OPTS.plugins, legend: { display: false } } }}
+            />
+          </ChartCard>
+        </div>
+      </div>
+
+      <div className="bg-card border border-bdr rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-bdr text-xs font-semibold text-tp">Session Log (latest 10 days)</div>
+        <div className="overflow-x-auto">
+          <table>
+            <thead><tr>{['Date', 'Load', 'Acute', 'Chronic', 'ACWR', 'Z-Score'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+            <tbody>
+              {[...series].slice(-10).reverse().map(d => (
+                <tr key={dayKey(d.date)}>
+                  <td className="text-tp whitespace-nowrap">{d.label || fmtDate(d.date)}</td>
+                  <td className="font-mono">{fmtNum(d.load)}</td>
+                  <td className="font-mono">{fmtNum(d.acute)}</td>
+                  <td className="font-mono">{d.chronic.toFixed(1)}</td>
+                  <td><Badge color={acwrColor(d.acwr)}>{d.acwr > 0 ? d.acwr.toFixed(2) : 'No data'}</Badge></td>
+                  <td className="font-mono">{d.z != null ? d.z.toFixed(2) : '0.00'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value, sub, tone }) {
+  const tones = {
+    orange: 'border-accent/40 bg-accent/10 text-accent',
+    blue: 'border-sky-400/40 bg-sky-400/10 text-sky-300',
+    yellow: 'border-amber-400/40 bg-amber-400/10 text-amber-300',
+    green: 'border-green-400/40 bg-green-400/10 text-green-300',
+    red: 'border-red-400/40 bg-red-400/10 text-red-300',
+    gray: 'border-bdr bg-bg text-ts',
+  };
+  return (
+    <div className={`border rounded-xl p-3 ${tones[tone] || tones.gray}`}>
+      <div className="text-[11px] text-ts">{label}</div>
+      <div className="text-lg font-extrabold mt-1">{value}</div>
+      <div className="text-[11px] text-ts mt-0.5 truncate">{sub}</div>
+    </div>
+  );
+}
+
+function AcwrGauge({ value }) {
+  const clamped = Math.max(0, Math.min(2, value || 0));
+  const left = `${clamped * 50}%`;
+  return (
+    <div>
+      <div className="h-4 rounded-md overflow-hidden flex">
+        <div className="basis-[40%] bg-blue-500/80" />
+        <div className="basis-[25%] bg-green-400/80" />
+        <div className="basis-[10%] bg-amber-400/80" />
+        <div className="basis-[25%] bg-red-500/80" />
+      </div>
+      <div className="relative h-7">
+        <div className="absolute top-0 -translate-x-1/2 text-white text-lg leading-none" style={{ left }}>▼</div>
+      </div>
+      <div className="flex justify-between text-[10px] text-ts">
+        <span>0</span><span>0.8</span><span>1.3</span><span>1.5</span><span>2.0+</span>
+      </div>
+      <div className="mt-3 text-center">
+        <Badge color={acwrColor(value)}>{value > 0 ? `ACWR ${value.toFixed(2)} - ${acwrLabel(value)}` : 'No data'}</Badge>
+      </div>
+    </div>
+  );
+}
+
+function acwrTone(value) {
+  if (!value) return 'gray';
+  if (value < 0.8) return 'blue';
+  if (value <= 1.3) return 'green';
+  if (value <= 1.5) return 'yellow';
+  return 'red';
+}
+
+function AcwrZoneLegend() {
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      {[
+        { color: '#60A5FA', label: '0.8', zone: 'Under' },
+        { color: '#34D399', label: '1.3', zone: 'Sweet' },
+        { color: '#F87171', label: '1.5', zone: 'Caution' },
+      ].map(({ color, label, zone }) => (
+        <span key={label} className="inline-flex items-center gap-1 text-[10px]">
+          <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: color }} />
+          <span style={{ color }} className="font-semibold">{label}</span>
+          <span className="text-ts">({zone})</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ChartCard({ title, children, acwrLegend = false }) {
   return (
     <div className="bg-surface border border-bdr rounded-xl p-5">
-      <div className="text-sm font-semibold text-tp mb-4">{title}</div>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="text-sm font-semibold text-tp">{title}</div>
+        {acwrLegend && <AcwrZoneLegend />}
+      </div>
       <div className="relative h-48">{children}</div>
     </div>
   );

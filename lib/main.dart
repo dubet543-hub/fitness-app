@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'api_service.dart';
 import 'core/theme.dart';
 import 'screens/auth_screen.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +12,9 @@ void main() async {
     await dotenv.load(fileName: '.env');
   } catch (_) {}
   await ApiService.loadConfig();
+  try {
+    await NotificationService.init();
+  } catch (_) {}
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

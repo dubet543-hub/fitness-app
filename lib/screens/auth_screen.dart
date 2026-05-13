@@ -22,11 +22,16 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _restoreSession() async {
-    final user  = await ApiService.getCachedUser();
     final token = await ApiService.getToken();
+    ApiUser? user;
+    if (token != null) {
+      // Validate token with the backend; fall back to login if expired/invalid.
+      user = await ApiService.verifyToken();
+      if (user == null) await ApiService.clearSession();
+    }
     if (mounted) {
       setState(() {
-        _user     = (user != null && token != null) ? user : null;
+        _user     = user;
         _checking = false;
       });
     }

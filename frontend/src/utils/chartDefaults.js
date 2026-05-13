@@ -30,6 +30,24 @@ export const CHART_OPTS = {
   },
 };
 
+export const ACWR_OPTS = {
+  ...CHART_OPTS,
+  plugins: {
+    ...CHART_OPTS.plugins,
+    legend: { display: false },
+    annotation: undefined,
+  },
+  scales: {
+    x: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
+    y: {
+      ticks: { color: '#8B949E', font: { size: 10 } },
+      grid: { color: '#21262D' },
+      min: 0,
+      max: 2.5,
+    },
+  },
+};
+
 export const DONUT_OPTS = {
   responsive: true,
   maintainAspectRatio: true,
