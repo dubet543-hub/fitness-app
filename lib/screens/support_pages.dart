@@ -1,53 +1,48 @@
 import 'package:flutter/material.dart';
+import '../core/theme.dart';
 
-// ─── Help Center ─────────────────────────────────────────────────────────────
+// ── Help Center ───────────────────────────────────────────────────────────────
 
 class HelpCenterPage extends StatelessWidget {
   const HelpCenterPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    void showSnack(String msg) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
-    }
+    void snack(String msg) => ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
 
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      appBar: AppBar(title: const Text('Help center'), scrolledUnderElevation: 0),
+      backgroundColor: kBg,
+      appBar: _appBar('HELP CENTER'),
       body: ListView(
-        padding: const EdgeInsets.only(top: 8, bottom: 24),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          _SectionLabel('Common questions'),
-          _GroupCard(children: [
-            _ArrowTile(label: 'How are scores calculated?', onTap: () => showSnack('Opening article...')),
-            _ArrowTile(label: 'How do I connect a device?', onTap: () => showSnack('Opening article...')),
-            _ArrowTile(label: 'Can I sync with Apple Health?', onTap: () => showSnack('Opening article...')),
-            _ArrowTile(label: 'How to cancel subscription?', onTap: () => showSnack('Opening article...')),
+          const _SectionLabel('COMMON QUESTIONS'),
+          const SizedBox(height: 8),
+          _Group(children: [
+            _ArrowRow(label: 'How are scores calculated?',  onTap: () => snack('Opening article…')),
+            _ArrowRow(label: 'How do I connect a device?',  onTap: () => snack('Opening article…')),
+            _ArrowRow(label: 'Can I sync with Apple Health?', onTap: () => snack('Opening article…')),
+            _ArrowRow(label: 'How to cancel subscription?', onTap: () => snack('Opening article…')),
           ]),
-          _SectionLabel('Contact'),
-          _GroupCard(children: [
-            ListTile(
-              leading: const Icon(Icons.chat_bubble_outline_rounded),
-              title: const Text('Live chat support', style: TextStyle(fontSize: 14)),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
-                  child: Text('Online', style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(width: 6),
-                const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-              ]),
-              onTap: () => showSnack('Opening chat...'),
+          const SizedBox(height: 20),
+
+          const _SectionLabel('CONTACT'),
+          const SizedBox(height: 8),
+          _Group(children: [
+            _ContactRow(
+              icon: Icons.chat_bubble_outline_rounded,
+              iconColor: kAccent,
+              label: 'Live chat support',
+              badge: 'Online',
+              badgeColor: kAccent,
+              onTap: () => snack('Opening chat…'),
             ),
-            Divider(height: 1, color: cs.outlineVariant, indent: 56),
-            ListTile(
-              leading: const Icon(Icons.email_outlined),
-              title: const Text('Email support', style: TextStyle(fontSize: 14)),
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-              onTap: () => showSnack('Opening email...'),
+            _ContactRow(
+              icon: Icons.email_outlined,
+              iconColor: const Color(0xFF38BDF8),
+              label: 'Email support',
+              onTap: () => snack('Opening email…'),
             ),
           ]),
         ],
@@ -56,7 +51,7 @@ class HelpCenterPage extends StatelessWidget {
   }
 }
 
-// ─── Feedback ────────────────────────────────────────────────────────────────
+// ── Feedback ──────────────────────────────────────────────────────────────────
 
 class FeedbackPage extends StatefulWidget {
   const FeedbackPage({super.key});
@@ -68,7 +63,7 @@ class FeedbackPage extends StatefulWidget {
 class _FeedbackPageState extends State<FeedbackPage> {
   int _selectedType = 0;
   final _msgCtrl = TextEditingController();
-  final _types = ['Bug report', 'Feature request', 'General', 'Other'];
+  static const _types = ['Bug report', 'Feature request', 'General', 'Other'];
 
   @override
   void dispose() { _msgCtrl.dispose(); super.dispose(); }
@@ -86,61 +81,72 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      appBar: AppBar(title: const Text('Send feedback'), scrolledUnderElevation: 0),
+      backgroundColor: kBg,
+      appBar: _appBar('SEND FEEDBACK'),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          const _SectionLabel('What kind of feedback?'),
+          const _SectionLabel('TYPE'),
+          const SizedBox(height: 10),
           GridView.count(
-            crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 3.2,
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 3.2,
             children: List.generate(_types.length, (i) {
-              final selected = _selectedType == i;
+              final sel = _selectedType == i;
               return GestureDetector(
                 onTap: () => setState(() => _selectedType = i),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: selected ? cs.primaryContainer : cs.surface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: selected ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant),
+                    color: sel ? kAccent.withValues(alpha: 0.12) : kCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: sel ? kAccent : kBorder),
                   ),
-                  child: Text(_types[i],
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
-                      color: selected ? cs.primary : cs.onSurface)),
+                  child: Text(
+                    _types[i],
+                    style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600,
+                      color: sel ? kAccent : kTextSecondary,
+                    ),
+                  ),
                 ),
               );
             }),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+
+          const _SectionLabel('MESSAGE'),
+          const SizedBox(height: 10),
           Container(
-            decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: cs.outlineVariant)),
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Your message', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.w500, letterSpacing: 0.4)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _msgCtrl,
-                maxLines: 6,
-                decoration: const InputDecoration(
-                  border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero,
-                  hintText: 'Describe your feedback...',
-                ),
-                style: const TextStyle(fontSize: 14),
+            decoration: BoxDecoration(
+              color: kCard, borderRadius: BorderRadius.circular(16), border: Border.all(color: kBorder),
+            ),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+            child: TextField(
+              controller: _msgCtrl,
+              maxLines: 6,
+              style: const TextStyle(color: kTextPrimary, fontSize: 14),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Describe your feedback…',
+                hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
               ),
-            ]),
+            ),
           ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _submit,
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-            child: const Text('Submit feedback'),
+          const SizedBox(height: 24),
+
+          SizedBox(
+            height: 54,
+            child: ElevatedButton(
+              onPressed: _submit,
+              child: const Text('Submit Feedback', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
           ),
         ],
       ),
@@ -148,50 +154,59 @@ class _FeedbackPageState extends State<FeedbackPage> {
   }
 }
 
-// ─── About ───────────────────────────────────────────────────────────────────
+// ── About ─────────────────────────────────────────────────────────────────────
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    void showSnack(String msg) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
-    }
+    void snack(String msg) => ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
 
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      appBar: AppBar(title: const Text('About SolidCore'), scrolledUnderElevation: 0),
+      backgroundColor: kBg,
+      appBar: _appBar('ABOUT'),
       body: ListView(
-        padding: const EdgeInsets.only(top: 24, bottom: 24),
+        padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
         children: [
+          // ── Logo & version ───────────────────────────────────────
           Center(
-            child: Column(children: [
-              Container(
-                width: 72, height: 72,
-                decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(18)),
-                child: Icon(Icons.bolt_rounded, size: 36, color: cs.primary),
-              ),
-              const SizedBox(height: 12),
-              Text('SolidCore', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text('Version 1.0.0 (build 1042)',
-                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-            ]),
+            child: Column(
+              children: [
+                Container(
+                  width: 80, height: 80,
+                  decoration: BoxDecoration(
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: kAccent.withValues(alpha: 0.30)),
+                    boxShadow: [BoxShadow(color: kAccent.withValues(alpha: 0.12), blurRadius: 30, spreadRadius: 2)],
+                  ),
+                  child: const Icon(Icons.bolt_rounded, size: 38, color: kAccent),
+                ),
+                const SizedBox(height: 16),
+                const Text('SolidCore', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
+                const SizedBox(height: 4),
+                const Text('Version 1.0.0 (build 1042)', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          _GroupCard(children: [
-            _ArrowTile(label: 'Terms of service',       onTap: () => showSnack('Opening terms...')),
-            _ArrowTile(label: 'Privacy policy',         onTap: () => showSnack('Opening policy...')),
-            _ArrowTile(label: 'Open source licenses',   onTap: () => showSnack('Opening licenses...')),
+          const SizedBox(height: 28),
+
+          // ── Legal ────────────────────────────────────────────────
+          _Group(children: [
+            _ArrowRow(label: 'Terms of service',      onTap: () => snack('Opening terms…')),
+            _ArrowRow(label: 'Privacy policy',         onTap: () => snack('Opening policy…')),
+            _ArrowRow(label: 'Open source licenses',  onTap: () => snack('Opening licenses…')),
           ]),
-          const SizedBox(height: 24),
-          Center(
-            child: Text('© 2026 SolidCore Performance Inc.\nAll rights reserved.',
+          const SizedBox(height: 28),
+
+          const Center(
+            child: Text(
+              '© 2026 SolidCore Performance Inc.\nAll rights reserved.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6), height: 1.6)),
+              style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.7),
+            ),
           ),
         ],
       ),
@@ -199,51 +214,109 @@ class AboutPage extends StatelessWidget {
   }
 }
 
-// ─── Shared helpers ───────────────────────────────────────────────────────────
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+AppBar _appBar(String title) => AppBar(
+  backgroundColor: kBg,
+  elevation: 0,
+  iconTheme: const IconThemeData(color: kTextPrimary),
+  title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+  bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
+);
 
 class _SectionLabel extends StatelessWidget {
   final String text;
   const _SectionLabel(this.text);
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
-    child: Text(text.toUpperCase(),
-      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6,
-        color: Theme.of(context).colorScheme.onSurfaceVariant)),
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
   );
 }
 
-class _GroupCard extends StatelessWidget {
+class _Group extends StatelessWidget {
   final List<Widget> children;
-  const _GroupCard({required this.children});
+  const _Group({required this.children});
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant)),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          children: List.generate(children.length, (i) => Column(children: [
-            children[i],
-            if (i < children.length - 1) Divider(height: 1, color: cs.outlineVariant, indent: 16),
-          ])),
+      decoration: BoxDecoration(
+        color: kCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: kBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: List.generate(children.length, (i) => Column(children: [
+          children[i],
+          if (i < children.length - 1) const Divider(height: 1, indent: 16, color: kBorder),
+        ])),
+      ),
+    );
+  }
+}
+
+class _ArrowRow extends StatelessWidget {
+  final String       label;
+  final VoidCallback onTap;
+  const _ArrowRow({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
+            const Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ArrowTile extends StatelessWidget {
-  final String label;
+class _ContactRow extends StatelessWidget {
+  final IconData   icon;
+  final Color      iconColor;
+  final String     label;
+  final String?    badge;
+  final Color?     badgeColor;
   final VoidCallback onTap;
-  const _ArrowTile({required this.label, required this.onTap});
+  const _ContactRow({required this.icon, required this.iconColor, required this.label, this.badge, this.badgeColor, required this.onTap});
+
   @override
-  Widget build(BuildContext context) => ListTile(
-    title: Text(label, style: const TextStyle(fontSize: 14)),
-    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-    onTap: onTap,
-  );
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+              child: Icon(icon, size: 16, color: iconColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
+            if (badge != null && badgeColor != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeColor!.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(badge!, style: TextStyle(fontSize: 11, color: badgeColor, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 6),
+            ],
+            const Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
+          ],
+        ),
+      ),
+    );
+  }
 }

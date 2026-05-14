@@ -2,15 +2,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'api_service.dart';
+import 'core/theme.dart';
 import 'screens/workload_monitor_screen.dart';
 
-const Color _kBg            = Color(0xFF0D1117);
-const Color _kSurface       = Color(0xFF161B22);
-const Color _kCard          = Color(0xFF1C2333);
-const Color _kAccent        = Color(0xFFFF6B35);
-const Color _kBorder        = Color(0xFF30363D);
-const Color _kTextPrimary   = Color(0xFFE6EDF3);
-const Color _kTextSecondary = Color(0xFF8B949E);
+// Aliases so the rest of the file compiles without change.
+const Color _kBg            = kBg;
+const Color _kSurface       = kSurface;
+const Color _kCard          = kCard;
+const Color _kAccent        = kAccent;
+const Color _kBorder        = kBorder;
+const Color _kTextPrimary   = kTextPrimary;
+const Color _kTextSecondary = kTextSecondary;
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -933,7 +935,8 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                     ),
                     Switch(
                       value: _tHasSub,
-                      activeColor: _kAccent,
+                      activeThumbColor: _kAccent,
+                      activeTrackColor: _kAccent.withValues(alpha: 0.25),
                       onChanged: (v) => setState(() => _tHasSub = v),
                     ),
                   ],

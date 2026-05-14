@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme.dart';
 
 class PersonalInfoPage extends StatefulWidget {
   final String name;
@@ -14,20 +15,15 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   late TextEditingController _firstNameCtrl;
   late TextEditingController _lastNameCtrl;
   late TextEditingController _emailCtrl;
-  late TextEditingController _phoneCtrl;
   final _formKey = GlobalKey<FormState>();
-
-  String _selectedSport = 'Running';
-  final _sports = ['Running', 'Cycling', 'Swimming', 'Triathlon', 'Weightlifting'];
 
   @override
   void initState() {
     super.initState();
-    final parts = widget.name.trim().split(' ');
+    final parts      = widget.name.trim().split(' ');
     _firstNameCtrl = TextEditingController(text: parts.isNotEmpty ? parts[0] : '');
     _lastNameCtrl  = TextEditingController(text: parts.length > 1 ? parts.sublist(1).join(' ') : '');
     _emailCtrl     = TextEditingController(text: widget.email);
-    _phoneCtrl     = TextEditingController(text: '+1 (555) 012-3456');
   }
 
   @override
@@ -35,8 +31,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
-    _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  String get _initials {
+    final f = _firstNameCtrl.text.trim();
+    final l = _lastNameCtrl.text.trim();
+    if (f.isEmpty) return '?';
+    return (f[0] + (l.isNotEmpty ? l[0] : '')).toUpperCase();
   }
 
   void _save() {
@@ -47,32 +49,42 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
+      backgroundColor: kBg,
       appBar: AppBar(
-        title: const Text('Personal info'),
-        scrolledUnderElevation: 0,
+        backgroundColor: kBg,
+        elevation: 0,
+        title: const Text('PERSONAL INFO', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+        iconTheme: const IconThemeData(color: kTextPrimary),
         actions: [
-          TextButton(onPressed: _save, child: const Text('Save')),
+          TextButton(
+            onPressed: _save,
+            child: const Text('Save', style: TextStyle(color: kAccent, fontWeight: FontWeight.w700, fontSize: 14)),
+          ),
         ],
+        bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           children: [
-            // Avatar
+            // ── Avatar ───────────────────────────────────────────
             Center(
               child: Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: cs.primaryContainer,
-                    child: Text(
-                      (_firstNameCtrl.text.isNotEmpty ? _firstNameCtrl.text[0] : '?').toUpperCase(),
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: cs.primary),
+                  Container(
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: kAccent, width: 2),
+                      color: kCard,
+                    ),
+                    child: Center(
+                      child: Text(
+                        _initials,
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary),
+                      ),
                     ),
                   ),
                   Positioned(
@@ -80,58 +92,55 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     child: Container(
                       width: 28, height: 28,
                       decoration: BoxDecoration(
-                        color: cs.primary, shape: BoxShape.circle,
-                        border: Border.all(color: cs.surface, width: 2),
+                        color: kAccent, shape: BoxShape.circle,
+                        border: Border.all(color: kBg, width: 2),
                       ),
-                      child: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
+                      child: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.black),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
-            _FieldGroup(children: [
-              _Field(label: 'First name', controller: _firstNameCtrl,
-                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null),
-              _Field(label: 'Last name', controller: _lastNameCtrl,
-                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null),
-              _Field(label: 'Email', controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null),
-              _Field(label: 'Phone', controller: _phoneCtrl, keyboardType: TextInputType.phone),
-            ]),
-            const SizedBox(height: 16),
-
-            _FieldGroup(children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Sport', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w500, letterSpacing: 0.4)),
-                    const SizedBox(height: 6),
-                    DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedSport,
-                        isExpanded: true,
-                        style: TextStyle(fontSize: 14, color: cs.onSurface),
-                        items: _sports.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                        onChanged: (v) => setState(() => _selectedSport = v!),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ]),
-            const SizedBox(height: 24),
-
-            FilledButton(
-              onPressed: _save,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-              child: const Text('Save changes'),
+            // ── Fields ───────────────────────────────────────────
+            const _FieldLabel('FIRST NAME'),
+            const SizedBox(height: 6),
+            _FormField(
+              controller: _firstNameCtrl,
+              hint: 'First name',
+              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
             ),
+            const SizedBox(height: 14),
+
+            const _FieldLabel('LAST NAME'),
+            const SizedBox(height: 6),
+            _FormField(
+              controller: _lastNameCtrl,
+              hint: 'Last name',
+              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+            ),
+            const SizedBox(height: 14),
+
+            const _FieldLabel('EMAIL'),
+            const SizedBox(height: 6),
+            _FormField(
+              controller: _emailCtrl,
+              hint: 'you@example.com',
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+            ),
+            const SizedBox(height: 14),
+
+            const SizedBox(height: 28),
+            SizedBox(
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _save,
+                child: const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -139,61 +148,42 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   }
 }
 
-class _FieldGroup extends StatelessWidget {
-  final List<Widget> children;
-  const _FieldGroup({required this.children});
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: Column(
-        children: List.generate(children.length, (i) => Column(
-          children: [
-            children[i],
-            if (i < children.length - 1) Divider(height: 1, color: cs.outlineVariant),
-          ],
-        )),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
+  );
 }
 
-class _Field extends StatelessWidget {
-  final String label;
+class _FormField extends StatelessWidget {
   final TextEditingController controller;
+  final String hint;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
 
-  const _Field({required this.label, required this.controller, this.keyboardType, this.validator});
+  const _FormField({required this.controller, required this.hint, this.keyboardType, this.validator});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant,
-            fontWeight: FontWeight.w500, letterSpacing: 0.4)),
-          const SizedBox(height: 4),
-          TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            validator: validator,
-            style: const TextStyle(fontSize: 14),
-            decoration: const InputDecoration(
-              isDense: true, border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: const TextStyle(fontSize: 14, color: kTextPrimary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: kTextMuted, fontSize: 14),
+        filled: true,
+        fillColor: kCard,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kBorder)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kBorder)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kAccent, width: 1.5)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.redAccent)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

@@ -11,7 +11,17 @@
       "Bash(flutter logs *)",
       "Bash(adb logcat *)",
       "Bash(C:\\\\Users\\\\Admin\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe logcat *)",
-      "PowerShell(& \"C:\\\\Users\\\\Admin\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -s flutter:V AndroidRuntime:E 2>&1)"
+      "PowerShell(& \"C:\\\\Users\\\\Admin\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -s flutter:V AndroidRuntime:E 2>&1)",
+      "Bash(adb kill-server *)",
+      "Bash(adb start-server *)",
+      "Bash(adb devices *)",
+      "Bash(adb -s 3072855012000T9 reconnect)",
+      "Bash(adb -s 3072855012000T9 wait-for-device)",
+      "Bash(ping -n 8 127.0.0.1)",
+      "Bash(ffmpeg -version)",
+      "PowerShell(Get-Command ffmpeg -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command magick -ErrorAction SilentlyContinue)",
+      "Read(//c/Users/abhis/AppData/Local/Temp/**)"
     ]
   }
 }

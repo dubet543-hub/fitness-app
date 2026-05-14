@@ -32,35 +32,28 @@ class _ProfileTabState extends State<ProfileTab> {
   @override
   void initState() {
     super.initState();
-    _name = widget.name;
+    _name  = widget.name;
     _email = widget.email;
   }
 
   String get _initials {
-    final parts = _name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .toList(growable: false);
+    final parts = _name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  void _go(WidgetBuilder builder) {
-    Navigator.push(context, MaterialPageRoute(builder: builder));
-  }
+  void _go(WidgetBuilder builder) =>
+      Navigator.push(context, MaterialPageRoute(builder: builder));
 
   void _goPersonal() async {
     final result = await Navigator.push<Map<String, String>>(
       context,
-      MaterialPageRoute(
-        builder: (_) => PersonalInfoPage(name: _name, email: _email),
-      ),
+      MaterialPageRoute(builder: (_) => PersonalInfoPage(name: _name, email: _email)),
     );
     if (result != null) {
       setState(() {
-        _name = result['name'] ?? _name;
+        _name  = result['name']  ?? _name;
         _email = result['email'] ?? _email;
       });
     }
@@ -68,24 +61,27 @@ class _ProfileTabState extends State<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final danger = theme.colorScheme.error;
-
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        title: const Text('Profile'),
-        centerTitle: false,
-        scrolledUnderElevation: 0,
+        backgroundColor: kBg,
+        elevation: 0,
+        title: const Text(
+          'PROFILE',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: kBorder),
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Hero ──────────────────────────────────────────
-            Container(
-              color: kSurface,
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+            // ── Hero ─────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
               child: Row(
                 children: [
                   Stack(
@@ -96,46 +92,40 @@ class _ProfileTabState extends State<ProfileTab> {
                         child: GestureDetector(
                           onTap: _goPersonal,
                           child: Container(
-                            width: 24, height: 24,
+                            width: 26, height: 26,
                             decoration: BoxDecoration(
                               color: kAccent,
                               shape: BoxShape.circle,
-                              border: const Border.fromBorderSide(BorderSide(color: kSurface, width: 2)),
+                              border: const Border.fromBorderSide(BorderSide(color: kBg, width: 2)),
                             ),
-                            child: const Icon(Icons.edit_rounded, size: 12, color: Colors.white),
+                            child: const Icon(Icons.edit_rounded, size: 12, color: Colors.black),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           _name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: kTextPrimary,
-                          ),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _email,
-                          style: theme.textTheme.bodySmall?.copyWith(color: kTextSecondary),
-                        ),
+                        const SizedBox(height: 3),
+                        Text(_email, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: kCardAlt,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: kBorder),
+                            color: kAccent.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: kAccent.withValues(alpha: 0.25)),
                           ),
-                          child: Text(
+                          child: const Text(
                             'Athlete',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kAccent),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kAccent, letterSpacing: 0.3),
                           ),
                         ),
                       ],
@@ -145,148 +135,126 @@ class _ProfileTabState extends State<ProfileTab> {
               ),
             ),
 
-            // ── Stats ─────────────────────────────────────────
+            // ── Stats ─────────────────────────────────────────────
             Container(
-              color: kSurface,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: kCard,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: kBorder),
+              ),
               child: Row(
                 children: [
-                  _StatCell(value: '47', label: 'Sessions'),
-                  _divider(),
-                  _StatCell(value: '12', label: 'This month'),
-                  _divider(),
-                  _StatCell(value: '89', label: 'Avg score'),
+                  _StatCell(value: '47',  label: 'Sessions'),
+                  Container(width: 1, height: 36, color: kBorder),
+                  _StatCell(value: '12',  label: 'This month'),
+                  Container(width: 1, height: 36, color: kBorder),
+                  _StatCell(value: '89',  label: 'Avg score'),
                 ],
               ),
             ),
-            const Divider(height: 1, color: kBorder),
 
-            // ── Account ───────────────────────────────────────
-            _SectionLabel('Account'),
-            _MenuGroup(items: [
-              _MenuItem(
-                icon: Icons.person_outline_rounded,
-                label: 'Personal info',
-                onTap: _goPersonal,
-              ),
-              _MenuItem(
-                icon: Icons.notifications_outlined,
-                label: 'Notifications',
-                onTap: () => _go((_) => const NotificationsPage()),
-              ),
-              _MenuItem(
-                icon: Icons.lock_outline_rounded,
-                label: 'Privacy & security',
-                onTap: () => _go((_) => const PrivacySecurityPage()),
-              ),
-            ]),
+            const SizedBox(height: 28),
 
-            // ── Preferences ───────────────────────────────────
-            _SectionLabel('Preferences'),
+            // ── Account ───────────────────────────────────────────
+            _SectionLabel('ACCOUNT'),
+            const SizedBox(height: 8),
             _MenuGroup(items: [
-              _MenuItem(
-                icon: Icons.dark_mode_outlined,
-                label: 'Appearance',
-                onTap: () => _go((_) => const AppearancePage()),
-              ),
-              _MenuItem(
-                icon: Icons.straighten_rounded,
-                label: 'Units & language',
-                onTap: () => _go((_) => const UnitsLanguagePage()),
-              ),
-            ]),
-
-            // ── Support ───────────────────────────────────────
-            _SectionLabel('Support'),
-            _MenuGroup(items: [
-              _MenuItem(
-                icon: Icons.help_outline_rounded,
-                label: 'Help center',
-                onTap: () => _go((_) => const HelpCenterPage()),
-              ),
-              _MenuItem(
-                icon: Icons.feedback_outlined,
-                label: 'Send feedback',
-                onTap: () => _go((_) => const FeedbackPage()),
-              ),
-              _MenuItem(
-                icon: Icons.info_outline_rounded,
-                label: 'About SolidCore',
-                onTap: () => _go((_) => const AboutPage()),
-              ),
+              _MenuItem(icon: Icons.person_outline_rounded, iconColor: const Color(0xFF38BDF8), label: 'Personal info',      onTap: _goPersonal),
+              _MenuItem(icon: Icons.notifications_outlined,  iconColor: const Color(0xFFF59E0B), label: 'Notifications',      onTap: () => _go((_) => const NotificationsPage())),
+              _MenuItem(icon: Icons.lock_outline_rounded,    iconColor: const Color(0xFFA78BFA), label: 'Privacy & security', onTap: () => _go((_) => const PrivacySecurityPage())),
             ]),
 
             const SizedBox(height: 20),
 
-            // ── Sign out ──────────────────────────────────────
+            // ── Preferences ───────────────────────────────────────
+            _SectionLabel('PREFERENCES'),
+            const SizedBox(height: 8),
+            _MenuGroup(items: [
+              _MenuItem(icon: Icons.dark_mode_outlined,  iconColor: kTextSecondary, label: 'Appearance',      onTap: () => _go((_) => const AppearancePage())),
+              _MenuItem(icon: Icons.straighten_rounded,  iconColor: kTextSecondary, label: 'Units & language', onTap: () => _go((_) => const UnitsLanguagePage())),
+            ]),
+
+            const SizedBox(height: 20),
+
+            // ── Support ───────────────────────────────────────────
+            _SectionLabel('SUPPORT'),
+            const SizedBox(height: 8),
+            _MenuGroup(items: [
+              _MenuItem(icon: Icons.help_outline_rounded,  iconColor: kTextSecondary, label: 'Help center',      onTap: () => _go((_) => const HelpCenterPage())),
+              _MenuItem(icon: Icons.feedback_outlined,     iconColor: kTextSecondary, label: 'Send feedback',    onTap: () => _go((_) => const FeedbackPage())),
+              _MenuItem(icon: Icons.info_outline_rounded,  iconColor: kTextSecondary, label: 'About SolidCore',  onTap: () => _go((_) => const AboutPage())),
+            ]),
+
+            const SizedBox(height: 28),
+
+            // ── Sign out ──────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Material(
-                color: danger.withValues(alpha: 0.10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: danger.withValues(alpha: 0.25)),
-                ),
-                child: InkWell(
-                  onTap: widget.onLogout,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout_rounded, size: 18, color: danger),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Sign out',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: danger),
-                        ),
-                      ],
-                    ),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GestureDetector(
+                onTap: widget.onLogout,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.logout_rounded, size: 18, color: Colors.redAccent),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Sign out',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.redAccent),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 10),
-            Center(
+            const SizedBox(height: 16),
+            const Center(
               child: Text(
                 'v1.0.0 · SolidCore Performance',
-                style: TextStyle(fontSize: 11, color: kTextSecondary.withValues(alpha: 0.7)),
+                style: TextStyle(fontSize: 11, color: kTextMuted),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
-
-  Widget _divider() => Container(
-    width: 1, height: 36,
-    color: kBorder,
-    margin: const EdgeInsets.symmetric(horizontal: 8),
-  );
 }
 
-// ── Shared sub-widgets ────────────────────────────────────────────────────────
+// ── Sub-widgets ───────────────────────────────────────────────────────────────
 
 class _Avatar extends StatelessWidget {
-  final String initials;
+  final String  initials;
   final String? photoUrl;
-  final double radius;
 
-  const _Avatar({required this.initials, this.photoUrl, this.radius = 36});
+  const _Avatar({required this.initials, this.photoUrl});
 
   @override
   Widget build(BuildContext context) {
-    final url = (photoUrl ?? '').trim();
+    final url      = (photoUrl ?? '').trim();
     final hasPhoto = url.isNotEmpty;
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: kAccent,
-      backgroundImage: hasPhoto ? NetworkImage(url) : null,
-      child: !hasPhoto
-          ? Text(initials, style: TextStyle(fontSize: radius * 0.6, fontWeight: FontWeight.w700, color: Colors.white))
-          : null,
+    return Container(
+      width: 76, height: 76,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: kAccent, width: 2),
+      ),
+      child: CircleAvatar(
+        radius: 38,
+        backgroundColor: kCard,
+        backgroundImage: hasPhoto ? NetworkImage(url) : null,
+        child: !hasPhoto
+            ? Text(initials, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary))
+            : null,
+      ),
     );
   }
 }
@@ -299,10 +267,10 @@ class _StatCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           children: [
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary)),
+            Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
             const SizedBox(height: 2),
             Text(label, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
           ],
@@ -319,15 +287,10 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-          color: kTextSecondary,
-        ),
+        text,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: kTextSecondary),
       ),
     );
   }
@@ -340,12 +303,12 @@ class _MenuGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Material(
-        color: kCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: kBorder),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: kBorder),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -353,7 +316,7 @@ class _MenuGroup extends StatelessWidget {
             return Column(
               children: [
                 items[i],
-                if (i < items.length - 1) const Divider(height: 1, indent: 46, color: kBorder),
+                if (i < items.length - 1) const Divider(height: 1, indent: 54, color: kBorder),
               ],
             );
           }),
@@ -364,41 +327,34 @@ class _MenuGroup extends StatelessWidget {
 }
 
 class _MenuItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String? value;
+  final IconData   icon;
+  final Color      iconColor;
+  final String     label;
   final VoidCallback? onTap;
 
-  const _MenuItem({required this.icon, required this.label, this.value, this.onTap});
+  const _MenuItem({required this.icon, required this.iconColor, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             Container(
               width: 32, height: 32,
               decoration: BoxDecoration(
-                color: kCardAlt,
+                color: iconColor.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 17, color: kTextSecondary),
+              child: Icon(icon, size: 16, color: iconColor),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary),
-              ),
+              child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
             ),
-            if (value != null) ...[
-              Text(value!, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
-              const SizedBox(width: 4),
-            ],
-            Icon(Icons.arrow_forward_ios_rounded, size: 13, color: kTextSecondary.withValues(alpha: 0.7)),
+            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
           ],
         ),
       ),

@@ -126,9 +126,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kSurface,
+        backgroundColor: kBg,
         elevation: 0,
-        title: const Text('Wellness Log', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700)),
+        title: const Text('WELLNESS LOG', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
         iconTheme: const IconThemeData(color: kTextPrimary),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -215,16 +215,16 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
           if (_showExtended) ...[
             const SizedBox(height: 28),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF3A1200),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kAccent.withValues(alpha: 0.4)),
+                color: kAccent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: kAccent.withValues(alpha: 0.30)),
               ),
               child: Row(
                 children: [
                   Icon(Icons.info_outline_rounded, size: 16, color: kAccent),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
                       'Wellness or fatigue concern detected — please complete the additional questions below.',
@@ -366,18 +366,12 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
           ],
           SizedBox(
             width: double.infinity,
+            height: 54,
             child: ElevatedButton(
               onPressed: _submitting ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kAccent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
-              ),
               child: _submitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Save Wellness Log', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black))
+                  : const Text('Save Wellness Log', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
             ),
           ),
           const SizedBox(height: 32),
@@ -538,7 +532,9 @@ class _ToggleTile extends StatelessWidget {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: kAccent,
+          activeThumbColor: kAccent,
+          activeTrackColor: kAccent.withValues(alpha: 0.25),
+          inactiveThumbColor: kTextMuted,
           inactiveTrackColor: kBorder,
         ),
       ],

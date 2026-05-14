@@ -52,65 +52,50 @@ class _BottomNavBar extends StatelessWidget {
 
   const _BottomNavBar({required this.currentIndex, required this.onTap});
 
+  static const _items = [
+    _NavItem(icon: Icons.home_outlined,          activeIcon: Icons.home_rounded,       label: 'Home'),
+    _NavItem(icon: Icons.explore_outlined,        activeIcon: Icons.explore_rounded,    label: 'Explore'),
+    _NavItem(icon: Icons.show_chart_rounded,      activeIcon: Icons.show_chart_rounded, label: 'Analytics'),
+    _NavItem(icon: Icons.person_outline_rounded,  activeIcon: Icons.person_rounded,     label: 'Profile'),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _NavItem(icon: Icons.grid_view_rounded,     activeIcon: Icons.grid_view_rounded,   label: 'Home'),
-      _NavItem(icon: Icons.explore_outlined,       activeIcon: Icons.explore_rounded,     label: 'Explore'),
-      _NavItem(icon: Icons.analytics_outlined,     activeIcon: Icons.analytics_rounded,   label: 'Analytics'),
-      _NavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,      label: 'Profile'),
-    ];
-
     return Container(
       decoration: BoxDecoration(
         color: kSurface,
-        border: const Border(top: BorderSide(color: kBorder, width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
+        border: Border(top: BorderSide(color: kBorder, width: 0.5)),
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
           height: 64,
           child: Row(
-            children: List.generate(items.length, (i) {
-              final isActive = i == currentIndex;
+            children: List.generate(_items.length, (i) {
+              final active = i == currentIndex;
+              final col    = active ? kAccent : kTextMuted;
               return Expanded(
                 child: GestureDetector(
                   onTap: () => onTap(i),
                   behavior: HitTestBehavior.opaque,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOut,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isActive ? kAccent.withValues(alpha: 0.12) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            isActive ? items[i].activeIcon : items[i].icon,
-                            size: 22,
-                            color: isActive ? kAccent : kTextSecondary,
-                          ),
+                        Icon(
+                          active ? _items[i].activeIcon : _items[i].icon,
+                          size: 22,
+                          color: col,
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
-                          items[i].label,
+                          _items[i].label.toUpperCase(),
                           style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-                            color: isActive ? kAccent : kTextSecondary,
-                            letterSpacing: 0.2,
+                            fontSize: 9,
+                            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                            color: col,
+                            letterSpacing: 0.8,
                           ),
                         ),
                       ],

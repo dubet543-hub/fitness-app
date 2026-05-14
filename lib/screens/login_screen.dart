@@ -57,18 +57,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       backgroundColor: kBg,
       body: Stack(
         children: [
+          // Subtle green glow at top
           Positioned(
-            top: -100, left: -80,
+            top: -120, left: 0, right: 0,
             child: Container(
-              width: 350, height: 350,
+              height: 320,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [kAccent.withValues(alpha: 0.12), Colors.transparent],
+                  center: Alignment.topCenter,
+                  radius: 0.8,
+                  colors: [kAccent.withValues(alpha: 0.10), Colors.transparent],
                 ),
               ),
             ),
           ),
+
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnim,
@@ -77,21 +80,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 64),
+
+                    // ── Logo ──────────────────────────────────────
                     Center(
                       child: Column(
                         children: [
                           Container(
-                            width: 72, height: 72,
+                            width: 76, height: 76,
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: kCard,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: kBorder),
+                              border: Border.all(color: kAccent.withValues(alpha: 0.30)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: kAccent.withValues(alpha: 0.15),
-                                  blurRadius: 30, spreadRadius: 2,
+                                  color: kAccent.withValues(alpha: 0.12),
+                                  blurRadius: 40, spreadRadius: 4,
                                 ),
                               ],
                             ),
@@ -101,27 +106,25 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const Text(
                             'SolidCore',
                             style: TextStyle(
-                              fontSize: 28, fontWeight: FontWeight.w800,
-                              color: kTextPrimary, letterSpacing: -0.8,
+                              fontSize: 30, fontWeight: FontWeight.w800,
+                              color: kTextPrimary, letterSpacing: -1.0,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: kAccent.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: kAccent.withValues(alpha: 0.25)),
-                            ),
-                            child: const Text(
-                              'Performance Analytics Platform',
-                              style: TextStyle(fontSize: 12, color: kAccent, fontWeight: FontWeight.w500),
+                          const Text(
+                            'PERFORMANCE ANALYTICS',
+                            style: TextStyle(
+                              fontSize: 11, color: kTextSecondary,
+                              fontWeight: FontWeight.w600, letterSpacing: 2.0,
                             ),
                           ),
                         ],
                       ),
                     ),
+
                     const SizedBox(height: 48),
+
+                    // ── Feature pills ─────────────────────────────
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: const [
@@ -132,12 +135,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         _FeaturePill(icon: Icons.directions_run_rounded, label: 'Running'),
                       ],
                     ),
-                    const SizedBox(height: 44),
+
+                    const SizedBox(height: 40),
+
+                    // ── Login form ────────────────────────────────
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         color: kCard,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(22),
                         border: Border.all(color: kBorder),
                       ),
                       child: Column(
@@ -145,10 +151,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         children: [
                           const Text(
                             'Welcome back',
-                            style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.w700,
-                              color: kTextPrimary, letterSpacing: -0.4,
-                            ),
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
                           ),
                           const SizedBox(height: 4),
                           const Text(
@@ -156,9 +159,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             style: TextStyle(fontSize: 13, color: kTextSecondary),
                           ),
                           const SizedBox(height: 24),
+
                           if (_error != null) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               decoration: BoxDecoration(
                                 color: Colors.red.withValues(alpha: 0.08),
                                 border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
@@ -169,17 +173,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   Icon(Icons.error_outline_rounded, size: 15, color: Colors.red.shade300),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      _error!,
-                                      style: TextStyle(color: Colors.red.shade300, fontSize: 13),
-                                    ),
+                                    child: Text(_error!, style: TextStyle(color: Colors.red.shade300, fontSize: 13)),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 18),
                           ],
-                          _fieldLabel('Email address'),
+
+                          _fieldLabel('EMAIL'),
                           const SizedBox(height: 8),
                           TextField(
                             controller: _emailCtrl,
@@ -189,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             decoration: _inputDecor('you@example.com', Icons.mail_outline_rounded),
                           ),
                           const SizedBox(height: 16),
-                          _fieldLabel('Password'),
+                          _fieldLabel('PASSWORD'),
                           const SizedBox(height: 8),
                           TextField(
                             controller: _passCtrl,
@@ -208,26 +210,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                           ),
                           const SizedBox(height: 24),
+
                           SizedBox(
-                            height: 52,
+                            height: 54,
                             child: ElevatedButton(
                               onPressed: _loading ? null : _submit,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: kAccent,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
                               child: _loading
                                   ? const SizedBox(
                                       width: 20, height: 20,
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
                                     )
-                                  : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                                  : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+
+                    const SizedBox(height: 28),
                     const Text(
                       'Your account is created by your coach or admin.\nContact them if you need access.',
                       style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.7),
@@ -253,10 +253,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
 Widget _fieldLabel(String text) => Text(
   text,
-  style: const TextStyle(
-    fontSize: 12, fontWeight: FontWeight.w600,
-    color: kTextSecondary, letterSpacing: 0.2,
-  ),
+  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
 );
 
 class _FeaturePill extends StatelessWidget {
@@ -267,7 +264,7 @@ class _FeaturePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: kCard,
         borderRadius: BorderRadius.circular(20),

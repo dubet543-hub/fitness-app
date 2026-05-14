@@ -15,20 +15,29 @@ class AvatarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: kAccent,
-      backgroundImage: photoUrl != null ? NetworkImage(photoUrl!) : null,
-      child: photoUrl == null
-          ? Text(
-              name.isNotEmpty ? name[0].toUpperCase() : 'U',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: radius * 0.65,
-              ),
-            )
-          : null,
+    final url      = (photoUrl ?? '').trim();
+    final hasPhoto = url.isNotEmpty;
+    return Container(
+      width: radius * 2, height: radius * 2,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: kAccent.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: kCard,
+        backgroundImage: hasPhoto ? NetworkImage(url) : null,
+        child: !hasPhoto
+            ? Text(
+                name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                style: TextStyle(
+                  color: kTextPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: radius * 0.65,
+                ),
+              )
+            : null,
+      ),
     );
   }
 }
@@ -39,12 +48,12 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-    text,
+    text.toUpperCase(),
     style: const TextStyle(
-      fontSize: 15,
+      fontSize: 11,
       fontWeight: FontWeight.w700,
-      color: kTextPrimary,
-      letterSpacing: -0.2,
+      color: kTextSecondary,
+      letterSpacing: 1.4,
     ),
   );
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
-import '../widgets/common_widgets.dart';
 
 class ExploreTab extends StatelessWidget {
   const ExploreTab({super.key});
@@ -10,9 +9,12 @@ class ExploreTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kSurface,
+        backgroundColor: kBg,
         elevation: 0,
-        title: const Text('Explore', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kTextPrimary)),
+        title: const Text(
+          'EXPLORE',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
+        ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: kBorder),
@@ -23,6 +25,7 @@ class ExploreTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Search ──────────────────────────────────────────
             Container(
               decoration: BoxDecoration(
                 color: kCard,
@@ -40,35 +43,62 @@ class ExploreTab extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            const SectionHeader('Categories'),
+            const SizedBox(height: 28),
+
+            // ── Categories ──────────────────────────────────────
+            const _SectionLabel('CATEGORIES'),
             const SizedBox(height: 14),
             SizedBox(
-              height: 90,
+              height: 88,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: const [
                   _CategoryChip(icon: Icons.fitness_center_rounded,  label: 'Strength', color: Color(0xFF38BDF8)),
-                  _CategoryChip(icon: Icons.directions_run_rounded,   label: 'Cardio',   color: Color(0xFFFB923C)),
-                  _CategoryChip(icon: Icons.self_improvement_rounded, label: 'Mobility', color: Color(0xFF34D399)),
-                  _CategoryChip(icon: Icons.sports_cricket_rounded,   label: 'Cricket',  color: Color(0xFFC084FC)),
-                  _CategoryChip(icon: Icons.sports_soccer_rounded,    label: 'Football', color: Color(0xFFFBBF24)),
+                  _CategoryChip(icon: Icons.directions_run_rounded,   label: 'Cardio',   color: Color(0xFFFF6B35)),
+                  _CategoryChip(icon: Icons.self_improvement_rounded, label: 'Mobility', color: kAccent),
+                  _CategoryChip(icon: Icons.sports_cricket_rounded,   label: 'Cricket',  color: Color(0xFFA78BFA)),
+                  _CategoryChip(icon: Icons.sports_soccer_rounded,    label: 'Football', color: Color(0xFFF59E0B)),
                 ],
               ),
             ),
             const SizedBox(height: 28),
-            const SectionHeader('Trending Drills'),
-            const SizedBox(height: 14),
-            _DrillCard(title: 'Hip Hinge Pattern',   category: 'Mobility',  level: 'Intermediate', color: const Color(0xFF34D399)),
-            const SizedBox(height: 10),
-            _DrillCard(title: 'Sprint Acceleration', category: 'Cardio',    level: 'Advanced',     color: const Color(0xFFFB923C)),
-            const SizedBox(height: 10),
-            _DrillCard(title: 'Thoracic Rotation',   category: 'Strength',  level: 'Beginner',     color: const Color(0xFF38BDF8)),
+
+            // ── Trending Drills ──────────────────────────────────
+            const _SectionLabel('TRENDING DRILLS'),
+            const SizedBox(height: 4),
+            Container(
+              decoration: BoxDecoration(
+                color: kCard,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: kBorder),
+              ),
+              child: Column(
+                children: [
+                  _DrillRow(title: 'Hip Hinge Pattern',   category: 'Mobility',  level: 'Intermediate', color: kAccent),
+                  const Divider(height: 1, indent: 58, color: kBorder),
+                  _DrillRow(title: 'Sprint Acceleration', category: 'Cardio',    level: 'Advanced',     color: const Color(0xFFFF6B35)),
+                  const Divider(height: 1, indent: 58, color: kBorder),
+                  _DrillRow(title: 'Thoracic Rotation',   category: 'Strength',  level: 'Beginner',     color: const Color(0xFF38BDF8)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
+  );
 }
 
 class _CategoryChip extends StatelessWidget {
@@ -80,7 +110,7 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 80,
+      width: 76,
       margin: const EdgeInsets.only(right: 10),
       decoration: BoxDecoration(
         color: kCard,
@@ -99,47 +129,42 @@ class _CategoryChip extends StatelessWidget {
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 11, color: kTextSecondary, fontWeight: FontWeight.w500)),
+          Text(label, style: const TextStyle(fontSize: 10.5, color: kTextSecondary, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 }
 
-class _DrillCard extends StatelessWidget {
+class _DrillRow extends StatelessWidget {
   final String title, category, level;
   final Color  color;
-  const _DrillCard({required this.title, required this.category, required this.level, required this.color});
+  const _DrillRow({required this.title, required this.category, required this.level, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
+            width: 40, height: 40,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.play_arrow_rounded, color: color, size: 22),
+            child: Icon(Icons.play_arrow_rounded, color: color, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Row(
                   children: [
-                    Text(category, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+                    Text(category, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
                     const Text(' · ', style: TextStyle(fontSize: 11, color: kTextMuted)),
                     Text(level, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
                   ],
@@ -147,7 +172,7 @@ class _DrillCard extends StatelessWidget {
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: kTextMuted),
+          const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
         ],
       ),
     );
