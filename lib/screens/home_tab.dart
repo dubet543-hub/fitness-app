@@ -98,11 +98,12 @@ class HomeTab extends StatelessWidget {
 
                 // ── Three-Ring Row ───────────────────────────────────────────
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       Expanded(
-                        child: _WhoopRing(
+                        child: _SpeedometerGauge(
                           value: '74',
                           suffix: '%',
                           label: 'SLEEP',
@@ -112,7 +113,7 @@ class HomeTab extends StatelessWidget {
                         ),
                       ),
                       Expanded(
-                        child: _WhoopRing(
+                        child: _SpeedometerGauge(
                           value: '78',
                           suffix: '%',
                           label: 'RECOVERY',
@@ -122,7 +123,7 @@ class HomeTab extends StatelessWidget {
                         ),
                       ),
                       Expanded(
-                        child: _WhoopRing(
+                        child: _SpeedometerGauge(
                           value: '8.2',
                           suffix: '',
                           label: 'STRAIN',
@@ -352,15 +353,15 @@ class HomeTab extends StatelessWidget {
   Route _route(Widget screen) => MaterialPageRoute(builder: (_) => screen);
 }
 
-// ── Whoop-style Ring Gauge ────────────────────────────────────────────────────
+// ── Premium Animated Speedometer Gauge ───────────────────────────────────────
 
-class _WhoopRing extends StatelessWidget {
+class _SpeedometerGauge extends StatefulWidget {
   final String value, suffix, label;
   final double progress;
   final Color  color;
   final VoidCallback onTap;
 
-  const _WhoopRing({
+  const _SpeedometerGauge({
     required this.value,
     required this.suffix,
     required this.label,
@@ -370,75 +371,83 @@ class _WhoopRing extends StatelessWidget {
   });
 
   @override
+  State<_SpeedometerGauge> createState() => _SpeedometerGaugeState();
+}
+
+class _SpeedometerGaugeState extends State<_SpeedometerGauge>
+    with TickerProviderStateMixin {
+  late final AnimationController _sweepCtrl;
+  late final AnimationController _pulseCtrl;
+  late final Animation<double>   _sweepAnim;
+  late final Animation<double>   _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _sweepCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    _sweepAnim = CurvedAnimation(parent: _sweepCtrl, curve: Curves.easeOutCubic);
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+    _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
+
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) _sweepCtrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sweepCtrl.dispose();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Column(
         children: [
-          SizedBox(
-            width: 96,
-            height: 96,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CustomPaint(
-                  size: const Size(96, 96),
-                  painter: _RingPainter(
-                    progress: progress.clamp(0.0, 1.0),
-                    trackColor: color.withValues(alpha: 0.14),
-                    ringColor: color,
-                    strokeWidth: 8.5,
+          AspectRatio(
+            aspectRatio: 1.0,
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_sweepAnim, _pulseAnim]),
+              builder: (_, __) {
+                final p = _pulseAnim.value;
+                return CustomPaint(
+                  painter: _SpeedometerPainter(
+                    animProgress: _sweepAnim.value * widget.progress,
+                    gaugeColor:   widget.color,
+                    value:        widget.value,
+                    suffix:       widget.suffix,
+                    pulse:        p,
                   ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: value,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: kTextPrimary,
-                              letterSpacing: -0.5,
-                              height: 1,
-                            ),
-                          ),
-                          if (suffix.isNotEmpty)
-                            TextSpan(
-                              text: suffix,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: kTextSecondary,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                label,
+                widget.label,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: color,
-                  letterSpacing: 1.2,
+                  color: widget.color,
+                  letterSpacing: 1.8,
                 ),
               ),
-              const SizedBox(width: 2),
-              Icon(Icons.arrow_forward_ios_rounded, size: 9, color: color),
+              const SizedBox(width: 3),
+              Icon(Icons.arrow_forward_ios_rounded, size: 9, color: widget.color),
             ],
           ),
         ],
@@ -447,49 +456,343 @@ class _WhoopRing extends StatelessWidget {
   }
 }
 
-class _RingPainter extends CustomPainter {
-  final double progress, strokeWidth;
-  final Color  trackColor, ringColor;
-  const _RingPainter({
-    required this.progress,
-    required this.trackColor,
-    required this.ringColor,
-    required this.strokeWidth,
+class _SpeedometerPainter extends CustomPainter {
+  final double animProgress; // 0.0 → target (driven by animation)
+  final double pulse;        // 0.0 → 1.0 repeating (glow throb)
+  final Color  gaugeColor;
+  final String value, suffix;
+
+  const _SpeedometerPainter({
+    required this.animProgress,
+    required this.gaugeColor,
+    required this.value,
+    required this.suffix,
+    required this.pulse,
   });
+
+  static const double _startDeg  = 150;
+  static const double _sweepDeg  = 240;
+  static const int    _numTicks  = 24;
+  static const Color  _needleRed = Color(0xFFFF2E2E);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - strokeWidth / 2;
-    const start  = -pi / 2;        // top
-    const sweep  = 2 * pi;         // full circle
+    final startRad = _startDeg * pi / 180;
+    final sweepRad = _sweepDeg * pi / 180;
+    final cx = size.width / 2;
+    final cy = size.height * 0.52;
+    final center  = Offset(cx, cy);
+    final outerR  = size.width * 0.41;
+    const strokeW = 5.5;
+    final arcR    = outerR - strokeW / 2;
+    final arcRect = Rect.fromCircle(center: center, radius: arcR);
+    final faceRect = Rect.fromCircle(center: center, radius: outerR + 6);
 
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      start, sweep, false,
-      Paint()..color = trackColor..strokeWidth = strokeWidth..style = PaintingStyle.stroke..strokeCap = StrokeCap.round,
+    // ─── 1. Background radial bloom ────────────────────────────────────────
+    canvas.drawCircle(center, outerR + 6,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, -0.3),
+          radius: 1.0,
+          colors: [
+            gaugeColor.withValues(alpha: 0.10 + 0.04 * pulse),
+            Colors.transparent,
+          ],
+        ).createShader(faceRect),
     );
-    if (progress > 0) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        start, sweep * progress, false,
+
+    // ─── 2. Outer 3-D bevel ring ────────────────────────────────────────────
+    canvas.drawCircle(center, outerR + 4.5,
+      Paint()
+        ..shader = SweepGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.18),
+            Colors.white.withValues(alpha: 0.02),
+            Colors.black.withValues(alpha: 0.45),
+            Colors.black.withValues(alpha: 0.05),
+            Colors.white.withValues(alpha: 0.18),
+          ],
+          stops: const [0.0, 0.25, 0.50, 0.75, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: outerR + 4.5))
+        ..style       = PaintingStyle.stroke
+        ..strokeWidth = 3.5,
+    );
+
+    // ─── 3. Concentric depth rings ─────────────────────────────────────────
+    for (int i = 1; i <= 3; i++) {
+      canvas.drawCircle(center, outerR - 5.5 * i,
         Paint()
-          ..color = ringColor
-          ..strokeWidth = strokeWidth
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..shader = SweepGradient(
-            startAngle: start,
-            endAngle: start + sweep * progress,
-            colors: [ringColor.withValues(alpha: 0.6), ringColor],
-          ).createShader(Rect.fromCircle(center: center, radius: radius)),
+          ..color       = Colors.white.withValues(alpha: 0.016 * (4 - i))
+          ..style       = PaintingStyle.stroke
+          ..strokeWidth = 0.6,
       );
     }
+
+    // ─── 4. Outer colored tick ring ─────────────────────────────────────────
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: outerR + 1.5),
+      startRad, sweepRad, false,
+      Paint()
+        ..color       = gaugeColor.withValues(alpha: 0.28)
+        ..strokeWidth = 1.3
+        ..style       = PaintingStyle.stroke
+        ..strokeCap   = StrokeCap.round,
+    );
+
+    // ─── 5. Track arc (dim gauge color) ─────────────────────────────────────
+    canvas.drawArc(arcRect, startRad, sweepRad, false,
+      Paint()
+        ..color       = gaugeColor.withValues(alpha: 0.12)
+        ..strokeWidth = strokeW
+        ..style       = PaintingStyle.stroke
+        ..strokeCap   = StrokeCap.round,
+    );
+
+    // ─── 6. Progress arc (dark→bright same hue) ──────────────────────────────
+    if (animProgress > 0.001) {
+      final sweepP    = sweepRad * animProgress;
+      // Glow intensity scales with how full the gauge is
+      final glowAlpha = 0.15 + 0.25 * animProgress;
+
+      // Wide outer glow
+      canvas.drawArc(arcRect, startRad, sweepP, false,
+        Paint()
+          ..color       = gaugeColor.withValues(alpha: glowAlpha + 0.10 * pulse)
+          ..strokeWidth = 22
+          ..style       = PaintingStyle.stroke
+          ..strokeCap   = StrokeCap.round
+          ..maskFilter  = const MaskFilter.blur(BlurStyle.normal, 12),
+      );
+      // Mid glow
+      canvas.drawArc(arcRect, startRad, sweepP, false,
+        Paint()
+          ..color       = gaugeColor.withValues(alpha: (glowAlpha + 0.30) + 0.15 * pulse)
+          ..strokeWidth = 9
+          ..style       = PaintingStyle.stroke
+          ..strokeCap   = StrokeCap.round
+          ..maskFilter  = const MaskFilter.blur(BlurStyle.normal, 4),
+      );
+      // Solid arc: near-black at start → full vivid color at tip
+      canvas.drawArc(arcRect, startRad, sweepP, false,
+        Paint()
+          ..strokeWidth = strokeW
+          ..style       = PaintingStyle.stroke
+          ..strokeCap   = StrokeCap.round
+          ..shader      = SweepGradient(
+            startAngle: startRad,
+            endAngle:   startRad + sweepP,
+            colors: [
+              gaugeColor.withValues(alpha: 0.18), // dark/dim at 0%
+              gaugeColor,                          // full vivid at tip
+            ],
+          ).createShader(arcRect),
+      );
+
+      // Pulsing hot dot at arc tip
+      final endAngle = startRad + sweepP;
+      final arcTip   = Offset(cx + arcR * cos(endAngle), cy + arcR * sin(endAngle));
+      canvas.drawCircle(arcTip, 5.5 + 3.5 * pulse,
+        Paint()
+          ..color      = gaugeColor.withValues(alpha: 0.55 * pulse)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      canvas.drawCircle(arcTip, 2.2,
+        Paint()..color = Colors.white.withValues(alpha: 0.70 + 0.30 * pulse),
+      );
+    }
+
+    // ─── 7. Tick marks (lit ticks brighten from start→tip) ───────────────────
+    final tickR    = arcR - strokeW / 2 - 2.5;
+    final safeAnim = animProgress.clamp(0.001, 1.0);
+    for (int i = 0; i <= _numTicks; i++) {
+      final frac  = i / _numTicks;
+      final angle = startRad + sweepRad * frac;
+      final isLit = frac <= animProgress;
+      final isMaj = i % 6 == 0;
+      final isMid = i % 3 == 0 && !isMaj;
+      final len   = isMaj ? 11.0 : (isMid ? 6.5 : 3.5);
+      final thick = isMaj ? 2.0 : (isMid ? 1.1 : 0.7);
+      // Lit ticks: dim near arc-start, bright near needle tip
+      final litBrightness = isLit ? (frac / safeAnim).clamp(0.0, 1.0) : 0.0;
+      final col   = isLit ? gaugeColor : Colors.white;
+      final alpha = isLit
+          ? (isMaj ? 0.30 + 0.70 * litBrightness
+                   : (isMid ? 0.18 + 0.52 * litBrightness
+                            : 0.08 + 0.27 * litBrightness))
+          : (isMaj ? 0.38 : (isMid ? 0.18 : 0.08));
+      final c_    = cos(angle);
+      final s_    = sin(angle);
+      canvas.drawLine(
+        Offset(cx + tickR * c_,          cy + tickR * s_),
+        Offset(cx + (tickR - len) * c_,  cy + (tickR - len) * s_),
+        Paint()
+          ..color       = col.withValues(alpha: alpha)
+          ..strokeWidth = thick
+          ..strokeCap   = StrokeCap.round,
+      );
+    }
+
+    // ─── 8. Needle glow trail ────────────────────────────────────────────────
+    final needleAngle = startRad + sweepRad * animProgress;
+    final needleLen   = arcR - strokeW - 10;
+    final tipPt  = Offset(cx + needleLen * cos(needleAngle),
+                          cy + needleLen * sin(needleAngle));
+    final basePt = Offset(cx - 8.0 * cos(needleAngle),
+                          cy - 8.0 * sin(needleAngle));
+
+    canvas.drawLine(basePt, tipPt,
+      Paint()
+        ..color       = _needleRed.withValues(alpha: 0.35 + 0.28 * pulse)
+        ..strokeWidth = 12
+        ..strokeCap   = StrokeCap.round
+        ..maskFilter  = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+
+    // ─── 9. Tapered needle (triangle + specular) ─────────────────────────────
+    final perp  = needleAngle + pi / 2;
+    const baseHW = 3.2;
+    final bL    = Offset(basePt.dx + baseHW * cos(perp), basePt.dy + baseHW * sin(perp));
+    final bR    = Offset(basePt.dx - baseHW * cos(perp), basePt.dy - baseHW * sin(perp));
+    final nPath = Path()
+      ..moveTo(tipPt.dx, tipPt.dy)
+      ..lineTo(bL.dx, bL.dy)
+      ..lineTo(bR.dx, bR.dy)
+      ..close();
+
+    canvas.drawPath(nPath,               // drop shadow
+      Paint()
+        ..color      = Colors.black.withValues(alpha: 0.55)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+    canvas.drawPath(nPath,               // gradient fill
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end:   Alignment.bottomCenter,
+          colors: const [Color(0xFFFF6666), Color(0xFFAA0808)],
+        ).createShader(Rect.fromPoints(basePt, tipPt)),
+    );
+    canvas.drawLine(                     // specular edge
+      Offset(basePt.dx + 0.6 * cos(perp), basePt.dy + 0.6 * sin(perp)),
+      Offset(tipPt.dx  + 0.3 * cos(perp), tipPt.dy  + 0.3 * sin(perp)),
+      Paint()
+        ..color       = Colors.white.withValues(alpha: 0.30)
+        ..strokeWidth = 0.8
+        ..strokeCap   = StrokeCap.round,
+    );
+
+    // ─── 10. Metallic hub (7 layers) ────────────────────────────────────────
+    canvas.drawCircle(center, 13,
+      Paint()
+        ..color      = Colors.black.withValues(alpha: 0.70)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+    canvas.drawCircle(center, 11,        // sweep metallic bevel
+      Paint()
+        ..shader = SweepGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.22),
+            Colors.black.withValues(alpha: 0.42),
+            Colors.white.withValues(alpha: 0.08),
+            Colors.black.withValues(alpha: 0.38),
+          ],
+        ).createShader(Rect.fromCircle(center: center, radius: 11))
+        ..style       = PaintingStyle.stroke
+        ..strokeWidth = 3.0,
+    );
+    canvas.drawCircle(center, 9.5,       // dark face
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.4, -0.4),
+          radius: 1.0,
+          colors: [const Color(0xFF363650), const Color(0xFF101022)],
+        ).createShader(Rect.fromCircle(center: center, radius: 9.5)),
+    );
+    canvas.drawCircle(center, 9.5,       // colored ring pulse
+      Paint()
+        ..color       = gaugeColor.withValues(alpha: 0.50 + 0.25 * pulse)
+        ..style       = PaintingStyle.stroke
+        ..strokeWidth = 1.1,
+    );
+    canvas.drawCircle(center, 6.5,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0.3, 0.3),
+          radius: 1.0,
+          colors: [const Color(0xFF2A2A40), const Color(0xFF0A0A18)],
+        ).createShader(Rect.fromCircle(center: center, radius: 6.5)),
+    );
+    canvas.drawCircle(center, 4.8, Paint()..color = _needleRed);
+    canvas.drawCircle(center, 4.8,       // red pulse glow
+      Paint()
+        ..color      = _needleRed.withValues(alpha: 0.60 * pulse)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+    canvas.drawCircle(Offset(cx - 2.5, cy - 2.5), 1.9,  // specular
+      Paint()..color = Colors.white.withValues(alpha: 0.88),
+    );
+
+    // ─── 11. Glass gloss (upper half filled arc) ─────────────────────────────
+    final glossPath = Path()
+      ..arcTo(faceRect, pi, pi, false)
+      ..lineTo(cx, cy)
+      ..close();
+    canvas.drawPath(glossPath,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, -1),
+          radius: 1.3,
+          colors: [
+            Colors.white.withValues(alpha: 0.09),
+            Colors.transparent,
+          ],
+        ).createShader(faceRect),
+    );
+
+    // ─── 12. Value pill + text ───────────────────────────────────────────────
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy + 17), width: 56, height: 24),
+        const Radius.circular(7),
+      ),
+      Paint()
+        ..color      = gaugeColor.withValues(alpha: 0.15 + 0.06 * pulse)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+
+    final tp = TextPainter(
+      textDirection: TextDirection.ltr,
+      text: TextSpan(children: [
+        TextSpan(
+          text: value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: -0.5,
+            height: 1,
+          ),
+        ),
+        if (suffix.isNotEmpty)
+          TextSpan(
+            text: suffix,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: Colors.white.withValues(alpha: 0.55),
+              letterSpacing: 0.5,
+            ),
+          ),
+      ]),
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy + 14));
   }
 
   @override
-  bool shouldRepaint(covariant _RingPainter old) =>
-      old.progress != progress || old.ringColor != ringColor;
+  bool shouldRepaint(covariant _SpeedometerPainter old) =>
+      old.animProgress != animProgress ||
+      old.pulse        != pulse        ||
+      old.gaugeColor   != gaugeColor;
 }
 
 // ── Monitor Card ──────────────────────────────────────────────────────────────

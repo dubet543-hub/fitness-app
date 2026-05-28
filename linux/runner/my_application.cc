@@ -12,6 +12,9 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
 };
 
+static const int DEFAULT_WINDOW_WIDTH = 1280;
+static const int DEFAULT_WINDOW_HEIGHT = 720;
+
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
@@ -52,7 +55,7 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "fitness_app");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  gtk_window_set_default_size(window, DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
