@@ -1247,7 +1247,46 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
                     },
                   ),
           ),
+          if (!isLoading)
+            const _ConsultBanner(
+              specialist: 'Physiotherapist',
+              message:
+                  'This is a screening tool, not a diagnosis. Consult a Physiotherapist to address any flagged findings for postural integrity.',
+            ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Consult-specialist advisory banner
+// ─────────────────────────────────────────────────────────────────────────────
+class _ConsultBanner extends StatelessWidget {
+  final String specialist;
+  final String message;
+  const _ConsultBanner({required this.specialist, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.lightBlueAccent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.lightBlueAccent.withValues(alpha: 0.4)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.medical_services_outlined, color: Colors.lightBlueAccent, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message,
+                style: const TextStyle(fontSize: 11.5, color: Colors.white, height: 1.35)),
+          ),
+        ]),
       ),
     );
   }

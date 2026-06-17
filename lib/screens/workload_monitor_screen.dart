@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../api_service.dart';
 
 // Aliases so the rest of the file compiles without change.
 const _kBg      = kBg;
@@ -331,7 +332,8 @@ const _a2Total = <_LP>[
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 class WorkloadMonitorScreen extends StatefulWidget {
-  const WorkloadMonitorScreen({super.key});
+  final String initialRange;
+  const WorkloadMonitorScreen({super.key, this.initialRange = '28d'});
 
   @override
   State<WorkloadMonitorScreen> createState() => _WMState();
@@ -341,7 +343,8 @@ class _WMState extends State<WorkloadMonitorScreen>
     with SingleTickerProviderStateMixin {
 
   int _athlete = 0; // 0 = ATS-2025-001, 1 = ATS-2025-002
-  String _range = '28d';
+  String _athleteLabel = 'ATS-2025-001';
+  late String _range;
   late final TabController _tabs;
 
   static DateTime _parseLP(String d) {
@@ -373,7 +376,16 @@ class _WMState extends State<WorkloadMonitorScreen>
   @override
   void initState() {
     super.initState();
+    _range = widget.initialRange;
     _tabs = TabController(length: 3, vsync: this);
+    // Bind to the logged-in athlete — players only see their own workload.
+    ApiService.getCachedUser().then((u) {
+      if (u == null || !mounted) return;
+      setState(() {
+        _athlete      = u.name.contains('002') ? 1 : 0;
+        _athleteLabel = u.name;
+      });
+    });
   }
 
   @override
@@ -395,9 +407,21 @@ class _WMState extends State<WorkloadMonitorScreen>
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
-            child: _AthleteToggle(
-              selected: _athlete,
-              onChanged: (i) => setState(() => _athlete = i),
+            child: Container(
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: _kCard,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _kBorder),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.person_rounded, size: 14, color: kAccent),
+                const SizedBox(width: 6),
+                Text(_athleteLabel,
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700, color: kAccent)),
+              ]),
             ),
           ),
         ],
@@ -508,61 +532,6 @@ class _FilterBar extends StatelessWidget {
   }
 }
 
-// ── Athlete Toggle ─────────────────────────────────────────────────────────────
-
-class _AthleteToggle extends StatelessWidget {
-  final int selected;
-  final ValueChanged<int> onChanged;
-  const _AthleteToggle({required this.selected, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 34,
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _Pill(label: 'ATS-001', active: selected == 0, onTap: () => onChanged(0)),
-          _Pill(label: 'ATS-002', active: selected == 1, onTap: () => onChanged(1)),
-        ],
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  const _Pill({required this.label, required this.active, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? kAccent.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: active ? kAccent : _kTxtS,
-            )),
-      ),
-    );
-  }
-}
-
 // ── Section View ──────────────────────────────────────────────────────────────
 
 class _SectionView extends StatelessWidget {
@@ -581,8 +550,8 @@ class _SectionView extends StatelessWidget {
 
   double get _exertion {
     final l = _last.load;
-    if (l <= 0) return 0;
-    return (log(l) / log(1000)) * 10;
+    if (l <= 0) return 2.0;
+    return min(10.0, 2.087 * log(l / 50.0 + 1.0) + 2.0);
   }
 
   int get _targetLow  => (_last.chronic * 0.8).round();
@@ -1212,7 +1181,7 @@ class _LoadChartPainter extends CustomPainter {
     final exertPts = <Offset>[];
     for (int i = 0; i < n; i++) {
       if (data[i].load > 0) {
-        final score = (log(data[i].load) / log(1000)) * 10.0;
+        final score = min(10.0, 2.087 * log(data[i].load / 50.0 + 1.0) + 2.0);
         exertPts.add(Offset(xAt(i), yAtExert(score)));
       }
     }
@@ -1248,7 +1217,7 @@ class _LoadChartPainter extends CustomPainter {
       canvas.drawLine(Offset(x, tPad), Offset(x, tPad + chartH),
           Paint()..color = Colors.white.withValues(alpha: 0.13)..strokeWidth = 1);
       final exert = data[si].load > 0
-          ? (log(data[si].load) / log(1000) * 10).toStringAsFixed(1)
+          ? (min(10.0, 2.087 * log(data[si].load / 50.0 + 1.0) + 2.0)).toStringAsFixed(1)
           : '—';
       _drawTooltip(canvas, size, x, tPad, lp, [
         data[si].d,
@@ -1896,7 +1865,7 @@ class _SessionRow extends StatelessWidget {
                 _stat('Load', pt.load.toStringAsFixed(0), color),
                 _stat('Exertion',
                     pt.load > 0
-                        ? (log(pt.load) / log(1000) * 10).toStringAsFixed(1)
+                        ? (min(10.0, 2.087 * log(pt.load / 50.0 + 1.0) + 2.0)).toStringAsFixed(1)
                         : '—',
                     Colors.pinkAccent),
                 _stat('Acute', pt.acute.toStringAsFixed(0), Colors.lightBlueAccent),

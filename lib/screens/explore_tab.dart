@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../posture_screen.dart';
+import '../training_load_screen.dart';
+import '../running_analysis_screen.dart';
+import '../bowling_analysis_screen.dart';
+import 'workload_monitor_screen.dart';
+import 'wellness_log_screen.dart';
+import 'body_composition_screen.dart';
 
 class ExploreTab extends StatelessWidget {
   const ExploreTab({super.key});
@@ -45,42 +52,67 @@ class ExploreTab extends StatelessWidget {
             ),
             const SizedBox(height: 28),
 
-            // ── Categories ──────────────────────────────────────
-            const _SectionLabel('CATEGORIES'),
+            // ── Features ────────────────────────────────────────
+            const _SectionLabel('FEATURES'),
             const SizedBox(height: 14),
-            SizedBox(
-              height: 88,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: const [
-                  _CategoryChip(icon: Icons.fitness_center_rounded,  label: 'Strength', color: Color(0xFF38BDF8)),
-                  _CategoryChip(icon: Icons.directions_run_rounded,   label: 'Cardio',   color: Color(0xFFFF6B35)),
-                  _CategoryChip(icon: Icons.self_improvement_rounded, label: 'Mobility', color: kAccent),
-                  _CategoryChip(icon: Icons.sports_cricket_rounded,   label: 'Cricket',  color: Color(0xFFA78BFA)),
-                  _CategoryChip(icon: Icons.sports_soccer_rounded,    label: 'Football', color: Color(0xFFF59E0B)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // ── Trending Drills ──────────────────────────────────
-            const _SectionLabel('TRENDING DRILLS'),
-            const SizedBox(height: 4),
-            Container(
-              decoration: BoxDecoration(
-                color: kCard,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: kBorder),
-              ),
-              child: Column(
-                children: [
-                  _DrillRow(title: 'Hip Hinge Pattern',   category: 'Mobility',  level: 'Intermediate', color: kAccent),
-                  const Divider(height: 1, indent: 58, color: kBorder),
-                  _DrillRow(title: 'Sprint Acceleration', category: 'Cardio',    level: 'Advanced',     color: const Color(0xFFFF6B35)),
-                  const Divider(height: 1, indent: 58, color: kBorder),
-                  _DrillRow(title: 'Thoracic Rotation',   category: 'Strength',  level: 'Beginner',     color: const Color(0xFF38BDF8)),
-                ],
-              ),
+            GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.1,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _ExploreFeatureCard(
+                  icon: Icons.accessibility_new_rounded,
+                  title: 'Posture',
+                  subtitle: 'Body alignment',
+                  accentColor: const Color(0xFF38BDF8),
+                  onTap: () => Navigator.push(context, _route(const PostureGuideScreen())),
+                ),
+                _ExploreFeatureCard(
+                  icon: Icons.bar_chart_rounded,
+                  title: 'Training Load',
+                  subtitle: 'Workload monitor',
+                  accentColor: kAccent,
+                  onTap: () => Navigator.push(context, _route(const TrainingLoadScreen())),
+                ),
+                _ExploreFeatureCard(
+                  icon: Icons.directions_run_rounded,
+                  title: 'Running',
+                  subtitle: 'Form analysis',
+                  accentColor: const Color(0xFFFF6B35),
+                  onTap: () => Navigator.push(context, _route(const RunningAnalysisScreen())),
+                ),
+                _ExploreFeatureCard(
+                  icon: Icons.sports_cricket_rounded,
+                  title: 'Bowling',
+                  subtitle: 'Technique',
+                  accentColor: kSleep,
+                  onTap: () => Navigator.push(context, _route(const BowlingAnalysisScreen())),
+                ),
+                _ExploreFeatureCard(
+                  icon: Icons.monitor_heart_rounded,
+                  title: 'Workload',
+                  subtitle: 'Load monitoring',
+                  accentColor: const Color(0xFFF59E0B),
+                  onTap: () => Navigator.push(context, _route(const WorkloadMonitorScreen())),
+                ),
+                _ExploreFeatureCard(
+                  icon: Icons.health_and_safety_rounded,
+                  title: 'Wellness',
+                  subtitle: 'Sleep & Mood',
+                  accentColor: const Color(0xFF818CF8),
+                  onTap: () => Navigator.push(context, _route(const WellnessLogScreen())),
+                ),
+                _ExploreFeatureCard(
+                  icon: Icons.person_outline_rounded,
+                  title: 'Body Comp',
+                  subtitle: 'Composition analysis',
+                  accentColor: const Color(0xFFF97316),
+                  onTap: () => Navigator.push(context, _route(const BodyCompositionScreen())),
+                ),
+              ],
             ),
             const SizedBox(height: 32),
           ],
@@ -88,6 +120,8 @@ class ExploreTab extends StatelessWidget {
       ),
     );
   }
+
+  Route _route(Widget screen) => MaterialPageRoute(builder: (_) => screen);
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -101,79 +135,64 @@ class _SectionLabel extends StatelessWidget {
   );
 }
 
-class _CategoryChip extends StatelessWidget {
-  final IconData icon;
-  final String   label;
-  final Color    color;
-  const _CategoryChip({required this.icon, required this.label, required this.color});
+class _ExploreFeatureCard extends StatelessWidget {
+  final IconData     icon;
+  final String       title, subtitle;
+  final Color        accentColor;
+  final VoidCallback onTap;
+
+  const _ExploreFeatureCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 76,
-      margin: const EdgeInsets.only(right: 10),
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: accentColor, size: 19),
             ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 10.5, color: kTextSecondary, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-}
-
-class _DrillRow extends StatelessWidget {
-  final String title, category, level;
-  final Color  color;
-  const _DrillRow({required this.title, required this.category, required this.level, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(10),
+            const Spacer(),
+            Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                color: kTextPrimary,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+                letterSpacing: 0.6,
+              ),
             ),
-            child: Icon(Icons.play_arrow_rounded, color: color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(category, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-                    const Text(' · ', style: TextStyle(fontSize: 11, color: kTextMuted)),
-                    Text(level, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
-                  ],
-                ),
-              ],
+            const SizedBox(height: 3),
+            Text(subtitle, style: const TextStyle(color: kTextSecondary, fontSize: 10.5)),
+            const SizedBox(height: 10),
+            Container(
+              width: 22, height: 2.5,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
-        ],
+          ],
+        ),
       ),
     );
   }

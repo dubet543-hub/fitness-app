@@ -865,6 +865,27 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             ),
           ),
 
+          // Consult-specialist advisory
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.tealAccent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.4)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.medical_services_outlined, color: Colors.tealAccent, size: 20),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'This analysis flags running-form defaults only. Consult a Physiotherapist or SNC coach to address them.',
+                  style: TextStyle(fontSize: 11.5, color: Colors.white, height: 1.35),
+                ),
+              ),
+            ]),
+          ),
+
           ElevatedButton.icon(
             onPressed: _reset,
             icon: const Icon(Icons.refresh),

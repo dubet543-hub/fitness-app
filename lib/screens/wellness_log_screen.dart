@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
+import '../services/local_log_store.dart';
 
 class WellnessLogScreen extends StatefulWidget {
   const WellnessLogScreen({super.key});
@@ -38,6 +39,17 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
 
   bool _submitting = false;
   String? _error;
+
+  // Once recovery is logged it stays locked until the next 00:00 midnight.
+  bool _alreadyLogged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    LocalLogStore.recoveryLoggedToday().then((logged) {
+      if (mounted) setState(() => _alreadyLogged = logged);
+    });
+  }
 
   bool get _showExtended => _wellness >= 3 || _fatigue >= 3;
 
@@ -98,7 +110,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
         },
       };
       await ApiService.submitSession(payload);
+      await LocalLogStore.markRecoveryLogged();
       if (mounted) {
+        setState(() => _alreadyLogged = true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Wellness log saved'), backgroundColor: Color(0xFF22C55E)),
         );
@@ -364,14 +378,36 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
             ),
             const SizedBox(height: 12),
           ],
+          if (_alreadyLogged) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: kAccent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kAccent.withValues(alpha: 0.30)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.check_circle_rounded, size: 18, color: kAccent),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Recovery already logged today. The next entry unlocks after midnight.',
+                    style: TextStyle(fontSize: 12.5, color: kTextSecondary),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
           SizedBox(
             width: double.infinity,
             height: 54,
             child: ElevatedButton(
-              onPressed: _submitting ? null : _submit,
+              onPressed: (_submitting || _alreadyLogged) ? null : _submit,
               child: _submitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black))
-                  : const Text('Save Wellness Log', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  : Text(_alreadyLogged ? 'Logged for Today' : 'Save Wellness Log',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
             ),
           ),
           const SizedBox(height: 32),

@@ -528,7 +528,15 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
 
   // ── Submit: Training ──────────────────────────────────────────────────────
 
+  // Daily activity-log caps: 2 training sessions + 1 skill session.
+  static const int _maxTrainingPerDay = 2;
+  static const int _maxSkillPerDay    = 1;
+
   Future<void> _submitTraining() async {
+    if (_todayTraining.length >= _maxTrainingPerDay) {
+      _snack("Daily limit reached — max $_maxTrainingPerDay training sessions per day");
+      return;
+    }
     if (_tPrimaryTypes.isEmpty) { _snack("Select at least one session type"); return; }
     final dur = int.tryParse(_tPrimaryDurCtrl.text.trim()) ?? 0;
     if (dur <= 0) { _snack("Enter a valid duration"); return; }
@@ -570,6 +578,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   // ── Submit: Skill ─────────────────────────────────────────────────────────
 
   Future<void> _submitSkill() async {
+    if (_todaySkills.length >= _maxSkillPerDay) {
+      _snack("Daily limit reached — max $_maxSkillPerDay skill session per day");
+      return;
+    }
     if (_sTypes.isEmpty) { _snack("Select at least one skill type"); return; }
     final dur = int.tryParse(_sDurCtrl.text.trim()) ?? 0;
     if (dur <= 0) { _snack("Enter a valid duration"); return; }
@@ -793,10 +805,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   // ── Training sessions section ─────────────────────────────────────────────
 
   Widget _buildTrainingSessions() {
-    final today = _todayTraining;
+    final today    = _todayTraining;
+    final capped   = today.length >= _maxTrainingPerDay;
     return _SectionCard(
       title: "Training Sessions",
-      subtitle: "Log each session after completing it (30-min rule)",
+      subtitle: "Up to $_maxTrainingPerDay per day · ${today.length}/$_maxTrainingPerDay logged today",
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -815,24 +828,27 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             if (i < today.length - 1) const SizedBox(height: 8),
           ],
           if (today.isNotEmpty) const SizedBox(height: 12),
-          if (_showTrainingForm) ...[
+          if (_showTrainingForm && !capped) ...[
             _buildTrainingForm(),
             const SizedBox(height: 12),
           ],
-          OutlinedButton.icon(
-            onPressed: () => setState(() {
-              _showTrainingForm = !_showTrainingForm;
-              if (!_showTrainingForm) _clearTrainingForm();
-            }),
-            icon: Icon(_showTrainingForm ? Icons.close_rounded : Icons.add_rounded, size: 18),
-            label: Text(_showTrainingForm ? "Cancel" : "+ Add Training Session"),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _kAccent,
-              side: BorderSide(color: _showTrainingForm ? _kBorder : _kAccent),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+          if (capped)
+            _DailyLimitNotice(text: "Daily training limit reached ($_maxTrainingPerDay sessions).")
+          else
+            OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _showTrainingForm = !_showTrainingForm;
+                if (!_showTrainingForm) _clearTrainingForm();
+              }),
+              icon: Icon(_showTrainingForm ? Icons.close_rounded : Icons.add_rounded, size: 18),
+              label: Text(_showTrainingForm ? "Cancel" : "+ Add Training Session"),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _kAccent,
+                side: BorderSide(color: _showTrainingForm ? _kBorder : _kAccent),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -983,10 +999,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   // ── Skill sessions section ────────────────────────────────────────────────
 
   Widget _buildSkillSessions() {
-    final today = _todaySkills;
+    final today  = _todaySkills;
+    final capped = today.length >= _maxSkillPerDay;
     return _SectionCard(
       title: "Skill Sessions",
-      subtitle: "Log each skill session after completing it",
+      subtitle: "Up to $_maxSkillPerDay per day · ${today.length}/$_maxSkillPerDay logged today",
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1005,24 +1022,27 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             if (i < today.length - 1) const SizedBox(height: 8),
           ],
           if (today.isNotEmpty) const SizedBox(height: 12),
-          if (_showSkillForm) ...[
+          if (_showSkillForm && !capped) ...[
             _buildSkillForm(),
             const SizedBox(height: 12),
           ],
-          OutlinedButton.icon(
-            onPressed: () => setState(() {
-              _showSkillForm = !_showSkillForm;
-              if (!_showSkillForm) _clearSkillForm();
-            }),
-            icon: Icon(_showSkillForm ? Icons.close_rounded : Icons.add_rounded, size: 18),
-            label: Text(_showSkillForm ? "Cancel" : "+ Add Skill Session"),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.greenAccent,
-              side: BorderSide(color: _showSkillForm ? _kBorder : Colors.greenAccent),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+          if (capped)
+            _DailyLimitNotice(text: "Daily skill limit reached ($_maxSkillPerDay session).")
+          else
+            OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _showSkillForm = !_showSkillForm;
+                if (!_showSkillForm) _clearSkillForm();
+              }),
+              icon: Icon(_showSkillForm ? Icons.close_rounded : Icons.add_rounded, size: 18),
+              label: Text(_showSkillForm ? "Cancel" : "+ Add Skill Session"),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.greenAccent,
+                side: BorderSide(color: _showSkillForm ? _kBorder : Colors.greenAccent),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -1358,6 +1378,31 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     if (v <= 1.5) return "Caution";
     return "Danger Zone";
   }
+}
+
+// ── Daily Limit Notice ────────────────────────────────────────────────────────
+
+class _DailyLimitNotice extends StatelessWidget {
+  final String text;
+  const _DailyLimitNotice({required this.text});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: _kCard,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: _kBorder),
+    ),
+    child: Row(children: [
+      const Icon(Icons.check_circle_rounded, size: 18, color: Colors.greenAccent),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(text,
+            style: const TextStyle(fontSize: 12.5, color: _kTextSecondary)),
+      ),
+    ]),
+  );
 }
 
 // ── Training Log Tile ─────────────────────────────────────────────────────────

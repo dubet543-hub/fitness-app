@@ -705,6 +705,26 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
           ...(isFast ? _fastCards(m) : _spinCards(m)),
 
           const SizedBox(height: 16),
+          // Consult-specialist advisory
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+            ),
+            child: Row(children: [
+              Icon(Icons.sports_cricket_rounded, color: color, size: 20),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'This analysis flags difficulties in your bowling action only. Consult your Bowling Coach to address them.',
+                  style: TextStyle(fontSize: 11.5, color: Colors.white, height: 1.35),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(

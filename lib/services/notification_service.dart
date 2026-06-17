@@ -47,8 +47,8 @@ class NotificationService {
     await _plugin.zonedSchedule(
       _morningId,
       'Morning Wellness Check-in',
-      'Log your Sleep, Readiness, Soreness & Fatigue to stay on top of recovery.',
-      _nextInstanceOf(7, 0),
+      'Log your Sleep data & Overall Recovery Metrics to stay on top of recovery.',
+      _nextInstanceOf(7, 30),
       _details(),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
@@ -64,8 +64,8 @@ class NotificationService {
     }
     await _plugin.zonedSchedule(
       _eveningId,
-      'Evening Wellness Reminder',
-      "Don't forget to log today's wellness data before the day ends.",
+      'Evening Load Reminder',
+      "Don't forget to log today's training & skill Load before the day ends.",
       _nextInstanceOf(20, 0),
       _details(),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
