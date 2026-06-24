@@ -56,7 +56,7 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       backgroundColor: kBg,
       body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: _BottomNavBar(
+      bottomNavigationBar: _MagicNavBar(
         currentIndex: _currentIndex,
         onTap:  (i) => setState(() => _currentIndex = i),
         onLog:  _openLog,
@@ -65,14 +65,16 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-// ── Bottom Nav Bar ────────────────────────────────────────────────────────────
+// ── Magic Nav Bar ─────────────────────────────────────────────────────────────
+// Active icon lifts into a floating accent circle with a glowing dot beneath it
+// and a label that slides in — inspired by the "magic navigation" CSS effect.
 
-class _BottomNavBar extends StatelessWidget {
+class _MagicNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final VoidCallback onLog;
 
-  const _BottomNavBar({
+  const _MagicNavBar({
     required this.currentIndex,
     required this.onTap,
     required this.onLog,
@@ -88,82 +90,194 @@ class _BottomNavBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
+          height: 76,
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _tab(0, Icons.home_outlined,         Icons.home_rounded,         'Home'),
-              _tab(1, Icons.explore_outlined,       Icons.explore_rounded,      'Explore'),
-              // Centre Log button
-              Expanded(
-                child: GestureDetector(
-                  onTap: onLog,
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 42, height: 42,
-                        decoration: BoxDecoration(
-                          color: kAccent,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: kAccent.withValues(alpha: 0.40),
-                              blurRadius: 14,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.add_rounded, size: 24, color: Colors.black),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'LOG',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: kAccent,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              _MagicTab(
+                active: currentIndex == 0,
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: 'Home',
+                onTap: () => onTap(0),
               ),
-              _tab(2, Icons.dashboard_outlined,     Icons.dashboard_rounded,    'Dashboard'),
-              _tab(3, Icons.person_outline_rounded,  Icons.person_rounded,       'Profile'),
+              _MagicTab(
+                active: currentIndex == 1,
+                icon: Icons.explore_outlined,
+                activeIcon: Icons.explore_rounded,
+                label: 'Explore',
+                onTap: () => onTap(1),
+              ),
+              _LogButton(onTap: onLog),
+              _MagicTab(
+                active: currentIndex == 2,
+                icon: Icons.dashboard_outlined,
+                activeIcon: Icons.dashboard_rounded,
+                label: 'Dashboard',
+                onTap: () => onTap(2),
+              ),
+              _MagicTab(
+                active: currentIndex == 3,
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                label: 'Profile',
+                onTap: () => onTap(3),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _tab(int idx, IconData icon, IconData activeIcon, String label) {
-    final active = currentIndex == idx;
-    final col    = active ? kAccent : kTextMuted;
+class _MagicTab extends StatelessWidget {
+  final bool active;
+  final IconData icon, activeIcon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MagicTab({
+    required this.active,
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.onTap,
+  });
+
+  static const _dur   = Duration(milliseconds: 420);
+  static const _curve = Curves.easeOutBack;
+
+  @override
+  Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => onTap(idx),
+        onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(active ? activeIcon : icon, size: 22, color: col),
-              const SizedBox(height: 4),
-              Text(
-                label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: col,
-                  letterSpacing: 0.8,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            // Lifting accent circle holding the icon.
+            AnimatedAlign(
+              duration: _dur,
+              curve: _curve,
+              alignment: active ? const Alignment(0, -0.55) : Alignment.center,
+              child: AnimatedContainer(
+                duration: _dur,
+                curve: Curves.easeOut,
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? kAccent : Colors.transparent,
+                  boxShadow: active
+                      ? [
+                          BoxShadow(
+                            color: kAccent.withValues(alpha: 0.45),
+                            blurRadius: 16,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  active ? activeIcon : icon,
+                  size: 22,
+                  color: active ? Colors.black : kTextMuted,
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // Label fades/slides in below the lifted icon.
+            Positioned(
+              bottom: 14,
+              child: AnimatedSlide(
+                duration: _dur,
+                curve: Curves.easeOut,
+                offset: active ? Offset.zero : const Offset(0, 0.6),
+                child: AnimatedOpacity(
+                  duration: _dur,
+                  opacity: active ? 1 : 0,
+                  child: Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: kAccent,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Glowing dot indicator at the bottom.
+            Positioned(
+              bottom: 6,
+              child: AnimatedContainer(
+                duration: _dur,
+                curve: Curves.easeOut,
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? kAccent : kTextMuted.withValues(alpha: 0.4),
+                  boxShadow: active
+                      ? [
+                          BoxShadow(color: kAccent, blurRadius: 6, spreadRadius: 1),
+                          BoxShadow(color: kAccent.withValues(alpha: 0.6), blurRadius: 14, spreadRadius: 2),
+                        ]
+                      : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LogButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _LogButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: kAccent,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: kAccent.withValues(alpha: 0.40),
+                    blurRadius: 14,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.add_rounded, size: 24, color: Colors.black),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'LOG',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: kAccent,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
         ),
       ),
     );

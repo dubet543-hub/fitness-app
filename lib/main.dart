@@ -33,7 +33,7 @@ class FitnessApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'SolidCore',
+      title: 'SolidCore AMS',
       theme: buildAppTheme(),
       home: const AuthScreen(),
     );

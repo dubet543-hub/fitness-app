@@ -19,6 +19,21 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Some plugins (e.g. google_mlkit_commons) default their own compileSdkVersion
+// to an old level (~30) that lacks android:attr/lStar, breaking release builds.
+// Override it in afterEvaluate (runs after the plugin's own android{} block, so
+// it isn't clobbered). The :app module is skipped — it sets compileSdk = 36
+// itself and evaluationDependsOn(":app") above already evaluated it.
+subprojects {
+    if (name == "app") return@subprojects
+    afterEvaluate {
+        val androidExt = extensions.findByName("android")
+        if (androidExt is com.android.build.gradle.BaseExtension) {
+            androidExt.compileSdkVersion(36)
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

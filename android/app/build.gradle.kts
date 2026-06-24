@@ -7,7 +7,11 @@ plugins {
 
 android {
     namespace = "com.example.fitness_app"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned to 36 — ML Kit needs android:attr/lStar (API 31+) and several
+    // plugins (camera_android, google_sign_in_android, …) require compiling
+    // against SDK 36. The Flutter default was resolving lower and broke
+    // release resource linking ("resource android:attr/lStar not found").
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

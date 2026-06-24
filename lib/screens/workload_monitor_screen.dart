@@ -892,21 +892,24 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
         color: _kCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          top:    BorderSide(color: color, width: 2),
-          left:   BorderSide(color: _kBorder),
-          right:  BorderSide(color: _kBorder),
-          bottom: BorderSide(color: _kBorder),
-        ),
+        border: Border.all(color: _kBorder),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(height: 2, color: color),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           Text(
             label,
             style: const TextStyle(fontSize: 10, color: _kTxtS, letterSpacing: 0.2),
@@ -929,7 +932,11 @@ class _MetricCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-        ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

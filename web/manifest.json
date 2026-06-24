@@ -1,6 +1,6 @@
 {
-    "name": "fitness_app",
-    "short_name": "fitness_app",
+    "name": "SolidCore AMS",
+    "short_name": "SolidCore AMS",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
