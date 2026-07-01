@@ -1,5 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
+import 'legal_pages.dart';
+
+const _supportEmail = 'support@solidcore.app';
+
+Future<void> _openEmail(BuildContext context, {String subject = '', String body = ''}) async {
+  final uri = Uri(
+    scheme: 'mailto',
+    path: _supportEmail,
+    query: [
+      if (subject.isNotEmpty) 'subject=${Uri.encodeComponent(subject)}',
+      if (body.isNotEmpty) 'body=${Uri.encodeComponent(body)}',
+    ].join('&'),
+  );
+  final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!ok && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('No mail app found. Email us at $_supportEmail'),
+          duration: const Duration(seconds: 3)),
+    );
+  }
+}
 
 // ── Help Center ───────────────────────────────────────────────────────────────
 
@@ -31,18 +53,10 @@ class HelpCenterPage extends StatelessWidget {
           const SizedBox(height: 8),
           _Group(children: [
             _ContactRow(
-              icon: Icons.chat_bubble_outline_rounded,
-              iconColor: kAccent,
-              label: 'Live chat support',
-              badge: 'Online',
-              badgeColor: kAccent,
-              onTap: () => snack('Opening chat…'),
-            ),
-            _ContactRow(
               icon: Icons.email_outlined,
               iconColor: const Color(0xFF38BDF8),
               label: 'Email support',
-              onTap: () => snack('Opening email…'),
+              onTap: () => _openEmail(context, subject: 'SolidCore support request'),
             ),
           ]),
         ],
@@ -68,15 +82,18 @@ class _FeedbackPageState extends State<FeedbackPage> {
   @override
   void dispose() { _msgCtrl.dispose(); super.dispose(); }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_msgCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a message'), duration: Duration(seconds: 2)));
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Feedback submitted — thanks!'), duration: Duration(seconds: 2)));
-    Navigator.pop(context);
+    await _openEmail(
+      context,
+      subject: 'SolidCore feedback — ${_types[_selectedType]}',
+      body: _msgCtrl.text.trim(),
+    );
+    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -131,8 +148,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
             child: TextField(
               controller: _msgCtrl,
               maxLines: 6,
-              style: const TextStyle(color: kTextPrimary, fontSize: 14),
-              decoration: const InputDecoration(
+              style: TextStyle(color: kTextPrimary, fontSize: 14),
+              decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Describe your feedback…',
                 hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
@@ -182,12 +199,12 @@ class AboutPage extends StatelessWidget {
                     border: Border.all(color: kAccent.withValues(alpha: 0.30)),
                     boxShadow: [BoxShadow(color: kAccent.withValues(alpha: 0.12), blurRadius: 30, spreadRadius: 2)],
                   ),
-                  child: const Icon(Icons.bolt_rounded, size: 38, color: kAccent),
+                  child: Icon(Icons.bolt_rounded, size: 38, color: kAccent),
                 ),
                 const SizedBox(height: 16),
-                const Text('SolidCore', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
+                Text('SolidCore', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
                 const SizedBox(height: 4),
-                const Text('Version 1.0.0 (build 1042)', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                Text('Version 1.0.0 (build 1042)', style: TextStyle(fontSize: 13, color: kTextSecondary)),
               ],
             ),
           ),
@@ -195,13 +212,13 @@ class AboutPage extends StatelessWidget {
 
           // ── Legal ────────────────────────────────────────────────
           _Group(children: [
-            _ArrowRow(label: 'Terms of service',      onTap: () => snack('Opening terms…')),
-            _ArrowRow(label: 'Privacy policy',         onTap: () => snack('Opening policy…')),
+            _ArrowRow(label: 'Terms & Conditions',     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsPage()))),
+            _ArrowRow(label: 'Privacy policy',         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()))),
             _ArrowRow(label: 'Open source licenses',  onTap: () => snack('Opening licenses…')),
           ]),
           const SizedBox(height: 28),
 
-          const Center(
+          Center(
             child: Text(
               '© 2026 SolidCore Performance Inc.\nAll rights reserved.',
               textAlign: TextAlign.center,
@@ -219,9 +236,9 @@ class AboutPage extends StatelessWidget {
 AppBar _appBar(String title) => AppBar(
   backgroundColor: kBg,
   elevation: 0,
-  iconTheme: const IconThemeData(color: kTextPrimary),
-  title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-  bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
+  iconTheme: IconThemeData(color: kTextPrimary),
+  title: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+  bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
 );
 
 class _SectionLabel extends StatelessWidget {
@@ -231,7 +248,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
   );
 }
 
@@ -249,7 +266,7 @@ class _Group extends StatelessWidget {
       child: Column(
         children: List.generate(children.length, (i) => Column(children: [
           children[i],
-          if (i < children.length - 1) const Divider(height: 1, indent: 16, color: kBorder),
+          if (i < children.length - 1) Divider(height: 1, indent: 16, color: kBorder),
         ])),
       ),
     );
@@ -269,8 +286,8 @@ class _ArrowRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
-            const Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
+            Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
+            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
           ],
         ),
       ),
@@ -282,10 +299,8 @@ class _ContactRow extends StatelessWidget {
   final IconData   icon;
   final Color      iconColor;
   final String     label;
-  final String?    badge;
-  final Color?     badgeColor;
   final VoidCallback onTap;
-  const _ContactRow({required this.icon, required this.iconColor, required this.label, this.badge, this.badgeColor, required this.onTap});
+  const _ContactRow({required this.icon, required this.iconColor, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -301,19 +316,8 @@ class _ContactRow extends StatelessWidget {
               child: Icon(icon, size: 16, color: iconColor),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
-            if (badge != null && badgeColor != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: badgeColor!.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(badge!, style: TextStyle(fontSize: 11, color: badgeColor, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 6),
-            ],
-            const Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
+            Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
+            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
           ],
         ),
       ),

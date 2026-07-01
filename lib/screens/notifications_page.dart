@@ -56,9 +56,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text('NOTIFICATIONS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: const IconThemeData(color: kTextPrimary),
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
+        title: Text('NOTIFICATIONS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+        iconTheme: IconThemeData(color: kTextPrimary),
+        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -124,7 +124,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
   );
 }
 
@@ -142,7 +142,7 @@ class _ToggleGroup extends StatelessWidget {
       child: Column(
         children: List.generate(items.length, (i) => Column(children: [
           items[i],
-          if (i < items.length - 1) const Divider(height: 1, indent: 16, color: kBorder),
+          if (i < items.length - 1) Divider(height: 1, indent: 16, color: kBorder),
         ])),
       ),
     );
@@ -165,9 +165,9 @@ class _ToggleItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
+                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: kTextSecondary)),
               ],
             ),
           ),

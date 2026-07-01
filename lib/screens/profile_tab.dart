@@ -6,6 +6,7 @@ import 'privacy_security_page.dart';
 import 'appearance_page.dart';
 import 'units_language_page.dart';
 import 'support_pages.dart';
+import 'legal_pages.dart';
 
 class ProfileTab extends StatefulWidget {
   final String name;
@@ -66,11 +67,11 @@ class _ProfileTabState extends State<ProfileTab> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'PROFILE',
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
         ),
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: kBorder),
         ),
@@ -96,7 +97,7 @@ class _ProfileTabState extends State<ProfileTab> {
                             decoration: BoxDecoration(
                               color: kAccent,
                               shape: BoxShape.circle,
-                              border: const Border.fromBorderSide(BorderSide(color: kBg, width: 2)),
+                              border: Border.fromBorderSide(BorderSide(color: kBg, width: 2)),
                             ),
                             child: const Icon(Icons.edit_rounded, size: 12, color: Colors.black),
                           ),
@@ -111,10 +112,10 @@ class _ProfileTabState extends State<ProfileTab> {
                       children: [
                         Text(
                           _name,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
                         ),
                         const SizedBox(height: 3),
-                        Text(_email, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+                        Text(_email, style: TextStyle(fontSize: 13, color: kTextSecondary)),
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -123,7 +124,7 @@ class _ProfileTabState extends State<ProfileTab> {
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: kAccent.withValues(alpha: 0.25)),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Athlete',
                             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kAccent, letterSpacing: 0.3),
                           ),
@@ -162,7 +163,7 @@ class _ProfileTabState extends State<ProfileTab> {
             _MenuGroup(items: [
               _MenuItem(icon: Icons.person_outline_rounded, iconColor: const Color(0xFF38BDF8), label: 'Personal info',      onTap: _goPersonal),
               _MenuItem(icon: Icons.notifications_outlined,  iconColor: const Color(0xFFF59E0B), label: 'Notifications',      onTap: () => _go((_) => const NotificationsPage())),
-              _MenuItem(icon: Icons.lock_outline_rounded,    iconColor: const Color(0xFFA78BFA), label: 'Privacy & security', onTap: () => _go((_) => const PrivacySecurityPage())),
+              _MenuItem(icon: Icons.lock_outline_rounded,    iconColor: const Color(0xFFA78BFA), label: 'Privacy & security', onTap: () => _go((_) => PrivacySecurityPage(onLoggedOut: widget.onLogout))),
             ]),
 
             const SizedBox(height: 20),
@@ -171,8 +172,8 @@ class _ProfileTabState extends State<ProfileTab> {
             _SectionLabel('PREFERENCES'),
             const SizedBox(height: 8),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.dark_mode_outlined,  iconColor: kTextSecondary, label: 'Appearance',      onTap: () => _go((_) => const AppearancePage())),
-              _MenuItem(icon: Icons.straighten_rounded,  iconColor: kTextSecondary, label: 'Units & language', onTap: () => _go((_) => const UnitsLanguagePage())),
+              _MenuItem(icon: Icons.dark_mode_outlined,  iconColor: kTextSecondary, label: 'Appearance',      onTap: () => _go((_) => AppearancePage())),
+              _MenuItem(icon: Icons.straighten_rounded,  iconColor: kTextSecondary, label: 'Units & language', onTap: () => _go((_) => UnitsLanguagePage())),
             ]),
 
             const SizedBox(height: 20),
@@ -181,9 +182,19 @@ class _ProfileTabState extends State<ProfileTab> {
             _SectionLabel('SUPPORT'),
             const SizedBox(height: 8),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.help_outline_rounded,  iconColor: kTextSecondary, label: 'Help center',      onTap: () => _go((_) => const HelpCenterPage())),
-              _MenuItem(icon: Icons.feedback_outlined,     iconColor: kTextSecondary, label: 'Send feedback',    onTap: () => _go((_) => const FeedbackPage())),
-              _MenuItem(icon: Icons.info_outline_rounded,  iconColor: kTextSecondary, label: 'About SolidCore',  onTap: () => _go((_) => const AboutPage())),
+              _MenuItem(icon: Icons.help_outline_rounded,  iconColor: kTextSecondary, label: 'Help center',      onTap: () => _go((_) => HelpCenterPage())),
+              _MenuItem(icon: Icons.feedback_outlined,     iconColor: kTextSecondary, label: 'Send feedback',    onTap: () => _go((_) => FeedbackPage())),
+              _MenuItem(icon: Icons.info_outline_rounded,  iconColor: kTextSecondary, label: 'About SolidCore',  onTap: () => _go((_) => AboutPage())),
+            ]),
+
+            const SizedBox(height: 20),
+
+            // ── Legal ─────────────────────────────────────────────
+            _SectionLabel('LEGAL'),
+            const SizedBox(height: 8),
+            _MenuGroup(items: [
+              _MenuItem(icon: Icons.description_outlined,   iconColor: kTextSecondary, label: 'Terms & Conditions', onTap: () => _go((_) => const TermsPage())),
+              _MenuItem(icon: Icons.privacy_tip_outlined,   iconColor: kTextSecondary, label: 'Privacy Policy',     onTap: () => _go((_) => const PrivacyPolicyPage())),
             ]),
 
             const SizedBox(height: 28),
@@ -215,7 +226,7 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
 
             const SizedBox(height: 16),
-            const Center(
+            Center(
               child: Text(
                 'v1.0.0 · SolidCore Performance',
                 style: TextStyle(fontSize: 11, color: kTextMuted),
@@ -252,7 +263,7 @@ class _Avatar extends StatelessWidget {
         backgroundColor: kCard,
         backgroundImage: hasPhoto ? NetworkImage(url) : null,
         child: !hasPhoto
-            ? Text(initials, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary))
+            ? Text(initials, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary))
             : null,
       ),
     );
@@ -270,9 +281,9 @@ class _StatCell extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           children: [
-            Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
+            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
+            Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
           ],
         ),
       ),
@@ -290,7 +301,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: kTextSecondary),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: kTextSecondary),
       ),
     );
   }
@@ -316,7 +327,7 @@ class _MenuGroup extends StatelessWidget {
             return Column(
               children: [
                 items[i],
-                if (i < items.length - 1) const Divider(height: 1, indent: 54, color: kBorder),
+                if (i < items.length - 1) Divider(height: 1, indent: 54, color: kBorder),
               ],
             );
           }),
@@ -352,7 +363,7 @@ class _MenuItem extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
+              child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
             ),
             Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
           ],

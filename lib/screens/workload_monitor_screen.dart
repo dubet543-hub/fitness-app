@@ -4,11 +4,6 @@ import '../core/theme.dart';
 import '../api_service.dart';
 
 // Aliases so the rest of the file compiles without change.
-const _kBg      = kBg;
-const _kCard    = kCard;
-const _kBorder  = kBorder;
-const _kTxtP    = kTextPrimary;
-const _kTxtS    = kTextSecondary;
 
 // ── Data Point ────────────────────────────────────────────────────────────────
 
@@ -20,6 +15,44 @@ class _LP {
   final double acwr;
   final double z;
   const _LP(this.d, this.load, this.acute, this.chronic, this.acwr, this.z);
+}
+
+// ── Public: tomorrow's load target ─────────────────────────────────────────────
+// Surfaced so the home screen can show ONE combined target card instead of three
+// near-identical per-stream cards. The target is the evidence-based 80–130%
+// "sweet spot" band around each stream's current chronic (EWMA) baseline.
+
+class LoadTarget {
+  final String label;
+  final double chronic;
+  final Color  color;
+  const LoadTarget({required this.label, required this.chronic, required this.color});
+
+  int get low  => (chronic * 0.8).round();
+  int get high => (chronic * 1.3).round();
+}
+
+/// Total target as the headline, with Training + Skill as its components — the
+/// natural hierarchy that makes the three streams legible in a single card.
+class CombinedLoadTarget {
+  final LoadTarget total;
+  final List<LoadTarget> components;
+  const CombinedLoadTarget(this.total, this.components);
+}
+
+/// [athlete] 0 = ATS-2025-001, 1 = ATS-2025-002 — matches the Workload Monitor's
+/// athlete binding so the home card shows the same numbers as the full screen.
+CombinedLoadTarget tomorrowLoadTargets([int athlete = 0]) {
+  final train = athlete == 1 ? _a2Train : _a1Train;
+  final skill = athlete == 1 ? _a2Skill : _a1Skill;
+  final total = athlete == 1 ? _a2Total : _a1Total;
+  return CombinedLoadTarget(
+    LoadTarget(label: 'Total', chronic: total.last.chronic, color: Colors.purpleAccent),
+    [
+      LoadTarget(label: 'Training', chronic: train.last.chronic, color: Colors.lightBlueAccent),
+      LoadTarget(label: 'Skill',    chronic: skill.last.chronic, color: Colors.greenAccent),
+    ],
+  );
 }
 
 // ── Static Dataset (PDF: Workload Monitoring – Cleaned Daily Data) ─────────────
@@ -397,13 +430,13 @@ class _WMState extends State<WorkloadMonitorScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: _kBg,
-        title: const Text('WORKLOAD',
+        backgroundColor: kBg,
+        title: Text('WORKLOAD',
             style: TextStyle(color: kTextSecondary, fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 1.4)),
         centerTitle: false,
-        iconTheme: const IconThemeData(color: _kTxtP),
+        iconTheme: IconThemeData(color: kTextPrimary),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
@@ -411,15 +444,15 @@ class _WMState extends State<WorkloadMonitorScreen>
               height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: _kCard,
+                color: kCard,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _kBorder),
+                border: Border.all(color: kBorder),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.person_rounded, size: 14, color: kAccent),
+                Icon(Icons.person_rounded, size: 14, color: kAccent),
                 const SizedBox(width: 6),
                 Text(_athleteLabel,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11, fontWeight: FontWeight.w700, color: kAccent)),
               ]),
             ),
@@ -428,11 +461,11 @@ class _WMState extends State<WorkloadMonitorScreen>
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(49),
           child: Column(children: [
-            const Divider(height: 1, color: _kBorder),
+            Divider(height: 1, color: kBorder),
             TabBar(
               controller: _tabs,
               labelColor: kAccent,
-              unselectedLabelColor: _kTxtS,
+              unselectedLabelColor: kTextSecondary,
               indicatorColor: kAccent,
               indicatorSize: TabBarIndicatorSize.label,
               tabs: const [
@@ -509,10 +542,10 @@ class _FilterBar extends StatelessWidget {
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: active ? kAccent.withValues(alpha: 0.15) : _kCard,
+                  color: active ? kAccent.withValues(alpha: 0.15) : kCard,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: active ? kAccent : _kBorder,
+                    color: active ? kAccent : kBorder,
                   ),
                 ),
                 child: Text(
@@ -520,7 +553,7 @@ class _FilterBar extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: active ? kAccent : _kTxtS,
+                    color: active ? kAccent : kTextSecondary,
                   ),
                 ),
               ),
@@ -583,7 +616,7 @@ class _SectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return const Center(child: Text('No data', style: TextStyle(color: _kTxtS)));
+      return Center(child: Text('No data', style: TextStyle(color: kTextSecondary)));
     }
     final acwr  = _last.acwr;
     final acCol = _acwrColor(acwr);
@@ -605,7 +638,7 @@ class _SectionView extends StatelessWidget {
                   boxShadow: [BoxShadow(color: accentColor.withValues(alpha: 0.4), blurRadius: 6)],
                 )),
             Text(sectionTitle,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kTxtP)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
           ]),
           const SizedBox(height: 14),
 
@@ -680,8 +713,8 @@ class _SectionView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Tomorrow's Load Target",
-                          style: TextStyle(fontSize: 10, color: _kTxtS)),
+                      Text("Tomorrow's Load Target",
+                          style: TextStyle(fontSize: 10, color: kTextSecondary)),
                       const SizedBox(height: 3),
                       Text('$tLow – $tHigh',
                           style: TextStyle(
@@ -696,10 +729,10 @@ class _SectionView extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('80% – 130%',
-                        style: TextStyle(fontSize: 9, color: _kTxtS)),
+                    Text('80% – 130%',
+                        style: TextStyle(fontSize: 9, color: kTextSecondary)),
                     Text('of Chronic ${_last.chronic.toStringAsFixed(0)}',
-                        style: const TextStyle(fontSize: 9, color: _kTxtS)),
+                        style: TextStyle(fontSize: 9, color: kTextSecondary)),
                   ],
                 ),
               ],
@@ -734,8 +767,8 @@ class _SectionView extends StatelessWidget {
                   child: _InteractiveLoadChart(data: data, barColor: barColor, accentColor: accentColor),
                 ),
                 const SizedBox(height: 4),
-                const Text('Tap a bar to inspect · Scroll to pan',
-                    style: TextStyle(fontSize: 9, color: _kTxtS)),
+                Text('Tap a bar to inspect · Scroll to pan',
+                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
               ],
             ),
           ),
@@ -748,16 +781,16 @@ class _SectionView extends StatelessWidget {
               children: [
                 _panelHeader('ACWR Trend', Icons.show_chart_rounded),
                 const SizedBox(height: 4),
-                const Text('Zones: Under <0.8 · Sweet 0.8–1.3 · Caution 1.3–1.5 · Danger >1.5',
-                    style: TextStyle(fontSize: 9, color: _kTxtS)),
+                Text('Zones: Under <0.8 · Sweet 0.8–1.3 · Caution 1.3–1.5 · Danger >1.5',
+                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
                 const SizedBox(height: 10),
                 SizedBox(
                   height: 210,
                   child: _InteractiveAcwrChart(data: data, lineColor: accentColor),
                 ),
                 const SizedBox(height: 4),
-                const Text('Tap a point to inspect · Scroll to pan',
-                    style: TextStyle(fontSize: 9, color: _kTxtS)),
+                Text('Tap a point to inspect · Scroll to pan',
+                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
               ],
             ),
           ),
@@ -770,16 +803,16 @@ class _SectionView extends StatelessWidget {
               children: [
                 _panelHeader('Z-Score Trend', Icons.insights_rounded),
                 const SizedBox(height: 4),
-                const Text('Tap a point · |Z| > 2 = flagged',
-                    style: TextStyle(fontSize: 9, color: _kTxtS)),
+                Text('Tap a point · |Z| > 2 = flagged',
+                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
                 const SizedBox(height: 10),
                 SizedBox(
                   height: 190,
                   child: _InteractiveZChart(data: data, lineColor: accentColor),
                 ),
                 const SizedBox(height: 4),
-                const Text('Tap a point to inspect · Scroll to pan',
-                    style: TextStyle(fontSize: 9, color: _kTxtS)),
+                Text('Tap a point to inspect · Scroll to pan',
+                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
               ],
             ),
           ),
@@ -793,7 +826,7 @@ class _SectionView extends StatelessWidget {
                 _panelHeader('Session Log', Icons.list_alt_rounded),
                 const SizedBox(height: 2),
                 Text('Latest ${data.length.clamp(0, 10)} entries',
-                    style: const TextStyle(fontSize: 10, color: _kTxtS)),
+                    style: TextStyle(fontSize: 10, color: kTextSecondary)),
                 const SizedBox(height: 10),
                 ...List.generate(
                   data.length.clamp(0, 10),
@@ -812,18 +845,15 @@ class _SectionView extends StatelessWidget {
   }
 
   Widget _panelHeader(String title, IconData icon) => Row(children: [
-    Icon(icon, size: 14, color: _kTxtS),
+    Icon(icon, size: 14, color: kTextSecondary),
     const SizedBox(width: 6),
-    Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kTxtP)),
+    Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
   ]);
 
   Widget _legend(Color bar) {
     return Wrap(spacing: 14, runSpacing: 6, children: [
       _legendBar(bar, 'Session Load'),
-      _legendLine(Colors.lightBlueAccent, '7-day Acute'),
-      _legendLine(Colors.amberAccent, 'Chronic EWMA', dashed: true),
       _legendLine(Colors.pinkAccent, 'Exertion'),
-      _legendLine(Colors.tealAccent, 'Z-Score'),
     ]);
   }
 
@@ -831,7 +861,7 @@ class _SectionView extends StatelessWidget {
     Container(width: 10, height: 10,
         decoration: BoxDecoration(color: c.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(2))),
     const SizedBox(width: 5),
-    Text(label, style: const TextStyle(fontSize: 10, color: _kTxtS)),
+    Text(label, style: TextStyle(fontSize: 10, color: kTextSecondary)),
   ]);
 
   Widget _legendLine(Color c, String label, {bool dashed = false}) =>
@@ -841,15 +871,15 @@ class _SectionView extends StatelessWidget {
           child: CustomPaint(painter: _LegendLinePainter(color: c, dashed: dashed)),
         ),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 10, color: _kTxtS)),
+        Text(label, style: TextStyle(fontSize: 10, color: kTextSecondary)),
       ]);
 
   Widget _panel({required Widget child}) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: _kCard,
+      color: kCard,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: _kBorder),
+      border: Border.all(color: kBorder),
     ),
     child: child,
   );
@@ -893,9 +923,9 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: _kCard,
+        color: kCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: kBorder),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(11),
@@ -912,14 +942,14 @@ class _MetricCard extends StatelessWidget {
                 children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 10, color: _kTxtS, letterSpacing: 0.2),
+            style: TextStyle(fontSize: 10, color: kTextSecondary, letterSpacing: 0.2),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: _kTxtP, letterSpacing: -0.5),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.5),
           ),
           const SizedBox(height: 2),
           Container(width: 20, height: 2, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(1))),
@@ -1053,7 +1083,7 @@ class _GaugeTick extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Text(label, style: const TextStyle(fontSize: 8.5, color: _kTxtS));
+      Text(label, style: TextStyle(fontSize: 8.5, color: kTextSecondary));
 }
 
 class _ZL extends StatelessWidget {
@@ -1134,7 +1164,6 @@ class _LoadChartPainter extends CustomPainter {
     final acutes   = data.map((d) => d.acute).toList();
     final chronics = data.map((d) => d.chronic).toList();
     final vMax     = [...loads, ...acutes, ...chronics].reduce(max).clamp(1.0, double.infinity);
-    double yAt(double v) => tPad + chartH * (1.0 - v / vMax);
 
     // Y-axis line
     canvas.drawLine(Offset(lp, tPad - 4), Offset(lp, tPad + chartH),
@@ -1180,9 +1209,6 @@ class _LoadChartPainter extends CustomPainter {
       );
     }
 
-    // Lines: 7-day Acute, Chronic EWMA (dashed)
-    _drawLine(canvas, n, xAt, yAt, acutes, Colors.lightBlueAccent, 2.0, dashed: false);
-    _drawLine(canvas, n, xAt, yAt, chronics, Colors.amberAccent, 1.5, dashed: true);
     // Exertion line: 0-10 scale, only drawn for session days (load > 0)
     double yAtExert(double v) => tPad + chartH * (1.0 - v / 10.0);
     final exertPts = <Offset>[];
@@ -1276,53 +1302,6 @@ class _LoadChartPainter extends CustomPainter {
     }
   }
 
-  void _drawLine(Canvas canvas, int n, double Function(int) xAt, double Function(double) yAt,
-      List<double> vals, Color color, double sw, {required bool dashed}) {
-    if (n < 2) return;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = sw
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final pts = List.generate(n, (i) => Offset(xAt(i), yAt(vals[i])));
-    if (!dashed) {
-      final path = Path()..moveTo(pts[0].dx, pts[0].dy);
-      for (int i = 0; i < n - 1; i++) {
-        final p0 = i > 0 ? pts[i - 1] : pts[0];
-        final p1 = pts[i], p2 = pts[i + 1];
-        final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-        final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-        final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-        path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-      }
-      canvas.drawPath(path, paint);
-      for (final p in pts) {
-        canvas.drawCircle(p, 2.5, Paint()..color = color);
-        canvas.drawCircle(p, 2.5, Paint()
-          ..color = Colors.white.withValues(alpha: 0.25)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.8);
-      }
-    } else {
-      for (int i = 0; i < n - 1; i++) {
-        _dash(canvas, paint, pts[i], pts[i + 1]);
-      }
-    }
-  }
-
-  void _dash(Canvas c, Paint p, Offset a, Offset b) {
-    final dx = b.dx - a.dx, dy = b.dy - a.dy;
-    final dist = sqrt(dx * dx + dy * dy);
-    if (dist == 0) return;
-    final nx = dx / dist, ny = dy / dist;
-    double t = 0;
-    while (t < dist) {
-      final e = (t + 4.0).clamp(0.0, dist);
-      c.drawLine(Offset(a.dx + nx * t, a.dy + ny * t),
-                 Offset(a.dx + nx * e, a.dy + ny * e), p);
-      t += 7.0;
-    }
-  }
 
   void _lbl(Canvas c, String s, double cx, double cy) {
     final tp = TextPainter(
@@ -1854,18 +1833,18 @@ class _SessionRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: _kBg,
+          color: kBg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _kBorder),
+          border: Border.all(color: kBorder),
         ),
         child: Row(
           children: [
             Container(
               width: 46, alignment: Alignment.center,
               child: Text(pt.d,
-                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: _kTxtS)),
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: kTextSecondary)),
             ),
-            Container(width: 1, height: 30, color: _kBorder,
+            Container(width: 1, height: 30, color: kBorder,
                 margin: const EdgeInsets.symmetric(horizontal: 10)),
             Expanded(
               child: Row(children: [
@@ -1892,7 +1871,7 @@ class _SessionRow extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(label, style: const TextStyle(fontSize: 8.5, color: _kTxtS)),
+        Text(label, style: TextStyle(fontSize: 8.5, color: kTextSecondary)),
         const SizedBox(height: 2),
         Text(value, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: c)),
       ],

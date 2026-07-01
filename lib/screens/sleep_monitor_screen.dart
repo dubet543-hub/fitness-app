@@ -76,7 +76,7 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
         content: Row(children: [
           Icon(Icons.check_circle_outline_rounded, color: kSleep, size: 18),
           const SizedBox(width: 10),
-          const Text('Sleep log saved', style: TextStyle(color: kTextPrimary)),
+          Text('Sleep log saved', style: TextStyle(color: kTextPrimary)),
         ]),
         backgroundColor: kCard,
         duration: const Duration(seconds: 2),
@@ -109,14 +109,14 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
           onPressed: () => Navigator.of(context).pop(),
           color: kTextPrimary,
         ),
-        title: const Text(
+        title: Text(
           'SLEEP MONITOR',
           style: TextStyle(
             fontSize: 13, fontWeight: FontWeight.w700,
             color: kTextSecondary, letterSpacing: 1.4,
           ),
         ),
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: kBorder),
         ),
@@ -298,10 +298,10 @@ class _SleepSummaryCard extends StatelessWidget {
                   color: kSleep.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.bedtime_rounded, size: 18, color: kSleep),
+                child: Icon(Icons.bedtime_rounded, size: 18, color: kSleep),
               ),
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'TONIGHT\'S SLEEP',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
               ),
@@ -334,7 +334,7 @@ class _SleepSummaryCard extends StatelessWidget {
                         color: _qualityColor, letterSpacing: -1.5, height: 1.0,
                       ),
                     ),
-                    const Text('hrs effective sleep',
+                    Text('hrs effective sleep',
                         style: TextStyle(fontSize: 11, color: kTextSecondary)),
                   ],
                 ),
@@ -358,7 +358,7 @@ class _SleepSummaryCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Sleep Efficiency', style: TextStyle(fontSize: 11, color: kTextSecondary)),
+                  Text('Sleep Efficiency', style: TextStyle(fontSize: 11, color: kTextSecondary)),
                   Text(
                     '${efficiency.toStringAsFixed(0)}%',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _qualityColor),
@@ -395,8 +395,8 @@ class _TimeLabel extends StatelessWidget {
     children: [
       Icon(icon, size: 13, color: kTextMuted),
       const SizedBox(width: 4),
-      Text('$label  ', style: const TextStyle(fontSize: 11, color: kTextMuted)),
-      Text(time, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
+      Text('$label  ', style: TextStyle(fontSize: 11, color: kTextMuted)),
+      Text(time, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
     ],
   );
 }
@@ -410,7 +410,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 13, fontWeight: FontWeight.w600,
       color: kTextPrimary,
     ),
@@ -450,13 +450,13 @@ class _TimePickerTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
+              Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
               const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
+              Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
             ],
           ),
           const Spacer(),
-          const Icon(Icons.edit_outlined, size: 16, color: kTextMuted),
+          Icon(Icons.edit_outlined, size: 16, color: kTextMuted),
         ],
       ),
     ),
@@ -500,9 +500,9 @@ class _MinuteStepper extends StatelessWidget {
             children: [
               Text(
                 '$value',
-                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -1.0),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -1.0),
               ),
-              Text(unit, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
+              Text(unit, style: TextStyle(fontSize: 11, color: kTextSecondary)),
             ],
           ),
           const Spacer(),
@@ -568,7 +568,7 @@ class _InfoTile extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(label, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+          child: Text(label, style: TextStyle(fontSize: 12, color: kTextSecondary)),
         ),
         Text(
           value,
@@ -638,16 +638,16 @@ class _InputField extends StatelessWidget {
   Widget build(BuildContext context) => TextField(
     controller: controller,
     maxLines: maxLines,
-    style: const TextStyle(color: kTextPrimary, fontSize: 13),
+    style: TextStyle(color: kTextPrimary, fontSize: 13),
     decoration: InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: kTextMuted, fontSize: 12),
+      hintStyle: TextStyle(color: kTextMuted, fontSize: 12),
       filled: true,
       fillColor: kCard,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border:         OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kBorder)),
-      enabledBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kBorder)),
-      focusedBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kSleep, width: 1.5)),
+      border:         OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kBorder)),
+      enabledBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kBorder)),
+      focusedBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kSleep, width: 1.5)),
     ),
   );
 }
@@ -719,15 +719,15 @@ class _RoomTile extends StatelessWidget {
         const SizedBox(width: 12),
         SizedBox(
           width: 80,
-          child: Text(label, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+          child: Text(label, style: TextStyle(fontSize: 12, color: kTextSecondary)),
         ),
         Expanded(
           child: TextField(
             controller: controller,
-            style: const TextStyle(color: kTextPrimary, fontSize: 13),
+            style: TextStyle(color: kTextPrimary, fontSize: 13),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 12),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 12),
               filled: false,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,

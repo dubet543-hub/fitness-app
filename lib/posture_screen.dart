@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import 'services/local_log_store.dart';
+
 enum PostureMode { frontal, sagittal }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,7 +310,18 @@ class _PostureScreenState extends State<PostureScreen> {
   @override
   void initState() {
     super.initState();
-    _initCamera();
+    _startWithConsent();
+  }
+
+  Future<void> _startWithConsent() async {
+    if (!await LocalLogStore.cameraConsent()) {
+      if (mounted) {
+        setState(() => errorMessage =
+            "Camera-based features are turned off.\nEnable them in Settings ▸ Privacy & Security ▸ Camera-based features.");
+      }
+      return;
+    }
+    await _initCamera();
   }
 
   Future<void> _initCamera({CameraDescription? camera}) async {
@@ -1293,7 +1306,7 @@ class _ConsultBanner extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PosePainter — skeleton overlay
+// PosePainter — plumb-line overlay
 // ─────────────────────────────────────────────────────────────────────────────
 class PosePainter extends CustomPainter {
   final List<Pose> poses;
@@ -1312,65 +1325,43 @@ class PosePainter extends CustomPainter {
 
     final pose = poses.first;
 
-    final paintPoint = Paint()
-      ..color = Colors.greenAccent
-      ..strokeWidth = 6
-      ..style = PaintingStyle.fill;
-
-    final paintLine = Paint()
-      ..color = Colors.yellowAccent
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-
-    Offset pt(PoseLandmark lm) => Offset(
-          lm.x * size.width / imageWidth,
-          lm.y * size.height / imageHeight,
-        );
-
-    void drawLine(PoseLandmarkType a, PoseLandmarkType b) {
-      final la = pose.landmarks[a];
-      final lb = pose.landmarks[b];
-      if (la == null || lb == null) return;
-      canvas.drawLine(pt(la), pt(lb), paintLine);
-    }
-
-    void drawPoint(PoseLandmarkType t) {
+    Offset? pt(PoseLandmarkType t) {
       final lm = pose.landmarks[t];
-      if (lm == null) return;
-      canvas.drawCircle(pt(lm), 6, paintPoint);
+      if (lm == null) return null;
+      return Offset(
+        lm.x * size.width / imageWidth,
+        lm.y * size.height / imageHeight,
+      );
     }
 
-    // Head to shoulders
-    drawLine(PoseLandmarkType.nose, PoseLandmarkType.leftShoulder);
-    drawLine(PoseLandmarkType.nose, PoseLandmarkType.rightShoulder);
+    double? avgX(List<PoseLandmarkType> ts) {
+      final xs = ts.map(pt).whereType<Offset>().map((o) => o.dx).toList();
+      if (xs.isEmpty) return null;
+      return xs.reduce((a, b) => a + b) / xs.length;
+    }
 
-    // Torso
-    drawLine(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder);
-    drawLine(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip);
-    drawLine(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip);
-    drawLine(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip);
+    // Plumb line anchor — a true vertical through the base of support.
+    //  • Sagittal (side): dropped through the lateral malleolus (ankle), the
+    //    classic posture reference that ear, shoulder, hip and knee align over.
+    //  • Frontal: the body midline — midpoint between both ankles — used to read
+    //    left/right symmetry.
+    final plumbX = avgX([PoseLandmarkType.leftAnkle, PoseLandmarkType.rightAnkle]) ??
+        avgX([PoseLandmarkType.leftHeel, PoseLandmarkType.rightHeel]) ??
+        avgX([PoseLandmarkType.leftHip, PoseLandmarkType.rightHip]);
+    if (plumbX == null) return;
 
-    // Arms
-    drawLine(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftElbow);
-    drawLine(PoseLandmarkType.leftElbow, PoseLandmarkType.leftWrist);
-    drawLine(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightElbow);
-    drawLine(PoseLandmarkType.rightElbow, PoseLandmarkType.rightWrist);
-
-    // Legs
-    drawLine(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee);
-    drawLine(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle);
-    drawLine(PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee);
-    drawLine(PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle);
-
-    // Feet
-    drawLine(PoseLandmarkType.leftAnkle, PoseLandmarkType.leftHeel);
-    drawLine(PoseLandmarkType.leftHeel, PoseLandmarkType.leftFootIndex);
-    drawLine(PoseLandmarkType.rightAnkle, PoseLandmarkType.rightHeel);
-    drawLine(PoseLandmarkType.rightHeel, PoseLandmarkType.rightFootIndex);
-
-    // All dots on top
-    for (final t in PoseLandmarkType.values) {
-      drawPoint(t);
+    // The plumb line itself: a dashed vertical gravity reference.
+    final linePaint = Paint()
+      ..color = Colors.cyanAccent
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    const dash = 14.0, gap = 9.0;
+    for (double y = 0; y < size.height; y += dash + gap) {
+      canvas.drawLine(
+        Offset(plumbX, y),
+        Offset(plumbX, min(y + dash, size.height)),
+        linePaint,
+      );
     }
   }
 

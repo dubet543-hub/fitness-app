@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../api_service.dart';
 import '../core/theme.dart';
 
 class PersonalInfoPage extends StatefulWidget {
@@ -41,10 +42,24 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     return (f[0] + (l.isNotEmpty ? l[0] : '')).toUpperCase();
   }
 
-  void _save() {
+  bool _saving = false;
+
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final fullName = '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}'.trim();
-    Navigator.pop(context, {'name': fullName, 'email': _emailCtrl.text.trim()});
+    setState(() => _saving = true);
+    try {
+      await ApiService.updateProfile(name: fullName); // persists to backend + cache
+      if (!mounted) return;
+      Navigator.pop(context, {'name': fullName, 'email': _emailCtrl.text.trim()});
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceFirst('Exception: ', '')),
+        duration: const Duration(seconds: 2),
+      ));
+    }
   }
 
   @override
@@ -54,15 +69,16 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text('PERSONAL INFO', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: const IconThemeData(color: kTextPrimary),
+        title: Text('PERSONAL INFO', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+        iconTheme: IconThemeData(color: kTextPrimary),
         actions: [
           TextButton(
-            onPressed: _save,
-            child: const Text('Save', style: TextStyle(color: kAccent, fontWeight: FontWeight.w700, fontSize: 14)),
+            onPressed: _saving ? null : _save,
+            child: Text(_saving ? 'Saving…' : 'Save',
+                style: TextStyle(color: _saving ? kTextMuted : kAccent, fontWeight: FontWeight.w700, fontSize: 14)),
           ),
         ],
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
+        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
       ),
       body: Form(
         key: _formKey,
@@ -83,7 +99,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     child: Center(
                       child: Text(
                         _initials,
-                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary),
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary),
                       ),
                     ),
                   ),
@@ -155,7 +171,7 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
+    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
   );
 }
 
@@ -173,15 +189,15 @@ class _FormField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      style: const TextStyle(fontSize: 14, color: kTextPrimary),
+      style: TextStyle(fontSize: 14, color: kTextPrimary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: kTextMuted, fontSize: 14),
+        hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
         filled: true,
         fillColor: kCard,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kBorder)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kBorder)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kAccent, width: 1.5)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kAccent, width: 1.5)),
         errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.redAccent)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),

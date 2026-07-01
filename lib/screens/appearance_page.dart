@@ -9,7 +9,12 @@ class AppearancePage extends StatefulWidget {
 }
 
 class _AppearancePageState extends State<AppearancePage> {
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode get _themeMode => appThemeMode.value;
+
+  void _select(ThemeMode mode) {
+    setAppThemeMode(mode); // persists + rebuilds the whole app
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,9 +23,9 @@ class _AppearancePageState extends State<AppearancePage> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text('APPEARANCE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: const IconThemeData(color: kTextPrimary),
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
+        title: Text('APPEARANCE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+        iconTheme: IconThemeData(color: kTextPrimary),
+        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -38,21 +43,21 @@ class _AppearancePageState extends State<AppearancePage> {
                   label: 'Dark',
                   icon: Icons.dark_mode_outlined,
                   selected: _themeMode == ThemeMode.dark,
-                  onTap: () => setState(() => _themeMode = ThemeMode.dark),
+                  onTap: () => _select(ThemeMode.dark),
                 ),
-                const Divider(height: 1, color: kBorder),
+                Divider(height: 1, color: kBorder),
                 _ThemeOption(
                   label: 'Light',
                   icon: Icons.light_mode_outlined,
                   selected: _themeMode == ThemeMode.light,
-                  onTap: () => setState(() => _themeMode = ThemeMode.light),
+                  onTap: () => _select(ThemeMode.light),
                 ),
-                const Divider(height: 1, color: kBorder),
+                Divider(height: 1, color: kBorder),
                 _ThemeOption(
                   label: 'System default',
                   icon: Icons.brightness_auto_outlined,
                   selected: _themeMode == ThemeMode.system,
-                  onTap: () => setState(() => _themeMode = ThemeMode.system),
+                  onTap: () => _select(ThemeMode.system),
                 ),
               ],
             ),
@@ -70,7 +75,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
   );
 }
 

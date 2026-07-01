@@ -11,6 +11,10 @@ import { monitorSeriesForAthlete } from '../utils/flutterWorkloadMonitorData';
 import { fmtDate, fmtNum } from '../utils/fmt';
 import { CHART_OPTS, ACWR_OPTS, DONUT_OPTS, COLORS } from '../utils/chartDefaults';
 import { acwrColor, acwrLabel, readinessColor } from '../components/Badge';
+import {
+  computeBCA, interpret,
+  gradeBF, gradeFFMI, gradeSMM, gradeSMI, gradeRelASM, gradeMBR, gradeAppendicular, gradeAxial,
+} from '../utils/bodyComposition';
 
 const SECTIONS = ['Overview', 'Athletes', 'Sessions', 'Analytics', 'Workload Monitor', 'Create Athlete'];
 
@@ -38,6 +42,7 @@ export default function AdminPage() {
   // Analytics
   const [analAthId, setAnalAthId]     = useState('');
   const [analSessions, setAnalSess]   = useState([]);
+  const [analBody, setAnalBody]       = useState(null); // body-composition { latest, history, synced }
 
   // Create athlete form
   const [form, setForm]               = useState({ name: '', email: '', password: '', sport: '' });
@@ -47,10 +52,12 @@ export default function AdminPage() {
 
   // ── Load data per section ──────────────────────────────────────────────
   useEffect(() => {
+    // Several sections (Athletes, Sessions, Analytics, Workload Monitor, Create
+    // Athlete) render an athlete dropdown, so always keep the list loaded —
+    // otherwise navigating straight to Analytics shows an empty "Select athlete".
+    loadAthletes();
     if (section === 'Overview') loadDash();
-    if (section === 'Athletes') loadAthletes();
     if (section === 'Sessions') loadSessions();
-    if (section === 'Create Athlete') loadAthletes();
   }, [section]);
 
   async function loadDash() {
@@ -81,8 +88,9 @@ export default function AdminPage() {
     } catch {}
   }
   async function loadAnalytics(id) {
-    if (!id) return;
-    try { setAnalSess(await api.get(`/admin/athletes/${id}/sessions?limit=200`)); } catch {}
+    if (!id) { setAnalSess([]); setAnalBody(null); return; }
+    try { setAnalSess(await api.get(`/admin/athletes/${id}/sessions?limit=200`)); } catch { setAnalSess([]); }
+    try { setAnalBody(await api.get(`/admin/athletes/${id}/body-composition`)); } catch { setAnalBody(null); }
   }
 
   async function toggleActive(ath) {
@@ -358,6 +366,7 @@ export default function AdminPage() {
                   {athletes.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
                 </select>
               </div>
+              {analAthId && <BodyCompositionCard data={analBody} />}
               {analSessions.length > 0 && (
                 <AthCharts
                   sessions={analSessions}
@@ -650,6 +659,179 @@ function MiniMetric({ label, value, sub, tone }) {
       <div className="text-[11px] text-ts">{label}</div>
       <div className="text-lg font-extrabold mt-1">{value}</div>
       <div className="text-[11px] text-ts mt-0.5 truncate">{sub}</div>
+    </div>
+  );
+}
+
+function GradePill({ grade }) {
+  return (
+    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+          style={{ color: grade.color, backgroundColor: `${grade.color}22` }}>
+      {grade.label}
+    </span>
+  );
+}
+
+// Full body-composition result — mirrors the mobile app's analysis view.
+function BodyCompositionCard({ data }) {
+  const latest = data?.latest;
+  const fmt = (v, d = 1) => (v == null ? '—' : Number(v).toFixed(d));
+  const fmtDate = (s) => (s ? new Date(s).toLocaleDateString() : '—');
+
+  // Recompute the full analysis from the stored measurements (same engine as the app).
+  const r = latest ? computeBCA(latest) : null;
+
+  if (!latest || !r) {
+    return (
+      <div className="bg-surface border border-bdr rounded-xl p-5">
+        <div className="text-[11px] text-ts uppercase tracking-wider mb-2">Body Composition</div>
+        <p className="text-ts text-sm">No body-composition estimate synced yet.</p>
+      </div>
+    );
+  }
+
+  const male = r.isMale;
+  const ip = interpret(r);
+  const lbmPct = 100 - r.bfPercent;
+
+  const metrics = [
+    { name: 'Fat Percentage',    value: `${fmt(r.bfPercent)}%`,        grade: gradeBF(r.bfPercent, male),           sub: 'Composition balance' },
+    { name: 'FFMI',              value: fmt(r.ffmi),                    grade: gradeFFMI(r.ffmi, male),              sub: 'Fat-free mass index' },
+    { name: 'Skeletal Muscle %', value: `${fmt(r.smmPercent)}%`,        grade: gradeSMM(r.smmPercent, male),         sub: 'of total body weight' },
+    { name: 'Muscle Mass Index', value: `${fmt(r.smi, 2)} kg/m²`,       grade: gradeSMI(r.smi, male),                sub: 'Sarcopenia screening' },
+    { name: 'Relative ASM',      value: `${fmt(r.relativeAsm)}%`,       grade: gradeRelASM(r.relativeAsm, male),     sub: 'Functional limb muscle' },
+    { name: 'Muscle-Bone Ratio', value: fmt(r.mbr),                     grade: gradeMBR(r.mbr),                      sub: 'LBM / Bone mass' },
+    { name: 'Appendicular Ratio',value: `${fmt(r.appendicularToTotal)}%`, grade: gradeAppendicular(r.appendicularToTotal, male), sub: 'Limb muscle vs body' },
+    { name: 'Axial Ratio',       value: `${fmt(r.axialToTotal)}%`,      grade: gradeAxial(r.axialToTotal, male),     sub: 'Core muscle vs body' },
+  ];
+
+  const layerRows = [
+    ['Total Body Weight',     100,                          r.weightKg, null,      true],
+    ['Total Body Fat',        r.bfPercent,                  r.bfKg,     '#EF4444'],
+    ['Lean Body Mass (LBM)',  lbmPct,                       r.lbm,      '#00CF74'],
+    ['Total Skeletal Muscle', r.smmPercent,                 r.tsm,      '#4AADFF'],
+    ['  Appendicular (ASM)',  r.appendicularToTotal,        r.asm,      null],
+    ['  Axial Muscle Mass',   r.axialToTotal,               r.axial,    null],
+    ['Essential Organs',      r.essentialOrgans / r.weightKg * 100, r.essentialOrgans, null],
+    ['Bone Mineral Content',  r.bmc / r.weightKg * 100,     r.bmc,      null],
+    ['Skin & Connective',     r.skinConnective / r.weightKg * 100,  r.skinConnective, null],
+    ['Non-Muscle Lean Fluids',r.nonMuscleFluid / r.weightKg * 100,  r.nonMuscleFluid, null],
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Header + summary */}
+      <div className="bg-surface border border-bdr rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[11px] text-ts uppercase tracking-wider">Body Composition · {male ? 'Male' : 'Female'}</div>
+          <div className="text-xs text-ts">{fmtDate(latest.date)}</div>
+        </div>
+        <div className="rounded-lg px-4 py-3 mb-4" style={{ backgroundColor: `${ip.overallColor}14`, border: `1px solid ${ip.overallColor}4D` }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: ip.overallColor }}>Overall Profile</div>
+          <div className="text-lg font-extrabold" style={{ color: ip.overallColor }}>{ip.overallLabel}</div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <MiniMetric label="Body Fat"        value={`${fmt(r.bfPercent)}%`}  sub={`${fmt(r.bfKg)} kg`}             tone="red" />
+          <MiniMetric label="Lean Mass"       value={`${fmt(r.lbm)} kg`}      sub={`${fmt(lbmPct)}% of BW`}         tone="green" />
+          <MiniMetric label="Skeletal Muscle" value={`${fmt(r.smmPercent)}%`} sub={`${fmt(r.tsm)} kg`}              tone="blue" />
+          <MiniMetric label="SMI"             value={fmt(r.smi, 2)}           sub="kg/m²"                          tone="blue" />
+          <MiniMetric label="FFMI"            value={fmt(r.ffmi)}             sub="fat-free index"                 tone="orange" />
+          <MiniMetric label="Weight"          value={`${fmt(r.weightKg)} kg`} sub={`${fmt(r.heightCm, 0)} cm`}      tone="gray" />
+        </div>
+      </div>
+
+      {/* Structural layer table */}
+      <div className="bg-surface border border-bdr rounded-xl p-5">
+        <div className="text-[11px] text-ts uppercase tracking-wider mb-3">Structural Layer Composition</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-ts text-[11px] uppercase tracking-wider text-left border-b border-bdr">
+                <th className="py-2 pr-3 font-medium">Layer</th>
+                <th className="py-2 pr-3 font-medium text-right">%</th>
+                <th className="py-2 pr-3 font-medium text-right">kg</th>
+                <th className="py-2 pr-3 font-medium text-right">lbs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {layerRows.map(([label, pct, kg, color, bold]) => (
+                <tr key={label} className="border-b border-bdr/40">
+                  <td className={`py-1.5 pr-3 ${bold ? 'font-bold text-tp' : 'text-tp'}`} style={color ? { color } : undefined}>
+                    {label.startsWith('  ') ? <span className="text-ts">{label.trim()}</span> : label}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right" style={color ? { color } : undefined}>{fmt(pct, 2)}%</td>
+                  <td className="py-1.5 pr-3 text-right" style={color ? { color } : undefined}>{fmt(kg, 2)}</td>
+                  <td className="py-1.5 pr-3 text-right text-ts">{fmt(kg * 2.20462, 2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Key metrics grid */}
+      <div className="bg-surface border border-bdr rounded-xl p-5">
+        <div className="text-[11px] text-ts uppercase tracking-wider mb-3">Key Metrics & Analysis</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {metrics.map((m) => (
+            <div key={m.name} className="border border-bdr rounded-xl p-3 bg-bg">
+              <div className="flex justify-end mb-2"><GradePill grade={m.grade} /></div>
+              <div className="text-xl font-extrabold text-tp">{m.value}</div>
+              <div className="text-[12px] font-semibold text-tp mt-0.5">{m.name}</div>
+              <div className="text-[10px] text-ts">{m.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Interpretation */}
+      <div className="bg-surface border border-bdr rounded-xl p-5">
+        <div className="text-[11px] text-ts uppercase tracking-wider mb-3">Interpretation Report</div>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-ts mb-1">Analytical Insights</div>
+        <ul className="text-sm text-ts space-y-1.5 mb-4 list-disc pl-5">
+          <li><span className="text-tp font-semibold">Muscle Efficiency:</span> FFMI of {fmt(r.ffmi)} kg/m² — {gradeFFMI(r.ffmi, male).label} muscularity relative to height.</li>
+          <li><span className="text-tp font-semibold">Skeletal Support:</span> Muscle-to-Bone Ratio of {fmt(r.mbr)} — {gradeMBR(r.mbr).label}.</li>
+          <li><span className="text-tp font-semibold">Weight Distribution:</span> {ip.limbDominant ? 'Limb-Dominant' : 'Core-Dominant'} architecture ({fmt(r.appendicularToTotal)}% limb / {fmt(r.axialToTotal)}% core muscle of BW).</li>
+          <li><span className="text-tp font-semibold">Composition Balance:</span> {fmt(r.lbm)} kg lean vs {fmt(r.bfKg)} kg fat mass.</li>
+        </ul>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-ts mb-1">Suggestions</div>
+        <ol className="text-sm text-ts space-y-1.5 list-decimal pl-5">
+          {ip.actions.map((a, i) => <li key={i}>{a}</li>)}
+        </ol>
+      </div>
+
+      {/* History */}
+      {data?.history?.length > 1 && (
+        <div className="bg-surface border border-bdr rounded-xl p-5">
+          <div className="text-[11px] text-ts uppercase tracking-wider mb-3">History</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-ts text-[11px] uppercase tracking-wider text-left border-b border-bdr">
+                  <th className="py-2 pr-3 font-medium">Date</th>
+                  <th className="py-2 pr-3 font-medium">Body Fat</th>
+                  <th className="py-2 pr-3 font-medium">LBM</th>
+                  <th className="py-2 pr-3 font-medium">SMM %</th>
+                  <th className="py-2 pr-3 font-medium">FFMI</th>
+                  <th className="py-2 pr-3 font-medium">Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.history.map((h) => (
+                  <tr key={h._id} className="border-b border-bdr/50 text-tp">
+                    <td className="py-2 pr-3 text-ts">{fmtDate(h.date)}</td>
+                    <td className="py-2 pr-3">{fmt(h.bfPercent)}%</td>
+                    <td className="py-2 pr-3">{fmt(h.lbm)} kg</td>
+                    <td className="py-2 pr-3">{fmt(h.smmPercent)}%</td>
+                    <td className="py-2 pr-3">{fmt(h.ffmi)}</td>
+                    <td className="py-2 pr-3">{fmt(h.weightKg)} kg</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

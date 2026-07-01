@@ -35,13 +35,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-bg">
       <div className="bg-surface border border-bdr rounded-2xl p-10 w-full max-w-sm">
         {/* Logo */}
-        <div className="flex flex-col items-center gap-2 mb-8">
-          <div className="w-14 h-14 rounded-full bg-card border border-bdr flex items-center justify-center">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" strokeWidth="2">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27z" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-tp tracking-tight">SolidCore</h1>
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <img src="/logo.png" alt="SolidCore AMS" className="w-44 h-auto" />
           <p className="text-xs text-ts">Performance Analytics Platform</p>
         </div>
 

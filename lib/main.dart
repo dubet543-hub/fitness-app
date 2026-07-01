@@ -12,17 +12,10 @@ void main() async {
     await dotenv.load(fileName: '.env');
   } catch (_) {}
   await ApiService.loadConfig();
+  await loadAppThemeMode();
   try {
     await NotificationService.init();
   } catch (_) {}
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0D1117),
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
   runApp(const FitnessApp());
 }
 
@@ -31,11 +24,28 @@ class FitnessApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SolidCore AMS',
-      theme: buildAppTheme(),
-      home: const AuthScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, mode, _) {
+        // Resolve the chosen mode to a concrete brightness, swap the live
+        // palette to match, then build the theme from it.
+        final brightness = effectiveBrightness(mode);
+        applyBrightness(brightness);
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: kIsLight ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: kBg,
+            systemNavigationBarIconBrightness: kIsLight ? Brightness.dark : Brightness.light,
+          ),
+        );
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'SolidCore AMS',
+          theme: buildAppTheme(),
+          home: const AuthScreen(),
+        );
+      },
     );
   }
 }

@@ -1,8 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../api_service.dart';
 import '../core/theme.dart';
+import '../services/local_log_store.dart';
 
 class PrivacySecurityPage extends StatefulWidget {
-  const PrivacySecurityPage({super.key});
+  /// Called after the account is deleted so the app can return to sign-in.
+  final VoidCallback? onLoggedOut;
+  const PrivacySecurityPage({super.key, this.onLoggedOut});
 
   @override
   State<PrivacySecurityPage> createState() => _PrivacySecurityPageState();
@@ -11,29 +18,154 @@ class PrivacySecurityPage extends StatefulWidget {
 class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   bool twoFactor      = false;
   bool analyticsShare = true;
+  bool dailyLogsConsent = true;
+  bool cameraConsent    = true;
+
+  static const _kTwoFactor = 'setting_two_factor';
+  static const _kAnalytics = 'setting_analytics_share';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConsent();
+  }
+
+  Future<void> _loadConsent() async {
+    final daily  = await LocalLogStore.dailyLogsConsent();
+    final camera = await LocalLogStore.cameraConsent();
+    final prefs  = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      dailyLogsConsent = daily;
+      cameraConsent    = camera;
+      twoFactor        = prefs.getBool(_kTwoFactor) ?? false;
+      analyticsShare   = prefs.getBool(_kAnalytics) ?? true;
+    });
+  }
+
+  Future<void> _setPref(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
   );
 
+  // ── Change password ────────────────────────────────────────────────────────
+  Future<void> _changePassword() async {
+    final currentCtrl = TextEditingController();
+    final newCtrl     = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    String? error;
+    bool busy = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: kCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Change password', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700, fontSize: 17)),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (error != null) ...[
+              Text(error!, style: TextStyle(color: Colors.redAccent, fontSize: 12.5)),
+              const SizedBox(height: 10),
+            ],
+            _pwField(currentCtrl, 'Current password'),
+            const SizedBox(height: 10),
+            _pwField(newCtrl, 'New password'),
+            const SizedBox(height: 10),
+            _pwField(confirmCtrl, 'Confirm new password'),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(ctx),
+              child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+            ),
+            TextButton(
+              onPressed: busy ? null : () async {
+                if (newCtrl.text.length < 6) { setLocal(() => error = 'New password must be at least 6 characters'); return; }
+                if (newCtrl.text != confirmCtrl.text) { setLocal(() => error = 'Passwords do not match'); return; }
+                setLocal(() { busy = true; error = null; });
+                try {
+                  await ApiService.changePassword(currentPassword: currentCtrl.text, newPassword: newCtrl.text);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  _snack('Password updated');
+                } catch (e) {
+                  setLocal(() { busy = false; error = e.toString().replaceFirst('Exception: ', ''); });
+                }
+              },
+              child: Text(busy ? 'Saving…' : 'Update', style: TextStyle(color: kAccent, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pwField(TextEditingController ctrl, String label) => TextField(
+    controller: ctrl,
+    obscureText: true,
+    style: TextStyle(color: kTextPrimary, fontSize: 14),
+    decoration: InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: kTextSecondary, fontSize: 13),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kAccent)),
+    ),
+  );
+
+  // ── Download my data ─────────────────────────────────────────────────────────
+  Future<void> _downloadData() async {
+    _snack('Preparing your data…');
+    try {
+      final user     = await ApiService.getCachedUser();
+      final sessions = await ApiService.fetchSessions(limit: 1000);
+      final bca      = await ApiService.fetchBodyComposition();
+      final export = {
+        'exportedAt': DateTime.now().toIso8601String(),
+        'profile': user == null ? null : {'name': user.name, 'email': user.email, 'sport': user.sport},
+        'sessions': sessions,
+        'bodyComposition': bca,
+      };
+      final json = const JsonEncoder.withIndent('  ').convert(export);
+      await Share.share(json, subject: 'My SolidCore data export');
+    } catch (_) {
+      if (mounted) _snack('Could not export your data. Please try again.');
+    }
+  }
+
+  // ── Delete account ───────────────────────────────────────────────────────────
   void _confirmDelete() {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dctx) => AlertDialog(
         backgroundColor: kCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete account?', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700)),
-        content: const Text(
+        title: Text('Delete account?', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700)),
+        content: Text(
           'This is permanent and cannot be undone. All your data will be erased.',
           style: TextStyle(color: kTextSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: kTextSecondary)),
+            onPressed: () => Navigator.pop(dctx),
+            child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
           ),
           TextButton(
-            onPressed: () { Navigator.pop(context); _snack('Account deletion requested'); },
+            onPressed: () async {
+              Navigator.pop(dctx);
+              try {
+                await ApiService.deleteAccount();
+                if (!mounted) return;
+                // Return to the root before signing out so no settings route lingers.
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                widget.onLoggedOut?.call(); // AuthScreen swaps to sign-in
+              } catch (e) {
+                if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+              }
+            },
             child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
           ),
         ],
@@ -48,9 +180,9 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text('PRIVACY & SECURITY', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: const IconThemeData(color: kTextPrimary),
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
+        title: Text('PRIVACY & SECURITY', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+        iconTheme: IconThemeData(color: kTextPrimary),
+        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -62,7 +194,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               icon: Icons.lock_outline_rounded,
               iconColor: const Color(0xFF38BDF8),
               label: 'Change password',
-              onTap: () => _snack('Password change flow'),
+              onTap: _changePassword,
             ),
             _ToggleItem(
               icon: Icons.shield_outlined,
@@ -70,7 +202,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               label: 'Two-factor auth',
               subtitle: 'Extra sign-in protection',
               value: twoFactor,
-              onChanged: (v) => setState(() => twoFactor = v),
+              onChanged: (v) { setState(() => twoFactor = v); _setPref(_kTwoFactor, v); },
             ),
             _RowItem(
               icon: Icons.phone_android_rounded,
@@ -86,18 +218,42 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           const SizedBox(height: 8),
           _Group(children: [
             _ToggleItem(
+              icon: Icons.event_note_outlined,
+              iconColor: const Color(0xFF34D399),
+              label: 'Daily logs',
+              subtitle: 'Allow saving wellness & recovery logs',
+              value: dailyLogsConsent,
+              onChanged: (v) {
+                setState(() => dailyLogsConsent = v);
+                LocalLogStore.setDailyLogsConsent(v);
+                _snack(v ? 'Daily logs enabled' : 'Daily logs turned off');
+              },
+            ),
+            _ToggleItem(
+              icon: Icons.camera_alt_outlined,
+              iconColor: const Color(0xFF38BDF8),
+              label: 'Camera-based features',
+              subtitle: 'On-device posture, running & bowling analysis',
+              value: cameraConsent,
+              onChanged: (v) {
+                setState(() => cameraConsent = v);
+                LocalLogStore.setCameraConsent(v);
+                _snack(v ? 'Camera features enabled' : 'Camera features turned off');
+              },
+            ),
+            _ToggleItem(
               icon: Icons.analytics_outlined,
               iconColor: const Color(0xFFF59E0B),
               label: 'Analytics sharing',
               subtitle: 'Help improve SolidCore',
               value: analyticsShare,
-              onChanged: (v) => setState(() => analyticsShare = v),
+              onChanged: (v) { setState(() => analyticsShare = v); _setPref(_kAnalytics, v); },
             ),
             _RowItem(
               icon: Icons.download_outlined,
               iconColor: kTextSecondary,
               label: 'Download my data',
-              onTap: () => _snack('Downloading your data…'),
+              onTap: _downloadData,
             ),
           ]),
           const SizedBox(height: 20),
@@ -130,7 +286,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
   );
 }
 
@@ -148,7 +304,7 @@ class _Group extends StatelessWidget {
       child: Column(
         children: List.generate(children.length, (i) => Column(children: [
           children[i],
-          if (i < children.length - 1) const Divider(height: 1, indent: 54, color: kBorder),
+          if (i < children.length - 1) Divider(height: 1, indent: 54, color: kBorder),
         ])),
       ),
     );
@@ -177,12 +333,12 @@ class _RowItem extends StatelessWidget {
               child: Icon(icon, size: 16, color: iconColor),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
+            Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
             if (trailing != null) ...[
-              Text(trailing!, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+              Text(trailing!, style: TextStyle(fontSize: 13, color: kTextSecondary)),
               const SizedBox(width: 4),
             ],
-            const Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
+            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
           ],
         ),
       ),
@@ -215,10 +371,10 @@ class _ToggleItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
+                Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
-                  Text(subtitle!, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+                  Text(subtitle!, style: TextStyle(fontSize: 12, color: kTextSecondary)),
                 ],
               ],
             ),

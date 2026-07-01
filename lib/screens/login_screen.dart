@@ -1,10 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../services/local_log_store.dart';
 
 class LoginScreen extends StatefulWidget {
   final Future<void> Function(String email, String password) onEmailSignIn;
-  const LoginScreen({super.key, required this.onEmailSignIn});
+  final VoidCallback? onCreateAccount;
+  const LoginScreen({super.key, required this.onEmailSignIn, this.onCreateAccount});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -13,10 +15,11 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   final _emailCtrl = TextEditingController();
   final _passCtrl  = TextEditingController();
-  bool    _loading = false;
-  bool    _obscure = true;
+  bool    _loading  = false;
+  bool    _obscure  = true;
   String? _error;
-  bool    _lampOn  = false;
+  bool    _lampOn   = false;
+  bool    _remember = false;
 
   late final AnimationController _revealCtrl;
   late final AnimationController _glowCtrl;
@@ -38,6 +41,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       duration: const Duration(milliseconds: 1800),
     );
     _glowAnim = CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut);
+
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final creds = await LocalLogStore.savedCredentials();
+    if (creds == null || !mounted) return;
+    setState(() {
+      _emailCtrl.text = creds.email;
+      _passCtrl.text  = creds.password;
+      _remember       = true;
+    });
   }
 
   @override
@@ -71,6 +86,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     setState(() { _loading = true; _error = null; });
     try {
       await widget.onEmailSignIn(email, pass);
+      if (_remember) {
+        await LocalLogStore.saveCredentials(email, pass);
+      } else {
+        await LocalLogStore.clearCredentials();
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -118,6 +138,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 children: [
                   const SizedBox(height: 28),
 
+                  // ── Logo ─────────────────────────────────────────────────
+                  Center(
+                    child: Image.asset('assets/images/solidcore_logo.png', width: 190),
+                  ),
+                  const SizedBox(height: 20),
+
                   // ── Lamp ─────────────────────────────────────────────────
                   Center(
                     child: AnimatedBuilder(
@@ -162,12 +188,25 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         children: [
                           const SizedBox(height: 14),
                           _buildForm(),
-                          const SizedBox(height: 22),
-                          const Text(
-                            'Your account is created by your coach or admin.\nContact them if you need access.',
-                            style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.7),
-                            textAlign: TextAlign.center,
-                          ),
+                          const SizedBox(height: 18),
+                          if (widget.onCreateAccount != null)
+                            Center(
+                              child: TextButton(
+                                onPressed: widget.onCreateAccount,
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: TextStyle(fontSize: 13, color: kTextSecondary),
+                                    children: [
+                                      const TextSpan(text: "Don't have an account?  "),
+                                      TextSpan(
+                                        text: 'Create one',
+                                        style: TextStyle(color: kAccent, fontWeight: FontWeight.w700),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -201,12 +240,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Welcome back',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
           ),
           const SizedBox(height: 4),
-          const Text('Sign in to your account', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+          Text('Sign in to your account', style: TextStyle(fontSize: 13, color: kTextSecondary)),
           const SizedBox(height: 24),
 
           if (_error != null) ...[
@@ -234,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
-            style: const TextStyle(color: kTextPrimary, fontSize: 14),
+            style: TextStyle(color: kTextPrimary, fontSize: 14),
             decoration: _inputDecor('you@example.com', Icons.mail_outline_rounded),
           ),
           const SizedBox(height: 16),
@@ -246,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             obscureText: _obscure,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
-            style: const TextStyle(color: kTextPrimary, fontSize: 14),
+            style: TextStyle(color: kTextPrimary, fontSize: 14),
             decoration: _inputDecor('••••••••', Icons.lock_outline_rounded).copyWith(
               suffixIcon: IconButton(
                 icon: Icon(
@@ -257,7 +296,38 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
+
+          // ── Remember me ───────────────────────────────────────────
+          GestureDetector(
+            onTap: () => setState(() => _remember = !_remember),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 20, height: 20,
+                  decoration: BoxDecoration(
+                    color: _remember ? kAccent : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: _remember ? kAccent : kTextSecondary.withValues(alpha: 0.5),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: _remember
+                      ? const Icon(Icons.check_rounded, size: 14, color: Colors.black)
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Remember my email & password',
+                  style: TextStyle(fontSize: 13, color: kTextSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
 
           SizedBox(
             height: 54,
@@ -283,7 +353,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
     hintText: hint,
-    hintStyle: const TextStyle(color: kTextMuted, fontSize: 14),
+    hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
     prefixIcon: Icon(icon, size: 18, color: kAccent.withValues(alpha: 0.65)),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(13),
@@ -512,7 +582,7 @@ class _LampWidgetState extends State<_LampWidget>
             height: 22,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isOn ? kAccent : const Color(0xFFCC9900),
+              color: isOn ? kAccent : Color(0xFFCC9900),
               boxShadow: isOn
                   ? [
                       BoxShadow(
@@ -574,5 +644,5 @@ class _ConeClipper extends CustomClipper<Path> {
 
 Widget _fieldLabel(String text) => Text(
   text,
-  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
+  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
 );

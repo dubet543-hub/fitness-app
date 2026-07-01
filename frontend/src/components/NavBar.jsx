@@ -18,12 +18,7 @@ export default function NavBar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-card border border-bdr flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" strokeWidth="2.5">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27z" />
-            </svg>
-          </div>
-          <span className="text-sm font-bold text-tp tracking-tight">SolidCore</span>
+          <img src="/logo.png" alt="SolidCore AMS" className="h-9 w-auto" />
         </div>
 
         {/* Right side */}

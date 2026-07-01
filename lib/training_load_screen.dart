@@ -6,13 +6,6 @@ import 'core/theme.dart';
 import 'screens/workload_monitor_screen.dart';
 
 // Aliases so the rest of the file compiles without change.
-const Color _kBg            = kBg;
-const Color _kSurface       = kSurface;
-const Color _kCard          = kCard;
-const Color _kAccent        = kAccent;
-const Color _kBorder        = kBorder;
-const Color _kTextPrimary   = kTextPrimary;
-const Color _kTextSecondary = kTextSecondary;
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -419,6 +412,115 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     return _skillLogs.where((s) => _dateKey(s.timestamp) == key).toList();
   }
 
+  // ── Day-by-day history ──────────────────────────────────────────────────────
+
+  static const _monthsShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  static const _weekdaysShort = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  String _historyDateLabel(DateTime d) {
+    final today = DateTime.now();
+    final isToday = _dateKey(d) == _dateKey(today);
+    final isYesterday = _dateKey(d) == _dateKey(today.subtract(const Duration(days: 1)));
+    if (isToday) return 'Today';
+    if (isYesterday) return 'Yesterday';
+    return '${_weekdaysShort[d.weekday - 1]}, ${d.day} ${_monthsShort[d.month - 1]}';
+  }
+
+  Widget _buildDayByDayHistory() {
+    // Newest day first; only days that actually have logged data.
+    final records = _buildDailyRecords().reversed
+        .where((r) => r.wellness != null || r.training.isNotEmpty || r.skills.isNotEmpty)
+        .toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: kCard, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kBorder),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.calendar_month_rounded, size: 16, color: kAccent),
+          const SizedBox(width: 8),
+          Text('DAY-BY-DAY HISTORY',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                  color: kTextSecondary, letterSpacing: 1.2)),
+          const Spacer(),
+          Text('${records.length} day${records.length == 1 ? '' : 's'}',
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
+        ]),
+        const SizedBox(height: 6),
+        if (records.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text('No history yet — your logged days will appear here.',
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
+          )
+        else
+          ...records.map(_historyDayTile),
+      ]),
+    );
+  }
+
+  Widget _historyDayTile(DailyRecord r) {
+    final hasWellness = r.wellness != null;
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(left: 8, bottom: 10),
+        title: Row(children: [
+          Container(width: 3, height: 30,
+            decoration: BoxDecoration(
+              color: hasWellness ? r.readinessColor : kBorder,
+              borderRadius: BorderRadius.circular(2)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_historyDateLabel(r.date),
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
+              Text(
+                hasWellness
+                    ? 'Readiness ${r.readinessPercent.round()}%  ·  Load ${r.totalLoad.round()}'
+                    : 'Load ${r.totalLoad.round()}  ·  no wellness log',
+                style: TextStyle(fontSize: 11.5, color: kTextSecondary),
+              ),
+            ]),
+          ),
+          _loadChip('${r.totalLoad.round()}', kAccent),
+        ]),
+        children: [
+          _historyLine('Wellness', hasWellness ? '${r.readinessPercent.round()}% readiness' : '—'),
+          _historyLine('Training', r.training.isEmpty
+              ? '—'
+              : '${r.training.length} session${r.training.length == 1 ? '' : 's'}  ·  load ${r.trainingLoad.round()}'),
+          _historyLine('Skill', r.skills.isEmpty
+              ? '—'
+              : '${r.skills.length} session${r.skills.length == 1 ? '' : 's'}  ·  load ${r.skillLoad.round()}'),
+          _historyLine('Daily total', 'load ${r.totalLoad.round()}  ·  grade ${r.scaledGrade.toStringAsFixed(1)}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _loadChip(String value, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+  );
+
+  Widget _historyLine(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(children: [
+      SizedBox(width: 90, child: Text(label, style: TextStyle(fontSize: 12, color: kTextSecondary))),
+      Expanded(child: Text(value, style: TextStyle(fontSize: 12, color: kTextPrimary))),
+    ]),
+  );
+
   List<DailyRecord> _buildDailyRecords() {
     final keys = <String>{
       for (final w in _wellnessLogs) _dateKey(w.date),
@@ -492,7 +594,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
         'load':   load,
         'ewma':   ewma,
         'acwr':   ewma == 0 ? 0.0 : acute / ewma,
-        'strain': load <= 0 ? 0.0 : (log(load) / log(1000)) * 10,
+        'exertion': load <= 0 ? 0.0 : (log(load) / log(1000)) * 10,
       };
     });
   }
@@ -660,22 +762,22 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: _kSurface,
-        title: const Text("Training Load",
-            style: TextStyle(color: _kTextPrimary, fontWeight: FontWeight.w700)),
+        backgroundColor: kSurface,
+        title: Text("Training Load",
+            style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700)),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: _kTextPrimary),
+        iconTheme: IconThemeData(color: kTextPrimary),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(49),
           child: Column(children: [
-            const Divider(height: 1, color: _kBorder),
+            Divider(height: 1, color: kBorder),
             TabBar(
               controller: _tabController,
-              labelColor: _kAccent,
-              unselectedLabelColor: _kTextSecondary,
-              indicatorColor: _kAccent,
+              labelColor: kAccent,
+              unselectedLabelColor: kTextSecondary,
+              indicatorColor: kAccent,
               indicatorSize: TabBarIndicatorSize.label,
               tabs: const [
                 Tab(icon: Icon(Icons.edit_note_rounded),  text: "Log"),
@@ -724,6 +826,8 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
           _buildTrainingSessions(),
           const SizedBox(height: 14),
           _buildSkillSessions(),
+          const SizedBox(height: 14),
+          _buildDayByDayHistory(),
           const SizedBox(height: 32),
         ],
       ),
@@ -753,13 +857,13 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                   const SizedBox(height: 4),
                   Text(
                     "Sleep ${w.sleep}  ·  Wellness ${w.wellness}  ·  Soreness ${w.soreness}  ·  Fatigue ${w.fatigue}",
-                    style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                    style: TextStyle(fontSize: 11, color: kTextSecondary),
                   ),
                   const SizedBox(height: 8),
                   GestureDetector(
                     onTap: _resetWellnessForm,
-                    child: const Text("Re-log",
-                        style: TextStyle(fontSize: 12, color: _kAccent, fontWeight: FontWeight.w600)),
+                    child: Text("Re-log",
+                        style: TextStyle(fontSize: 12, color: kAccent, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -843,8 +947,8 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
               icon: Icon(_showTrainingForm ? Icons.close_rounded : Icons.add_rounded, size: 18),
               label: Text(_showTrainingForm ? "Cancel" : "+ Add Training Session"),
               style: OutlinedButton.styleFrom(
-                foregroundColor: _kAccent,
-                side: BorderSide(color: _showTrainingForm ? _kBorder : _kAccent),
+                foregroundColor: kAccent,
+                side: BorderSide(color: _showTrainingForm ? kBorder : kAccent),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -860,9 +964,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _kBg,
+        color: kBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: kBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -886,7 +990,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
           DropdownButton<String>(
             value: _tSessionType,
             isExpanded: true,
-            hint: const Text("Select session category", style: TextStyle(color: _kTextSecondary)),
+            hint: Text("Select session category", style: TextStyle(color: kTextSecondary)),
             items: [
               'Match day',
               'Strength Program',
@@ -905,9 +1009,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             onChanged: (String? newValue) {
               setState(() => _tSessionType = newValue);
             },
-            style: const TextStyle(color: _kTextPrimary, fontSize: 14),
-            dropdownColor: _kSurface,
-            underline: Container(height: 1, color: _kBorder),
+            style: TextStyle(color: kTextPrimary, fontSize: 14),
+            dropdownColor: kSurface,
+            underline: Container(height: 1, color: kBorder),
           ),
           if (showExtra) ...[
             const SizedBox(height: 14),
@@ -927,9 +1031,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _kCard,
+              color: kCard,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _tHasSub ? _kAccent.withValues(alpha: 0.45) : _kBorder),
+              border: Border.all(color: _tHasSub ? kAccent.withValues(alpha: 0.45) : kBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -941,18 +1045,18 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text("Subordinate Session",
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kTextPrimary)),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
                           Text("Corrective prehab or core work",
-                              style: TextStyle(fontSize: 11, color: _kTextSecondary)),
+                              style: TextStyle(fontSize: 11, color: kTextSecondary)),
                         ],
                       ),
                     ),
                     Switch(
                       value: _tHasSub,
-                      activeThumbColor: _kAccent,
-                      activeTrackColor: _kAccent.withValues(alpha: 0.25),
+                      activeThumbColor: kAccent,
+                      activeTrackColor: kAccent.withValues(alpha: 0.25),
                       onChanged: (v) => setState(() => _tHasSub = v),
                     ),
                   ],
@@ -983,7 +1087,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             icon: const Icon(Icons.fitness_center_rounded, size: 18),
             label: const Text("Log Training Session"),
             style: ElevatedButton.styleFrom(
-              backgroundColor: _kAccent,
+              backgroundColor: kAccent,
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(vertical: 13),
@@ -1038,7 +1142,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
               label: Text(_showSkillForm ? "Cancel" : "+ Add Skill Session"),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.greenAccent,
-                side: BorderSide(color: _showSkillForm ? _kBorder : Colors.greenAccent),
+                side: BorderSide(color: _showSkillForm ? kBorder : Colors.greenAccent),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -1054,9 +1158,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _kBg,
+        color: kBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: kBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1091,10 +1195,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _kCard,
+              color: kCard,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: _sHasSub ? Colors.greenAccent.withValues(alpha: 0.45) : _kBorder),
+                  color: _sHasSub ? Colors.greenAccent.withValues(alpha: 0.45) : kBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1106,11 +1210,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text("Subordinate Skill Session",
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kTextPrimary)),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
                           Text("Additional skill practice in the same block",
-                              style: TextStyle(fontSize: 11, color: _kTextSecondary)),
+                              style: TextStyle(fontSize: 11, color: kTextSecondary)),
                         ],
                       ),
                     ),
@@ -1181,13 +1285,13 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.bar_chart_rounded, size: 52, color: _kBorder),
+            Icon(Icons.bar_chart_rounded, size: 52, color: kBorder),
             const SizedBox(height: 16),
-            const Text("No data yet",
-                style: TextStyle(color: _kTextPrimary, fontSize: 17, fontWeight: FontWeight.w600)),
+            Text("No data yet",
+                style: TextStyle(color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
-            const Text("Log your first session to get started.",
-                style: TextStyle(color: _kTextSecondary, fontSize: 13)),
+            Text("Log your first session to get started.",
+                style: TextStyle(color: kTextSecondary, fontSize: 13)),
           ],
         ),
       );
@@ -1205,29 +1309,29 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [_kAccent.withValues(alpha: 0.18), _kAccent.withValues(alpha: 0.06)],
+                  colors: [kAccent.withValues(alpha: 0.18), kAccent.withValues(alpha: 0.06)],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _kAccent.withValues(alpha: 0.35)),
+                border: Border.all(color: kAccent.withValues(alpha: 0.35)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.monitor_heart_rounded, color: _kAccent, size: 20),
+                  Icon(Icons.monitor_heart_rounded, color: kAccent, size: 20),
                   SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Workload Monitor',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kTextPrimary)),
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
                         Text('Training · Skill · Daily Total — athlete comparison',
-                            style: TextStyle(fontSize: 11, color: _kTextSecondary)),
+                            style: TextStyle(fontSize: 11, color: kTextSecondary)),
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_ios_rounded, size: 13, color: _kAccent),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 13, color: kAccent),
                 ],
               ),
             ),
@@ -1323,14 +1427,14 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
           const SizedBox(height: 12),
 
           _SectionCard(
-            title: "Load vs Strain",
+            title: "Load vs Exertion",
             subtitle: "Bars = Load  ·  White line = Scaled Grade",
             child: Column(children: [
-              _LoadStrainChart(data: _buildSeries((r) => r.trainingLoad), title: "Training Load vs Strain", barColor: Colors.lightBlueAccent),
+              _LoadExertionChart(data: _buildSeries((r) => r.trainingLoad), title: "Training Load vs Exertion", barColor: Colors.lightBlueAccent),
               const SizedBox(height: 14),
-              _LoadStrainChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill Load vs Strain",    barColor: Colors.greenAccent),
+              _LoadExertionChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill Load vs Exertion",    barColor: Colors.greenAccent),
               const SizedBox(height: 14),
-              _LoadStrainChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily Load vs Strain",    barColor: Colors.purpleAccent),
+              _LoadExertionChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily Load vs Exertion",    barColor: Colors.purpleAccent),
             ]),
           ),
           const SizedBox(height: 12),
@@ -1390,16 +1494,16 @@ class _DailyLimitNotice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     decoration: BoxDecoration(
-      color: _kCard,
+      color: kCard,
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: _kBorder),
+      border: Border.all(color: kBorder),
     ),
     child: Row(children: [
       const Icon(Icons.check_circle_rounded, size: 18, color: Colors.greenAccent),
       const SizedBox(width: 10),
       Expanded(
         child: Text(text,
-            style: const TextStyle(fontSize: 12.5, color: _kTextSecondary)),
+            style: TextStyle(fontSize: 12.5, color: kTextSecondary)),
       ),
     ]),
   );
@@ -1420,17 +1524,17 @@ class _TrainingLogTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: _kAccent.withValues(alpha: 0.07),
+        color: kAccent.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kAccent.withValues(alpha: 0.25)),
+        border: Border.all(color: kAccent.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
           Container(
             width: 32, height: 32,
-            decoration: BoxDecoration(color: _kAccent.withValues(alpha: 0.15), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.15), shape: BoxShape.circle),
             child: Center(
-              child: Text("$index", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _kAccent)),
+              child: Text("$index", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kAccent)),
             ),
           ),
           const SizedBox(width: 10),
@@ -1438,18 +1542,18 @@ class _TrainingLogTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(primary, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kTextPrimary)),
+                Text(primary, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
                 Text(
                   "${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}  ·  "
                   "${log.primaryDuration}min  ·  RPE ${log.primaryRpe}  ·  Load ${log.totalLoad.toStringAsFixed(0)}"
                   "${log.subTypes.isNotEmpty ? '  +  ${log.subTypes.map((s) => s.label).join(', ')}' : ''}",
-                  style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                  style: TextStyle(fontSize: 11, color: kTextSecondary),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _kTextSecondary),
+            icon: Icon(Icons.delete_outline_rounded, size: 18, color: kTextSecondary),
             onPressed: onDelete,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1493,18 +1597,18 @@ class _SkillLogTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(types, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kTextPrimary)),
+                Text(types, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
                 Text(
                   "${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}  ·  "
                   "${log.duration}min  ·  RPE ${log.rpe}  ·  Load ${log.totalLoad.toStringAsFixed(0)}"
                   "${log.subTypes.isNotEmpty ? '  +  ${log.subTypes.map((s) => s.label).join(', ')}' : ''}",
-                  style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                  style: TextStyle(fontSize: 11, color: kTextSecondary),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _kTextSecondary),
+            icon: Icon(Icons.delete_outline_rounded, size: 18, color: kTextSecondary),
             onPressed: onDelete,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1558,18 +1662,18 @@ class _DayRecordTileState extends State<_DayRecordTile> {
                     children: [
                       Text(
                         "${d.day}/${d.month}/${d.year}  ·  Load: ${r.totalLoad.toStringAsFixed(0)}",
-                        style: const TextStyle(fontSize: 13, color: _kTextPrimary),
+                        style: TextStyle(fontSize: 13, color: kTextPrimary),
                       ),
                       Text(
                         "Training: ${r.trainingLoad.toStringAsFixed(0)}  ·  Skill: ${r.skillLoad.toStringAsFixed(0)}"
                         "  ·  ${r.training.length} training, ${r.skills.length} skill",
-                        style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                        style: TextStyle(fontSize: 11, color: kTextSecondary),
                       ),
                     ],
                   ),
                 ),
                 Icon(_expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 18, color: _kTextSecondary),
+                    size: 18, color: kTextSecondary),
               ],
             ),
           ),
@@ -1593,7 +1697,7 @@ class _DayRecordTileState extends State<_DayRecordTile> {
             ),
           const SizedBox(height: 4),
         ],
-        const Divider(height: 1, color: _kBorder),
+        Divider(height: 1, color: kBorder),
       ],
     );
   }
@@ -1702,13 +1806,13 @@ class _ChipSelector<T> extends StatelessWidget {
       children: values.map((v) {
         final on = selected.contains(v);
         return FilterChip(
-          label: Text(label(v), style: TextStyle(fontSize: 12, color: on ? Colors.white : _kTextSecondary, fontWeight: on ? FontWeight.w600 : FontWeight.normal)),
+          label: Text(label(v), style: TextStyle(fontSize: 12, color: on ? Colors.white : kTextSecondary, fontWeight: on ? FontWeight.w600 : FontWeight.normal)),
           selected: on,
           onSelected: (_) => onToggle(v),
-          selectedColor: _kAccent,
-          backgroundColor: _kBg,
+          selectedColor: kAccent,
+          backgroundColor: kBg,
           checkmarkColor: Colors.white,
-          side: BorderSide(color: on ? _kAccent : _kBorder),
+          side: BorderSide(color: on ? kAccent : kBorder),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 4),
         );
@@ -1730,15 +1834,15 @@ class _NumField extends StatelessWidget {
       controller: ctrl,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      style: const TextStyle(color: _kTextPrimary, fontSize: 14),
+      style: TextStyle(color: kTextPrimary, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: _kTextSecondary, fontSize: 13),
-        filled: true, fillColor: _kBg, isDense: true,
+        labelStyle: TextStyle(color: kTextSecondary, fontSize: 13),
+        filled: true, fillColor: kBg, isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border:        OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kBorder)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kBorder)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kAccent)),
+        border:        OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kAccent)),
       ),
     );
   }
@@ -1751,7 +1855,7 @@ class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.text);
   @override
   Widget build(BuildContext context) =>
-      Text(text, style: const TextStyle(fontSize: 12, color: _kTextSecondary));
+      Text(text, style: TextStyle(fontSize: 12, color: kTextSecondary));
 }
 
 // ── Readiness Dot ─────────────────────────────────────────────────────────────
@@ -1916,11 +2020,11 @@ class _MetricTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,    style: const TextStyle(fontSize: 11, color: _kTextSecondary)),
+          Text(label,    style: TextStyle(fontSize: 11, color: kTextSecondary)),
           const SizedBox(height: 6),
           Text(value,    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5)),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 10, color: _kTextSecondary)),
+          Text(subtitle, style: TextStyle(fontSize: 10, color: kTextSecondary)),
         ],
       ),
     );
@@ -2033,13 +2137,13 @@ class _DualLinePainter extends CustomPainter {
       old.ewmaValues != ewmaValues || old.acwrValues != acwrValues;
 }
 
-// ── Load vs Strain Chart ──────────────────────────────────────────────────────
+// ── Load vs Exertion Chart ──────────────────────────────────────────────────────
 
-class _LoadStrainChart extends StatelessWidget {
+class _LoadExertionChart extends StatelessWidget {
   final List<Map<String, dynamic>> data;
   final String title;
   final Color  barColor;
-  const _LoadStrainChart({required this.data, required this.title, required this.barColor});
+  const _LoadExertionChart({required this.data, required this.title, required this.barColor});
 
   @override
   Widget build(BuildContext context) {
@@ -2056,7 +2160,7 @@ class _LoadStrainChart extends StatelessWidget {
           child: CustomPaint(
             painter: _BarLinePainter(
               barValues:  data.map((d) => d['load']   as double).toList(),
-              lineValues: data.map((d) => d['strain'] as double).toList(),
+              lineValues: data.map((d) => d['exertion'] as double).toList(),
               dates:      data.map((d) => d['date']   as DateTime).toList(),
               barColor:   barColor,
             ),
@@ -2214,18 +2318,18 @@ class _SectionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _kCard,
-        border: Border.all(color: _kBorder),
+        color: kCard,
+        border: Border.all(color: kBorder),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kTextPrimary, letterSpacing: 0.1)),
+          Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: 0.1)),
           if (subtitle != null)
             Padding(
               padding: const EdgeInsets.only(top: 3),
-              child: Text(subtitle!, style: const TextStyle(fontSize: 11, color: _kTextSecondary)),
+              child: Text(subtitle!, style: TextStyle(fontSize: 11, color: kTextSecondary)),
             ),
           const SizedBox(height: 14),
           child,

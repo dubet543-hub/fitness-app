@@ -11,11 +11,11 @@ class AnalyticsTab extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'ANALYTICS',
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
         ),
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: kBorder),
         ),
@@ -69,7 +69,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
   );
 }
 
@@ -94,9 +94,9 @@ class _StatCard extends StatelessWidget {
         children: [
           Container(width: 20, height: 3, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 12),
-          Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -1.0)),
+          Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -1.0)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 9, color: kTextSecondary, fontWeight: FontWeight.w600, letterSpacing: 0.8)),
+          Text(label, style: TextStyle(fontSize: 9, color: kTextSecondary, fontWeight: FontWeight.w600, letterSpacing: 0.8)),
         ],
       ),
     );
@@ -127,7 +127,7 @@ class _PerformanceChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('THIS WEEK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2)),
+              Text('THIS WEEK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -136,7 +136,7 @@ class _PerformanceChart extends StatelessWidget {
                 ),
                 child: Text(
                   'Avg $avg',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kAccent),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kAccent),
                 ),
               ),
             ],
@@ -271,7 +271,7 @@ class _AreaChartPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: todayScore,
-        style: const TextStyle(color: kAccent, fontSize: 11, fontWeight: FontWeight.w700),
+        style: TextStyle(color: kAccent, fontSize: 11, fontWeight: FontWeight.w700),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -296,7 +296,7 @@ class _BreakdownItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trendIcon  = trend == _Trend.up ? Icons.arrow_upward_rounded : trend == _Trend.down ? Icons.arrow_downward_rounded : Icons.remove_rounded;
-    final trendColor = trend == _Trend.up ? kAccent : trend == _Trend.down ? const Color(0xFFEF4444) : kTextSecondary;
+    final trendColor = trend == _Trend.up ? kAccent : trend == _Trend.down ? Color(0xFFEF4444) : kTextSecondary;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -316,7 +316,7 @@ class _BreakdownItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
+                Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),

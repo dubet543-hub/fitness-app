@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme.dart';
+import '../api_service.dart';
 import '../services/local_log_store.dart';
 
 // ─── Data Model ────────────────────────────────────────────────────────────
@@ -258,7 +260,10 @@ _BCA? _compute({
 // ─── Screen ────────────────────────────────────────────────────────────────
 
 class BodyCompositionScreen extends StatefulWidget {
-  const BodyCompositionScreen({super.key});
+  /// When true, renders just the content (no Scaffold/AppBar) so it can be
+  /// embedded inside another screen — e.g. the dashboard's Body Comp tab.
+  final bool embedded;
+  const BodyCompositionScreen({super.key, this.embedded = false});
 
   @override
   State<BodyCompositionScreen> createState() => _BodyCompositionScreenState();
@@ -302,6 +307,46 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       _result        = history.isNotEmpty ? _bcaFromEntry(history.last) : null;
       _loading       = false;
     });
+    // Push any locally-stored readings that haven't reached the backend yet.
+    unawaited(_syncPendingBca());
+  }
+
+  // Best-effort backfill: upload any local BCA readings not yet synced, so
+  // estimates recorded before backend sync existed still reach coaches/admins.
+  Future<void> _syncPendingBca() async {
+    final history = await LocalLogStore.bcaHistory();
+    if (history.isEmpty) return;
+    final synced = await LocalLogStore.bcaSyncedDates();
+    for (final entry in history) {
+      final date = entry['date'] as String?;
+      if (date == null || synced.contains(date)) continue;
+      final r = _bcaFromEntry(entry);
+      if (r == null) continue;
+      final res = await ApiService.submitBodyComposition(_bcaPayload(entry, r));
+      if (res != null) await LocalLogStore.markBcaSynced(date);
+    }
+  }
+
+  // Builds the backend payload from a stored entry (raw inputs) + its computed
+  // analysis (derived metrics).
+  Map<String, dynamic> _bcaPayload(Map<String, dynamic> entry, _BCA r) {
+    final isMale = entry['isMale'] == true;
+    final num? hip = entry['hip'] as num?;
+    return {
+      'date':       entry['date'],
+      'isMale':     isMale,
+      'weightKg':   entry['weight'],
+      'heightCm':   entry['height'],
+      'neckCm':     entry['neck'],
+      'abdomenCm':  entry['abdomen'],
+      if (!isMale && hip != null) 'hipCm': hip,
+      'bfPercent':  r.bfPercent,
+      'bfKg':       r.bfKg,
+      'lbm':        r.lbm,
+      'smmPercent': r.smmPercent,
+      'smi':        r.smi,
+      'ffmi':       r.ffmi,
+    };
   }
 
   // Reconstruct a full analysis from a stored measurement entry.
@@ -347,6 +392,13 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       return;
     }
 
+    // One-time disclaimer/consent before the first analysis.
+    if (!await LocalLogStore.bcaConsent()) {
+      final agreed = await _showDisclaimerConsent();
+      if (agreed != true) return;
+      await LocalLogStore.setBcaConsent(true);
+    }
+
     final result = _compute(
       isMale:    _isMale,
       weightKg:  weight,
@@ -361,7 +413,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       return;
     }
 
-    await LocalLogStore.addBcaEntry({
+    final entry = {
       'date':    DateTime.now().toIso8601String(),
       'isMale':  _isMale,
       'weight':  weight,
@@ -369,7 +421,15 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       'neck':    neck,
       'abdomen': abdomen,
       if (!_isMale) 'hip': hip,
-    });
+    };
+    await LocalLogStore.addBcaEntry(entry);
+
+    // Best-effort sync to the backend so coaches/admins can review it. Runs in
+    // the background and never blocks or fails the on-device result.
+    unawaited(() async {
+      final res = await ApiService.submitBodyComposition(_bcaPayload(entry, result));
+      if (res != null) await LocalLogStore.markBcaSynced(entry['date'] as String);
+    }());
 
     if (!mounted) return;
     setState(() { _result = result; _error = null; _justCalculated = true; });
@@ -379,24 +439,9 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: const Text(
-          'BODY COMPOSITION',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-              color: kTextSecondary, letterSpacing: 1.4),
-        ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: kAccent))
-          : SingleChildScrollView(
+    final body = _loading
+        ? Center(child: CircularProgressIndicator(color: kAccent))
+        : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,7 +486,27 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             const SizedBox(height: 40),
           ],
         ),
+      );
+
+    if (widget.embedded) {
+      return Container(color: kBg, child: body);
+    }
+    return Scaffold(
+      backgroundColor: kBg,
+      appBar: AppBar(
+        backgroundColor: kBg,
+        elevation: 0,
+        title: Text(
+          'BODY COMPOSITION',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+              color: kTextSecondary, letterSpacing: 1.4),
+        ),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: kBorder),
+        ),
       ),
+      body: body,
     );
   }
 
@@ -464,17 +529,18 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
               color: kAccent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.lock_clock_rounded, size: 18, color: kAccent),
+            child: Icon(Icons.lock_clock_rounded, size: 18, color: kAccent),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text('ANALYSIS INTERVAL',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
                     color: kTextSecondary, letterSpacing: 1.4)),
           ),
+          _infoBtn(),
         ]),
         const SizedBox(height: 14),
-        const Text(
+        Text(
           'Body composition is assessed once every 2 weeks. Your latest '
           'interpretation and trends are shown below.',
           style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.5),
@@ -488,17 +554,124 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
               border: Border.all(color: kBorder),
             ),
             child: Row(children: [
-              const Icon(Icons.event_available_rounded, size: 16, color: kAccent),
+              Icon(Icons.event_available_rounded, size: 16, color: kAccent),
               const SizedBox(width: 10),
-              const Text('Next analysis available',
+              Text('Next analysis available',
                   style: TextStyle(fontSize: 12.5, color: kTextSecondary)),
               const Spacer(),
               Text(_fmtDate(next),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
             ]),
           ),
         ],
       ]),
+    );
+  }
+
+  // ── Methodology Info ("i" button) ──────────────────────────────────────────
+
+  Widget _infoBtn() => GestureDetector(
+    onTap: _showMethodologyInfo,
+    behavior: HitTestBehavior.opaque,
+    child: Container(
+      width: 22, height: 22,
+      decoration: BoxDecoration(
+        color: kSurface,
+        shape: BoxShape.circle,
+        border: Border.all(color: kBorder),
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.info_outline_rounded, size: 14, color: kTextSecondary),
+    ),
+  );
+
+  void _showMethodologyInfo() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: kBorder, borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(children: [
+                Icon(Icons.info_outline_rounded, size: 18, color: kAccent),
+                const SizedBox(width: 10),
+                Text('HOW THIS IS CALCULATED',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                        color: kTextSecondary, letterSpacing: 1.4)),
+              ]),
+              const SizedBox(height: 14),
+              Text(
+                'Calculated using validated anthropometric distribution models '
+                '(Janssen et al., Gallagher et al.) mapped to the U.S. Navy '
+                'Circumference framework.',
+                style: TextStyle(fontSize: 13.5, color: kTextPrimary, height: 1.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Disclaimer Consent (shown once before first analysis) ──────────────────
+
+  Future<bool?> _showDisclaimerConsent() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        title: Row(children: [
+          Icon(Icons.verified_user_outlined, size: 18, color: kAccent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('BEFORE YOU BEGIN',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                    color: kTextSecondary, letterSpacing: 1.4)),
+          ),
+        ]),
+        content: Text(
+          'This analysis provides an estimate of your body composition derived '
+          'from your measurements. It is calculated using validated '
+          'anthropometric distribution models (Janssen et al., Gallagher et al.) '
+          'mapped to the U.S. Navy Circumference framework.\n\n'
+          'It is intended for general fitness and informational purposes only '
+          'and is not a medical diagnosis or a substitute for professional '
+          'advice. By continuing you acknowledge and consent to this estimate '
+          'being calculated and stored on your device.',
+          style: TextStyle(fontSize: 13.5, color: kTextPrimary, height: 1.5),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('I Understand & Agree',
+                style: TextStyle(color: kAccent, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -512,9 +685,13 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       ),
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('MEASUREMENTS', style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w700,
-            color: kTextSecondary, letterSpacing: 1.4)),
+        Row(children: [
+          Text('MEASUREMENTS', style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700,
+              color: kTextSecondary, letterSpacing: 1.4)),
+          const Spacer(),
+          _infoBtn(),
+        ]),
         const SizedBox(height: 16),
 
         // Gender toggle
@@ -585,11 +762,11 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       controller: ctrl,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
-      style: const TextStyle(color: kTextPrimary, fontSize: 14),
+      style: TextStyle(color: kTextPrimary, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: const TextStyle(color: kTextMuted),
+        hintStyle: TextStyle(color: kTextMuted),
       ),
     );
 
@@ -603,20 +780,20 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
         _tableRow('Total Body Weight',     '100.00%', r.weightKg,           bold: true),
         _tableRow('Total Body Fat',        _pct(r.bfPercent),      r.bfKg,    accent: const Color(0xFFEF4444)),
         _tableRow('Lean Body Mass (LBM)',  _pct(100 - r.bfPercent), r.lbm,   accent: kAccent),
-        const Divider(height: 20, color: kBorder),
-        _tableRow('Total Skeletal Muscle', _pct(r.smmPercent),     r.tsm,    accent: kStrain),
+        Divider(height: 20, color: kBorder),
+        _tableRow('Total Skeletal Muscle', _pct(r.smmPercent),     r.tsm,    accent: kExertion),
         _tableRow('  Axial Muscle Mass',   _pct(r.axialToTotal),   r.axial),
         _tableRow('  Appendicular (ASM)',  _pct(r.appendicularToTotal), r.asm),
         _tableRow('Estimated Bone Mass',   _pct(r.bmc / r.weightKg * 100), r.bmc),
-        const Divider(height: 20, color: kBorder),
-        const Align(
+        Divider(height: 20, color: kBorder),
+        Align(
           alignment: Alignment.centerLeft,
           child: Text('LBM COMPONENTS', style: TextStyle(
               fontSize: 10, fontWeight: FontWeight.w700,
               color: kTextSecondary, letterSpacing: 1.2)),
         ),
         const SizedBox(height: 8),
-        _tableRow('Skeletal Muscle',       _pct(r.tsm / r.lbm * 100), r.tsm,  accent: kStrain),
+        _tableRow('Skeletal Muscle',       _pct(r.tsm / r.lbm * 100), r.tsm,  accent: kExertion),
         _tableRow('Essential Organs',      _pct(r.essentialOrgans / r.lbm * 100), r.essentialOrgans),
         _tableRow('Bone Mineral Content',  _pct(r.bmc / r.lbm * 100), r.bmc),
         _tableRow('Skin & Connective',     _pct(r.skinConnective / r.lbm * 100), r.skinConnective),
@@ -627,7 +804,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
 
   Widget _tableHeader() => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Row(children: const [
+    child: Row(children: [
       Expanded(flex: 5, child: Text('Layer', style: TextStyle(color: kTextMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6))),
       SizedBox(width: 60, child: Text('%', style: TextStyle(color: kTextMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6), textAlign: TextAlign.right)),
       SizedBox(width: 60, child: Text('kg', style: TextStyle(color: kTextMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6), textAlign: TextAlign.right)),
@@ -670,8 +847,8 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
               ]),
               child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text('${r.bfPercent.toStringAsFixed(1)}%',
-                    style: const TextStyle(color: kTextPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
-                const Text('Body Fat', style: TextStyle(color: kTextSecondary, fontSize: 10)),
+                    style: TextStyle(color: kTextPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
+                Text('Body Fat', style: TextStyle(color: kTextSecondary, fontSize: 10)),
               ])),
             ),
           ),
@@ -689,7 +866,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             height: 140,
             child: CustomPaint(
               painter: _DonutPainter(segments: [
-                _Seg(r.tsm  / r.lbm * 100, kStrain,                  'Muscle'),
+                _Seg(r.tsm  / r.lbm * 100, kExertion,                  'Muscle'),
                 _Seg(r.essentialOrgans / r.lbm * 100, const Color(0xFFF59E0B), 'Organs'),
                 _Seg(r.bmc  / r.lbm * 100, const Color(0xFF9D8AFF),  'Bone'),
                 _Seg(r.skinConnective / r.lbm * 100, const Color(0xFF4ADE80), 'Skin'),
@@ -698,7 +875,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _legend(kStrain,                  'Muscle ${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%'),
+          _legend(kExertion,                  'Muscle ${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%'),
           const SizedBox(height: 4),
           _legend(const Color(0xFFF59E0B), 'Organs ${(r.essentialOrgans / r.lbm * 100).toStringAsFixed(0)}%'),
           const SizedBox(height: 4),
@@ -711,7 +888,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
   Widget _legend(Color color, String text) => Row(children: [
     Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
     const SizedBox(width: 6),
-    Text(text, style: const TextStyle(color: kTextSecondary, fontSize: 11)),
+    Text(text, style: TextStyle(color: kTextSecondary, fontSize: 11)),
   ]);
 
   // ── Key Metrics Grid ───────────────────────────────────────────────────────
@@ -737,7 +914,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     ];
 
     return Column(children: [
-      const Align(
+      Align(
         alignment: Alignment.centerLeft,
         child: Text('KEY METRICS & ANALYSIS', style: TextStyle(
             fontSize: 11, fontWeight: FontWeight.w700,
@@ -791,12 +968,12 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
         ),
       ]),
       const Spacer(),
-      Text(m.value, style: const TextStyle(
+      Text(m.value, style: TextStyle(
           color: kTextPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 2),
-      Text(m.name, style: const TextStyle(
+      Text(m.name, style: TextStyle(
           color: kTextPrimary, fontSize: 11.5, fontWeight: FontWeight.w600)),
-      Text(m.subtitle, style: const TextStyle(color: kTextSecondary, fontSize: 10)),
+      Text(m.subtitle, style: TextStyle(color: kTextSecondary, fontSize: 10)),
     ]),
   );
 
@@ -818,7 +995,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     return [
       _TrendMetric('Body Fat', '%',        s((b) => b.bfPercent),   const Color(0xFFEF4444), goalDown: true),
       _TrendMetric('FFMI', '',             s((b) => b.ffmi),        kAccent,                 goalDown: false),
-      _TrendMetric('Skeletal Muscle', '%', s((b) => b.smmPercent),  kStrain,                 goalDown: false),
+      _TrendMetric('Skeletal Muscle', '%', s((b) => b.smmPercent),  kExertion,                 goalDown: false),
       _TrendMetric('Muscle Index', '',     s((b) => b.smi),         const Color(0xFF4AADFF), goalDown: false),
       _TrendMetric('Relative ASM', '%',    s((b) => b.relativeAsm), const Color(0xFF9D8AFF), goalDown: false),
       _TrendMetric('Weight', 'kg',         s((b) => b.weightKg),    const Color(0xFFF59E0B), goalDown: false),
@@ -834,7 +1011,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     final last    = m.values.last;
     final change  = last - first;
     final improved = m.goalDown ? change < 0 : change > 0;
-    final chgCol  = improved ? kAccent : const Color(0xFFEF4444);
+    final chgCol  = improved ? kAccent : Color(0xFFEF4444);
     final readings = m.values.length;
     final single  = readings < 2;
 
@@ -884,7 +1061,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
           single
               ? 'First reading recorded · trend builds from your next analysis'
               : 'From ${first.toStringAsFixed(1)}${m.unit} at first reading · ${improved ? "On track" : "Needs attention"}',
-          style: const TextStyle(fontSize: 11, color: kTextSecondary),
+          style: TextStyle(fontSize: 11, color: kTextSecondary),
         ),
         const SizedBox(height: 14),
         if (single)
@@ -896,7 +1073,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: kBorder),
             ),
-            child: const Text('A chart appears once you have two or more readings',
+            child: Text('A chart appears once you have two or more readings',
                 style: TextStyle(fontSize: 11, color: kTextMuted)),
           )
         else
@@ -908,7 +1085,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             ),
           ),
         const SizedBox(height: 6),
-        const Text('Follow-up every 2 weeks · tracks adaptation across the season',
+        Text('Follow-up every 2 weeks · tracks adaptation across the season',
             style: TextStyle(fontSize: 10, color: kTextMuted)),
       ]),
     );
@@ -926,7 +1103,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     final isAtRisk    = r.bfPercent > (r.isMale ? 24 : 31) || r.smmPercent < (r.isMale ? 39 : 32);
     final isAthletic  = r.bfPercent <= (r.isMale ? 13 : 20) && r.smmPercent >= (r.isMale ? 43 : 36);
     final overallLabel = isAtRisk ? 'Sub-optimal / At-Risk' : (isAthletic ? 'Optimal / Athletic' : 'Balanced / Developing');
-    final overallColor = isAtRisk ? const Color(0xFFEF4444) : (isAthletic ? kAccent : kStrain);
+    final overallColor = isAtRisk ? Color(0xFFEF4444) : (isAthletic ? kAccent : kExertion);
 
     // Limb dominance
     final limbDominant = r.appendicularToTotal > r.axialToTotal;
@@ -1008,11 +1185,11 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
                 borderRadius: BorderRadius.circular(6),
               ),
               alignment: Alignment.center,
-              child: Text('${e.key + 1}', style: const TextStyle(
+              child: Text('${e.key + 1}', style: TextStyle(
                   color: kAccent, fontSize: 11, fontWeight: FontWeight.w800)),
             ),
             const SizedBox(width: 10),
-            Expanded(child: Text(e.value, style: const TextStyle(
+            Expanded(child: Text(e.value, style: TextStyle(
                 color: kTextSecondary, fontSize: 12.5, height: 1.5))),
           ]),
         )),
@@ -1020,15 +1197,15 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     );
   }
 
-  Widget _sectionTitle(String t) => Text(t, style: const TextStyle(
+  Widget _sectionTitle(String t) => Text(t, style: TextStyle(
       fontSize: 10, fontWeight: FontWeight.w700,
       color: kTextSecondary, letterSpacing: 1.2));
 
   Widget _interpretRow(String label, String value, _Grade grade) => Row(children: [
     Container(width: 4, height: 32, color: grade.color, margin: const EdgeInsets.only(right: 10)),
     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(color: kTextSecondary, fontSize: 11)),
-      Text(value, style: const TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+      Text(label, style: TextStyle(color: kTextSecondary, fontSize: 11)),
+      Text(value, style: TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
     ])),
     Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
@@ -1047,12 +1224,12 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       Container(
         width: 5, height: 5,
         margin: const EdgeInsets.only(top: 5.5, right: 10),
-        decoration: const BoxDecoration(color: kAccent, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: kAccent, shape: BoxShape.circle),
       ),
       Expanded(child: RichText(text: TextSpan(children: [
-        TextSpan(text: '$title: ', style: const TextStyle(
+        TextSpan(text: '$title: ', style: TextStyle(
             color: kTextPrimary, fontSize: 12.5, fontWeight: FontWeight.w600)),
-        TextSpan(text: body, style: const TextStyle(
+        TextSpan(text: body, style: TextStyle(
             color: kTextSecondary, fontSize: 12.5, height: 1.5)),
       ]))),
     ]),
@@ -1068,7 +1245,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     ),
     padding: const EdgeInsets.all(18),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(
+      Text(title, style: TextStyle(
           fontSize: 11, fontWeight: FontWeight.w700,
           color: kTextSecondary, letterSpacing: 1.4)),
       const SizedBox(height: 14),

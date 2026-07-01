@@ -142,7 +142,34 @@ class ApiService {
     return (user: user, token: token);
   }
 
-  /// Web-style email/password login (for admin web page; not used in Flutter).
+  /// Public self-signup — creates an athlete account and signs in.
+  static Future<({ApiUser user, String token})> register({
+    required String name,
+    required String email,
+    required String password,
+    String? sport,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_baseUrl/auth/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+        if (sport != null && sport.isNotEmpty) 'sport': sport,
+      }),
+    );
+    if (res.statusCode != 201)
+      throw Exception(_body(res)['error'] ?? 'Sign up failed');
+    final data = _body(res);
+    final user  = ApiUser.fromJson(data['user'] as Map<String, dynamic>);
+    final token = data['token'] as String;
+    await saveToken(token);
+    await saveUser(user);
+    return (user: user, token: token);
+  }
+
+  /// Email/password login.
   static Future<({ApiUser user, String token})> login({
     required String email,
     required String password,
@@ -198,6 +225,83 @@ class ApiService {
       throw Exception(_body(res)['error'] ?? 'Failed to fetch sessions');
     final list = jsonDecode(res.body) as List<dynamic>;
     return list.cast<Map<String, dynamic>>();
+  }
+
+  // ── Body composition ────────────────────────────────────────────────────
+
+  /// POST /api/body-composition — sync a computed estimate so coaches/admins
+  /// can review it. Best-effort: returns null on failure (e.g. offline / not
+  /// logged into the backend) so the on-device result is never blocked.
+  static Future<Map<String, dynamic>?> submitBodyComposition(
+      Map<String, dynamic> payload) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null; // not signed in to backend — skip sync
+      final res = await http.post(
+        Uri.parse('$_baseUrl/body-composition'),
+        headers: await _authHeaders(),
+        body: jsonEncode(payload),
+      );
+      if (res.statusCode != 201) return null;
+      return _body(res);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// GET /api/body-composition — own body-composition history (newest first).
+  static Future<List<Map<String, dynamic>>> fetchBodyComposition() async {
+    final res = await http.get(
+      Uri.parse('$_baseUrl/body-composition'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode != 200) return [];
+    final list = jsonDecode(res.body) as List<dynamic>;
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  // ── Account management ──────────────────────────────────────────────────
+
+  /// PATCH /api/auth/me — update own profile; refreshes the cached user.
+  static Future<ApiUser> updateProfile({String? name, String? sport}) async {
+    final res = await http.patch(
+      Uri.parse('$_baseUrl/auth/me'),
+      headers: await _authHeaders(),
+      body: jsonEncode({
+        if (name != null)  'name': name,
+        if (sport != null) 'sport': sport,
+      }),
+    );
+    if (res.statusCode != 200)
+      throw Exception(_body(res)['error'] ?? 'Failed to update profile');
+    final user = ApiUser.fromJson(_body(res));
+    await saveUser(user);
+    return user;
+  }
+
+  /// POST /api/auth/change-password
+  static Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_baseUrl/auth/change-password'),
+      headers: await _authHeaders(),
+      body: jsonEncode({'currentPassword': currentPassword, 'newPassword': newPassword}),
+    );
+    if (res.statusCode != 200)
+      throw Exception(_body(res)['error'] ?? 'Failed to change password');
+  }
+
+  /// DELETE /api/auth/me — permanently delete the account, then clear the session.
+  static Future<void> deleteAccount() async {
+    final res = await http.delete(
+      Uri.parse('$_baseUrl/auth/me'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode != 200)
+      throw Exception(_body(res)['error'] ?? 'Failed to delete account');
+    await clearSession();
   }
 
   /// GET /api/auth/me — verify token is still valid; returns null on 401/error.

@@ -84,6 +84,13 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
   }
 
   Future<void> _submit() async {
+    if (!await LocalLogStore.dailyLogsConsent()) {
+      if (mounted) {
+        setState(() => _error =
+            'Daily logs are turned off. Enable them in Privacy & Security settings to save.');
+      }
+      return;
+    }
     setState(() { _submitting = true; _error = null; });
     try {
       final payload = <String, dynamic>{
@@ -142,9 +149,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text('WELLNESS LOG', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: const IconThemeData(color: kTextPrimary),
-        bottom: const PreferredSize(
+        title: Text('WELLNESS LOG', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+        iconTheme: IconThemeData(color: kTextPrimary),
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: kBorder),
         ),
@@ -189,12 +196,12 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.bedtime_outlined, size: 16, color: kTextSecondary),
+                Icon(Icons.bedtime_outlined, size: 16, color: kTextSecondary),
                 const SizedBox(width: 8),
-                Text('Sleep Duration', style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+                Text('Sleep Duration', style: TextStyle(fontSize: 13, color: kTextSecondary)),
                 const Spacer(),
                 Text('${_sleepDuration.toStringAsFixed(2)} hrs',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
               ],
             ),
           ),
@@ -239,7 +246,7 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
                 children: [
                   Icon(Icons.info_outline_rounded, size: 16, color: kAccent),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Wellness or fatigue concern detected — please complete the additional questions below.',
                       style: TextStyle(fontSize: 12, color: kTextSecondary),
@@ -387,9 +394,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
                 border: Border.all(color: kAccent.withValues(alpha: 0.30)),
               ),
               child: Row(children: [
-                const Icon(Icons.check_circle_rounded, size: 18, color: kAccent),
+                Icon(Icons.check_circle_rounded, size: 18, color: kAccent),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Recovery already logged today. The next entry unlocks after midnight.',
                     style: TextStyle(fontSize: 12.5, color: kTextSecondary),
@@ -428,10 +435,10 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.3)),
+      Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.3)),
       if (subtitle != null) ...[
         const SizedBox(height: 2),
-        Text(subtitle!, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+        Text(subtitle!, style: TextStyle(fontSize: 12, color: kTextSecondary)),
       ],
     ],
   );
@@ -444,7 +451,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary),
+    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary),
   );
 }
 
@@ -483,7 +490,7 @@ class _RatingSlider extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 13, color: kTextPrimary, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(fontSize: 13, color: kTextPrimary, fontWeight: FontWeight.w600)),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: _color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
@@ -507,7 +514,7 @@ class _RatingSlider extends StatelessWidget {
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
+          children: [
             Text('1 Excellent', style: TextStyle(fontSize: 10, color: kTextMuted)),
             Text('5 Very Poor', style: TextStyle(fontSize: 10, color: kTextMuted)),
           ],
@@ -534,13 +541,13 @@ class _TimePickerTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
+          Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.access_time_rounded, size: 16, color: kAccent),
+              Icon(Icons.access_time_rounded, size: 16, color: kAccent),
               const SizedBox(width: 6),
-              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kTextPrimary)),
+              Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kTextPrimary)),
             ],
           ),
         ],
@@ -563,7 +570,7 @@ class _ToggleTile extends StatelessWidget {
     ),
     child: Row(
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: kTextPrimary, fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(fontSize: 13, color: kTextPrimary, fontWeight: FontWeight.w600)),
         const Spacer(),
         Switch(
           value: value,
@@ -590,22 +597,22 @@ class _InputField extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (label != null) ...[
-        Text(label!, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
+        Text(label!, style: TextStyle(fontSize: 11, color: kTextSecondary)),
         const SizedBox(height: 4),
       ],
       TextField(
         controller: controller,
         maxLines: maxLines,
-        style: const TextStyle(color: kTextPrimary, fontSize: 13),
+        style: TextStyle(color: kTextPrimary, fontSize: 13),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: kTextMuted, fontSize: 12),
+          hintStyle: TextStyle(color: kTextMuted, fontSize: 12),
           filled: true,
           fillColor: kCard,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorder)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorder)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kAccent)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kAccent)),
         ),
       ),
     ],

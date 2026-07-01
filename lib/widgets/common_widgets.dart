@@ -49,7 +49,7 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text.toUpperCase(),
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w700,
       color: kTextSecondary,

@@ -4,7 +4,10 @@ import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+
+import 'services/local_log_store.dart';
 
 // ── Running Metrics Data Model ────────────────────────────────────────────────
 
@@ -61,7 +64,7 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   late _AnalysisPhase _phase;
   CameraController? _controller;
   Future<void>? _initializeControllerFuture;
-  Timer? _captureTimer;
+  bool _isStreaming = false;
   bool _isBusy = false;
   int _frameCount = 0;
 
@@ -90,11 +93,22 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     _phase = _AnalysisPhase.setup;
     _initializeCamera();
     _poseDetector = PoseDetector(
-      options: PoseDetectorOptions(mode: PoseDetectionMode.single),
+      options: PoseDetectorOptions(mode: PoseDetectionMode.stream),
     );
   }
 
   Future<void> _initializeCamera() async {
+    if (!await LocalLogStore.cameraConsent()) {
+      if (mounted) {
+        setState(() => _phase = _AnalysisPhase.setup);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              "Camera-based features are off. Enable them in Privacy & Security settings."),
+          duration: Duration(seconds: 4),
+        ));
+      }
+      return;
+    }
     try {
       final cameras = await availableCameras();
       final camera = cameras.isNotEmpty
@@ -107,8 +121,13 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
         setState(() => _phase = _AnalysisPhase.setup);
         return;
       }
-      _controller = CameraController(camera, ResolutionPreset.high,
-          enableAudio: false);
+      _controller = CameraController(
+        camera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup:
+            Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+      );
       _initializeControllerFuture = _controller!.initialize();
       await _initializeControllerFuture;
       _minZoom = await _controller!.getMinZoomLevel();
@@ -133,8 +152,13 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
       orElse: () => cameras.first,
     );
     await _controller!.dispose();
-    _controller =
-        CameraController(next, ResolutionPreset.high, enableAudio: false);
+    _controller = CameraController(
+      next,
+      ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup:
+          Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+    );
     await _controller!.initialize();
     _minZoom = await _controller!.getMinZoomLevel();
     _maxZoom = await _controller!.getMaxZoomLevel();
@@ -169,7 +193,7 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     } catch (_) {}
   }
 
-  void _startRecording() {
+  Future<void> _startRecording() async {
     _trunkLeans.clear();
     _kneeDrives.clear();
     _hipDrops.clear();
@@ -178,45 +202,90 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     _footStrikes.clear();
     _frameCount = 0;
     _isBusy = false;
+    if (_controller == null || !_controller!.value.isInitialized) return;
 
     setState(() => _phase = _AnalysisPhase.recording);
-
-    _captureTimer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
-      if (_isBusy || _controller == null) return;
-      _isBusy = true;
-
-      try {
-        final image = await _controller!.takePicture();
-        await _processFrame(image.path);
-        await File(image.path).delete();
-        _frameCount++;
-        if (mounted) setState(() {});
-      } catch (e) {
-        debugPrint("Frame capture error: $e");
-      } finally {
-        _isBusy = false;
-      }
-    });
+    // Silent, fast frame analysis via the camera image stream — no per-frame
+    // shutter sound or disk writes (the old takePicture loop caused the clicks).
+    await _controller!.startImageStream(_processCameraImage);
+    _isStreaming = true;
   }
 
-  void _stopRecording() {
-    _captureTimer?.cancel();
+  Future<void> _stopRecording() async {
+    if (_isStreaming) {
+      _isStreaming = false;
+      try {
+        await _controller!.stopImageStream();
+      } catch (_) {}
+    }
     setState(() => _phase = _AnalysisPhase.processing);
+    await Future.delayed(const Duration(milliseconds: 300));
     _analyzeResults();
   }
 
-  Future<void> _processFrame(String imagePath) async {
-    try {
-      final inputImage = InputImage.fromFilePath(imagePath);
-      final poses = await _poseDetector.processImage(inputImage);
-
-      if (poses.isNotEmpty) {
-        final pose = poses.first;
-        _extractMetrics(pose);
-      }
-    } catch (e) {
-      debugPrint("Pose detection error: $e");
+  void _processCameraImage(CameraImage image) {
+    if (_isBusy) return; // drop frames while a pose is being detected
+    _isBusy = true;
+    final inputImage = _inputImageFromCameraImage(image);
+    if (inputImage == null) {
+      _isBusy = false;
+      return;
     }
+    _poseDetector.processImage(inputImage).then((poses) {
+      if (poses.isNotEmpty) {
+        _extractMetrics(poses.first);
+        if (mounted) setState(() => _frameCount++);
+      }
+    }).catchError((_) {}).whenComplete(() => _isBusy = false);
+  }
+
+  static const _orientations = {
+    DeviceOrientation.portraitUp: 0,
+    DeviceOrientation.landscapeLeft: 90,
+    DeviceOrientation.portraitDown: 180,
+    DeviceOrientation.landscapeRight: 270,
+  };
+
+  InputImage? _inputImageFromCameraImage(CameraImage image) {
+    final ctrl = _controller;
+    if (ctrl == null) return null;
+    final camera = ctrl.description;
+    final sensorOrientation = camera.sensorOrientation;
+
+    InputImageRotation? rotation;
+    if (Platform.isIOS) {
+      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+    } else if (Platform.isAndroid) {
+      var rotationCompensation = _orientations[ctrl.value.deviceOrientation];
+      if (rotationCompensation == null) return null;
+      if (camera.lensDirection == CameraLensDirection.front) {
+        rotationCompensation = (sensorOrientation + rotationCompensation) % 360;
+      } else {
+        rotationCompensation =
+            (sensorOrientation - rotationCompensation + 360) % 360;
+      }
+      rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
+    }
+    if (rotation == null) return null;
+
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (format == null ||
+        (Platform.isAndroid && format != InputImageFormat.nv21) ||
+        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
+      return null;
+    }
+    if (image.planes.length != 1) return null;
+    final plane = image.planes.first;
+
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
   }
 
   void _extractMetrics(Pose pose) {
@@ -321,10 +390,9 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     for (final strike in _footStrikes) {
       footStrikeMap[strike] = (footStrikeMap[strike] ?? 0) + 1;
     }
-    final dominantStrike = footStrikeMap.entries
-            .reduce((a, b) => a.value > b.value ? a : b)
-            .key ??
-        'unknown';
+    final dominantStrike = footStrikeMap.isEmpty
+        ? 'unknown'
+        : footStrikeMap.entries.reduce((a, b) => a.value > b.value ? a : b).key;
 
     final cadence = (_frameCount > 0 ? (_frameCount / 10) * 60 : 0.0) as double;
 
@@ -359,7 +427,10 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
 
   @override
   void dispose() {
-    _captureTimer?.cancel();
+    if (_isStreaming) {
+      _isStreaming = false;
+      _controller?.stopImageStream().catchError((_) {});
+    }
     _controller?.dispose();
     _poseDetector.close();
     super.dispose();

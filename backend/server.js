@@ -14,11 +14,22 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// Lightweight API request log — helps confirm device connectivity / sync.
+app.use('/api', (req, res, next) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  res.on('finish', () => {
+    console.log(`[api] ${new Date().toLocaleTimeString()} ${req.method} ${req.originalUrl} → ${res.statusCode} (${ip})`);
+  });
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/sessions', require('./routes/sessions'));
+app.use('/api/body-composition', require('./routes/bodyComposition'));
 app.use('/api/admin', require('./routes/admin'));
 
 // SPA catch-all — serve React's index.html for any non-API route
@@ -37,7 +48,7 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(async () => {
     console.log('✓ MongoDB connected');
     await seedAdmin();
-    app.listen(PORT, () => console.log(`✓ Server running → http://localhost:${PORT}`));
+    app.listen(PORT, '::', () => console.log(`✓ Server running → port ${PORT} (dual-stack IPv4 + IPv6, reachable on your LAN)`));
   })
   .catch(err => {
     console.error('✗ MongoDB connection failed:', err.message);

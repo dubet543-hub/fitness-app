@@ -1,7 +1,9 @@
 const router          = require('express').Router();
 const User            = require('../models/User');
 const TrainingSession = require('../models/TrainingSession');
+const BodyComposition = require('../models/BodyComposition');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const M                = require('../utils/metrics');
 
 router.use(authenticate, requireAdmin);
 
@@ -14,14 +16,17 @@ router.get('/athletes', async (req, res) => {
       .select('-password')
       .sort({ createdAt: -1 });
 
-    // Attach last session info
+    // Attach last session info + app-consistent metrics
     const withStats = await Promise.all(athletes.map(async (a) => {
       const last = await TrainingSession.findOne({ athlete: a._id }).sort({ date: -1 });
+      const readinessPct = last?.readinessPercent ?? null;
       return {
         ...a.toJSON(),
         lastSession:       last?.date      || null,
         lastTotalLoad:     last?.totalLoad || null,
-        lastReadiness:     last?.readinessPercent || null,
+        lastReadiness:     readinessPct,
+        lastExertion:      last ? M.round(M.exertion(last.totalLoad)) : null,
+        flagged:           readinessPct != null ? M.isFlagged({ readinessPercent: readinessPct }) : false,
       };
     }));
     res.json(withStats);
@@ -90,6 +95,26 @@ router.delete('/athletes/:id', async (req, res) => {
   }
 });
 
+// ── Body composition ─────────────────────────────────────────────────────────
+
+// GET /api/admin/athletes/:id/body-composition  — latest estimate + history,
+// synced from the athlete's app.
+router.get('/athletes/:id/body-composition', async (req, res) => {
+  try {
+    const { limit = 24 } = req.query;
+    const history = await BodyComposition.find({ athlete: req.params.id })
+      .sort({ date: -1 })
+      .limit(Number(limit));
+    res.json({
+      latest:  history[0] || null,
+      history, // newest → oldest
+      synced:  history.length > 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Sessions ───────────────────────────────────────────────────────────────────
 
 // GET /api/admin/athletes/:id/sessions
@@ -117,60 +142,27 @@ router.get('/athletes/:id/sessions', async (req, res) => {
   }
 });
 
-// GET /api/admin/athletes/:id/summary  — computed ACWR, acute/chronic load, z-score, targets
+// GET /api/admin/athletes/:id/summary  — computed ACWR, acute/chronic load, z-score,
+// targets, plus app-consistent exertion / composite performance / zone / flag.
 router.get('/athletes/:id/summary', async (req, res) => {
   try {
     const sessions = await TrainingSession.find({ athlete: req.params.id })
       .sort({ date: 1 })
       .select('date totalLoad trainingLoad skillLoad readinessPercent scaledGrade');
 
-    if (!sessions.length) return res.json({
-      acuteLoad: 0, chronicLoad: 0, acwr: 0,
-      stdDev: 0, zScore: 0, targetLow: 0, targetHigh: 0,
-    });
-
-    const now    = new Date();
-    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7);
-
-    const loads = sessions.map(s => s.totalLoad || 0);
-    const lambda = 2 / 29;
-
-    // Per-session 7-day acute averages
-    const acuteByIdx = sessions.map((s, i) => {
-      const sessionDate = new Date(s.date);
-      const dayCutoff = new Date(sessionDate); dayCutoff.setDate(dayCutoff.getDate() - 7);
-      const sum7 = sessions.slice(0, i + 1)
-        .filter(r => new Date(r.date) > dayCutoff)
-        .reduce((acc, r) => acc + (r.totalLoad || 0), 0);
-      return sum7 / 7;
-    });
-
-    // Chronic = EWMA of acute values (not raw loads)
-    let chronic = 0;
-    for (let i = 0; i < acuteByIdx.length; i++) {
-      chronic = i === 0 ? acuteByIdx[i] : acuteByIdx[i] * lambda + chronic * (1 - lambda);
-    }
-    const acuteLoad  = acuteByIdx[acuteByIdx.length - 1];
-    const chronicLoad = chronic;
-    const acwr        = chronicLoad > 0 ? acuteLoad / chronicLoad : 0;
-
-    // Running std dev of all loads
-    const mean  = loads.reduce((a, b) => a + b, 0) / loads.length;
-    const sigma = Math.sqrt(loads.map(l => Math.pow(l - mean, 2)).reduce((a, b) => a + b, 0) / loads.length);
-    const lastLoad = loads[loads.length - 1];
-
-    const zScore = sigma === 0 ? 0 : (lastLoad - chronicLoad) / sigma;
+    const summary = M.loadSummary(sessions);
+    const lastReadiness = sessions.length
+      ? (sessions[sessions.length - 1]?.readinessPercent ?? null)
+      : null;
+    const lastLoad = sessions.length ? (sessions[sessions.length - 1]?.totalLoad || 0) : 0;
 
     res.json({
-      acuteLoad:    Math.round(acuteLoad * 10) / 10,
-      chronicLoad:  Math.round(chronicLoad * 10) / 10,
-      acwr:         Math.round(acwr * 100) / 100,
-      stdDev:       Math.round(sigma * 10) / 10,
-      zScore:       Math.round(zScore * 100) / 100,
-      targetLow:    Math.round(chronicLoad * 0.8),
-      targetHigh:   Math.round(chronicLoad * 1.3),
-      totalSessions: sessions.length,
-      lastReadiness: sessions[sessions.length - 1]?.readinessPercent || null,
+      ...summary,
+      lastReadiness,
+      exertion:    M.round(M.exertion(lastLoad)),                         // 0–10, matches app
+      performance: Math.round(M.performance((lastReadiness ?? 0) / 100, summary.acwr) * 100), // %, composite
+      zone:        M.acwrZone(summary.acwr),                             // { label, level, color }
+      flagged:     M.isFlagged({ acwr: summary.acwr, readinessPercent: lastReadiness ?? 100 }),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -203,12 +195,36 @@ router.get('/dashboard', async (req, res) => {
       { $sort: { _id: 1 } },
     ]);
 
-    // Flagged athletes (ACWR > 1.5 or readiness < 25%)
     const recentSessions = await TrainingSession.find({
       date: { $gte: new Date(Date.now() - 7 * 86400000) },
     }).populate('athlete', 'name email').sort({ date: -1 });
 
-    res.json({ totalAthletes, totalSessions, avgLoad, sessionsPerDay, recentSessions });
+    // Flagged athletes (ACWR > 1.5 or readiness < 25%) — computed with the same
+    // ACWR logic as the per-athlete summary so flags are consistent.
+    const athletes = await User.find({ role: 'athlete' }).select('name email');
+    const flaggedAthletes = [];
+    await Promise.all(athletes.map(async (a) => {
+      const sessions = await TrainingSession.find({ athlete: a._id })
+        .sort({ date: 1 }).select('date totalLoad readinessPercent');
+      if (!sessions.length) return;
+      const { acwr } = M.loadSummary(sessions);
+      const readinessPercent = sessions[sessions.length - 1]?.readinessPercent ?? 100;
+      if (M.isFlagged({ acwr, readinessPercent })) {
+        flaggedAthletes.push({
+          _id: a._id, name: a.name, email: a.email,
+          acwr, readinessPercent: M.round(readinessPercent),
+          zone: M.acwrZone(acwr),
+          reason: acwr > 1.5
+            ? (readinessPercent < 25 ? 'High ACWR & low readiness' : 'High ACWR')
+            : 'Low readiness',
+        });
+      }
+    }));
+
+    res.json({
+      totalAthletes, totalSessions, avgLoad, sessionsPerDay,
+      flaggedAthletes, recentSessions,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

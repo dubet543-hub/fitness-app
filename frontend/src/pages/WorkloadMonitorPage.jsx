@@ -29,6 +29,15 @@ function zColor(z) {
   return Math.abs(z) > 2 ? '#F87171' : '#2DD4BF';
 }
 
+// Exertion color scale (matches Google Sheet conditional formatting on the 0–10 grade)
+function exertionColor(v) {
+  if (v >= 9)   return '#FF0000'; // red       — ≥ 9
+  if (v >= 7.5) return '#E69138'; // orange    — 7.5–9
+  if (v >= 5.5) return '#38761D'; // dark green — 5.5–7.5
+  if (v >= 3.5) return '#93C47D'; // light green — 3.5–5.5
+  return '#CCCCCC';               // gray      — < 3.5
+}
+
 const FILTERS = [
   { key: 'today',     label: 'Today' },
   { key: 'yesterday', label: 'Yesterday' },
@@ -267,7 +276,7 @@ function SectionView({ series, sectionTitle, accentColor }) {
       {/* Metric Row 1 */}
       <div className="flex gap-3">
         <MetricCard label="Session Load"    value={fmtNum(latest.load)}         color={accentColor} />
-        <MetricCard label="Exertion"        value={exertion.toFixed(1)}          color="#F472B6" />
+        <MetricCard label="Exertion"        value={exertion.toFixed(1)}          color={exertionColor(exertion)} />
         <MetricCard label="7-day Acute"     value={fmtNum(latest.acute, 1)}      color="#38BDF8" />
       </div>
 

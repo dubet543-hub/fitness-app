@@ -4,7 +4,10 @@ import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+
+import 'services/local_log_store.dart';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +65,7 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
 
   CameraController? _ctrl;
   bool _camReady = false;
-  Timer? _captureTimer;
+  bool _isStreaming = false;
   bool _isBusy = false;
   int _frameCount = 0;
 
@@ -87,19 +90,35 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   void initState() {
     super.initState();
     _poseDetector = PoseDetector(
-      options: PoseDetectorOptions(mode: PoseDetectionMode.single),
+      options: PoseDetectorOptions(mode: PoseDetectionMode.stream),
     );
     _initCamera();
   }
 
   Future<void> _initCamera() async {
+    if (!await LocalLogStore.cameraConsent()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              "Camera-based features are off. Enable them in Privacy & Security settings."),
+          duration: Duration(seconds: 4),
+        ));
+      }
+      return;
+    }
     final cameras = await availableCameras();
     if (cameras.isEmpty) return;
     final back = cameras.firstWhere(
       (c) => c.lensDirection == CameraLensDirection.back,
       orElse: () => cameras.first,
     );
-    _ctrl = CameraController(back, ResolutionPreset.high, enableAudio: false);
+    _ctrl = CameraController(
+      back,
+      ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup:
+          Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+    );
     await _ctrl!.initialize();
     _minZoom = await _ctrl!.getMinZoomLevel();
     _maxZoom = await _ctrl!.getMaxZoomLevel();
@@ -116,7 +135,13 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       orElse: () => cameras.first,
     );
     await _ctrl!.dispose();
-    _ctrl = CameraController(next, ResolutionPreset.high, enableAudio: false);
+    _ctrl = CameraController(
+      next,
+      ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup:
+          Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+    );
     await _ctrl!.initialize();
     _minZoom = await _ctrl!.getMinZoomLevel();
     _maxZoom = await _ctrl!.getMaxZoomLevel();
@@ -158,7 +183,8 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
     });
   }
 
-  void _startRecording() {
+  Future<void> _startRecording() async {
+    if (_ctrl == null || !_ctrl!.value.isInitialized) return;
     _trunkLeans.clear();
     _armArcs.clear();
     _frontKnees.clear();
@@ -168,43 +194,87 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       _phase = _Phase.recording;
       _frameCount = 0;
     });
-    _captureTimer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
-      if (_isBusy) return;
-      _isBusy = true;
-      try {
-        await _captureAndProcess();
-      } finally {
-        _isBusy = false;
-      }
-    });
+    // Analyse the live camera stream (~30fps) so the delivery instant is
+    // actually captured — takePicture polling was far too slow for this.
+    await _ctrl!.startImageStream(_processCameraImage);
+    _isStreaming = true;
   }
 
   Future<void> _stopRecording() async {
-    _captureTimer?.cancel();
-    _captureTimer = null;
+    if (_isStreaming) {
+      _isStreaming = false;
+      try {
+        await _ctrl!.stopImageStream();
+      } catch (_) {}
+    }
     setState(() => _phase = _Phase.processing);
     await Future.delayed(const Duration(milliseconds: 300));
     _computeResults();
   }
 
-  Future<void> _captureAndProcess() async {
-    if (_ctrl == null || !_ctrl!.value.isInitialized) return;
-    XFile? photo;
-    try {
-      photo = await _ctrl!.takePicture();
-      final poses = await _poseDetector
-          .processImage(InputImage.fromFilePath(photo.path));
+  void _processCameraImage(CameraImage image) {
+    if (_isBusy) return; // drop frames while a pose is being detected
+    _isBusy = true;
+    final inputImage = _inputImageFromCameraImage(image);
+    if (inputImage == null) {
+      _isBusy = false;
+      return;
+    }
+    _poseDetector.processImage(inputImage).then((poses) {
       if (poses.isNotEmpty) {
         _extractMetrics(poses.first);
         if (mounted) setState(() => _frameCount++);
       }
-    } catch (_) {
-    } finally {
-      if (photo != null) {
-        final f = File(photo.path);
-        if (f.existsSync()) f.deleteSync();
+    }).catchError((_) {}).whenComplete(() => _isBusy = false);
+  }
+
+  static const _orientations = {
+    DeviceOrientation.portraitUp: 0,
+    DeviceOrientation.landscapeLeft: 90,
+    DeviceOrientation.portraitDown: 180,
+    DeviceOrientation.landscapeRight: 270,
+  };
+
+  InputImage? _inputImageFromCameraImage(CameraImage image) {
+    final ctrl = _ctrl;
+    if (ctrl == null) return null;
+    final camera = ctrl.description;
+    final sensorOrientation = camera.sensorOrientation;
+
+    InputImageRotation? rotation;
+    if (Platform.isIOS) {
+      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+    } else if (Platform.isAndroid) {
+      var rotationCompensation = _orientations[ctrl.value.deviceOrientation];
+      if (rotationCompensation == null) return null;
+      if (camera.lensDirection == CameraLensDirection.front) {
+        rotationCompensation = (sensorOrientation + rotationCompensation) % 360;
+      } else {
+        rotationCompensation =
+            (sensorOrientation - rotationCompensation + 360) % 360;
       }
+      rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
     }
+    if (rotation == null) return null;
+
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (format == null ||
+        (Platform.isAndroid && format != InputImageFormat.nv21) ||
+        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
+      return null;
+    }
+    if (image.planes.length != 1) return null;
+    final plane = image.planes.first;
+
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
   }
 
   static double _angle3(
@@ -306,7 +376,10 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
 
   @override
   void dispose() {
-    _captureTimer?.cancel();
+    if (_isStreaming) {
+      _isStreaming = false;
+      _ctrl?.stopImageStream().catchError((_) {});
+    }
     _ctrl?.dispose();
     _poseDetector.close();
     super.dispose();

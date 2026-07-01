@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: solidcore-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/auth/me
+    envVars:
+      - key: MONGODB_URI
+        sync: false        # set in the Render dashboard (secret)
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false        # e.g. https://solidcore-backend.onrender.com

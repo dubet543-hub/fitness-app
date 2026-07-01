@@ -2,13 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../widgets/common_widgets.dart';
-import '../training_load_screen.dart';
-import '../posture_screen.dart';
-import '../running_analysis_screen.dart';
-import '../bowling_analysis_screen.dart';
+import '../services/dashboard_metrics.dart';
+import 'player_stats_screen.dart';
 import 'workload_monitor_screen.dart';
-import 'wellness_log_screen.dart';
-import 'body_composition_screen.dart';
 
 class HomeTab extends StatelessWidget {
   final String  name;
@@ -24,12 +20,14 @@ class HomeTab extends StatelessWidget {
     required this.onLogout,
   });
 
-  String get _firstName => name.split(' ').first;
-
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final dateStr = _fmtDate(now);
+
+    // Headline metrics for the three rings — computed from the same source the
+    // stats/history screens use, so the numbers always agree.
+    final metrics = homeMetricsFor(name);
 
     return Scaffold(
       backgroundColor: kBg,
@@ -46,11 +44,11 @@ class HomeTab extends StatelessWidget {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.chevron_left_rounded, color: kTextSecondary, size: 22),
+                Icon(Icons.chevron_left_rounded, color: kTextSecondary, size: 22),
                 const SizedBox(width: 6),
                 Text(
                   dateStr.toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary,
@@ -58,7 +56,7 @@ class HomeTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Icon(Icons.chevron_right_rounded, color: kTextSecondary, size: 22),
+                Icon(Icons.chevron_right_rounded, color: kTextSecondary, size: 22),
               ],
             ),
             leading: Padding(
@@ -67,11 +65,11 @@ class HomeTab extends StatelessWidget {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined, size: 22, color: kTextSecondary),
+                icon: Icon(Icons.notifications_outlined, size: 22, color: kTextSecondary),
                 onPressed: () {},
               ),
             ],
-            bottom: const PreferredSize(
+            bottom: PreferredSize(
               preferredSize: Size.fromHeight(1),
               child: Divider(height: 1, color: kBorder),
             ),
@@ -82,7 +80,7 @@ class HomeTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ── Brand label ─────────────────────────────────────────────
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 24, bottom: 2),
                   child: Text(
                     'SOLIDCORE',
@@ -104,174 +102,50 @@ class HomeTab extends StatelessWidget {
                     children: [
                       Expanded(
                         child: _SpeedometerGauge(
-                          value: '74',
+                          value: (metrics.performancePct * 100).round().toString(),
                           suffix: '%',
                           label: 'PERFORMANCE',
-                          progress: 0.74,
+                          progress: metrics.performancePct,
                           color: kSleep,
                           icon: Icons.bar_chart_rounded,
-                          onTap: () => Navigator.push(context, _route(const TrainingLoadScreen())),
+                          trend: metrics.performanceTrend,
+                          onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 0))),
                         ),
                       ),
                       Expanded(
                         child: _SpeedometerGauge(
-                          value: '78',
+                          value: (metrics.recoveryPct * 100).round().toString(),
                           suffix: '%',
                           label: 'RECOVERY',
-                          progress: 0.78,
+                          progress: metrics.recoveryPct,
                           color: kAccent,
                           icon: Icons.favorite_rounded,
-                          onTap: () => Navigator.push(context, _route(const WellnessLogScreen())),
+                          onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 1))),
                         ),
                       ),
                       Expanded(
                         child: _SpeedometerGauge(
-                          value: '8.2',
+                          value: metrics.todayExertion.toStringAsFixed(1),
                           suffix: '',
                           label: 'TODAY',
-                          progress: 0.41,
-                          color: kStrain,
+                          progress: (metrics.todayExertion / 10).clamp(0.0, 1.0),
+                          color: kExertion,
                           icon: Icons.local_fire_department_rounded,
-                          maxLabel: '20',
-                          onTap: () => Navigator.push(context, _route(const WorkloadMonitorScreen(initialRange: 'today'))),
+                          maxLabel: '10',
+                          onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 2))),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // ── Monitor Cards ────────────────────────────────────────────
+                // ── Tomorrow's Load Target (combined) ────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _MonitorCard(
-                          title: 'HEALTH MONITOR',
-                          statusColor: kAccent,
-                          statusLabel: 'WITHIN RANGE',
-                          detail: '5/5 Metrics',
-                          onTap: () {},
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _MonitorCard(
-                          title: 'STRESS MONITOR',
-                          statusColor: Colors.orangeAccent,
-                          statusLabel: 'MEDIUM',
-                          detail: 'Updated now',
-                          onTap: () {},
-                        ),
-                      ),
-                    ],
+                  child: _LoadTargetCard(
+                    onTap: () => Navigator.push(
+                        context, _route(const WorkloadMonitorScreen())),
                   ),
-                ),
-
-                // ── Analysis Buttons ─────────────────────────────────────────
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 6, 16, 12),
-                  child: Text(
-                    'ANALYSIS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: kTextSecondary,
-                      letterSpacing: 1.6,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: kCard,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: kBorder),
-                    ),
-                    child: Column(
-                      children: [
-                        _AnalysisButton(
-                          icon: Icons.monitor_heart_rounded,
-                          color: const Color(0xFFF59E0B),
-                          title: 'Workload Monitoring',
-                          subtitle: 'Performance · Recovery · Load',
-                          onTap: () => Navigator.push(context, _route(const WorkloadMonitorScreen())),
-                        ),
-                        const Divider(height: 1, indent: 60, color: kBorder),
-                        _AnalysisButton(
-                          icon: Icons.person_outline_rounded,
-                          color: const Color(0xFFF97316),
-                          title: 'Body Composition Analysis',
-                          subtitle: 'Fat, muscle & structural metrics',
-                          onTap: () => Navigator.push(context, _route(const BodyCompositionScreen())),
-                        ),
-                        const Divider(height: 1, indent: 60, color: kBorder),
-                        _AnalysisButton(
-                          icon: Icons.accessibility_new_rounded,
-                          color: const Color(0xFF38BDF8),
-                          title: 'Postural Analysis',
-                          subtitle: 'Body alignment screening',
-                          onTap: () => Navigator.push(context, _route(const PostureGuideScreen())),
-                        ),
-                        const Divider(height: 1, indent: 60, color: kBorder),
-                        _AnalysisButton(
-                          icon: Icons.directions_run_rounded,
-                          color: const Color(0xFFFF6B35),
-                          title: 'Running Mechanics',
-                          subtitle: 'Running form analysis',
-                          onTap: () => Navigator.push(context, _route(const RunningAnalysisScreen())),
-                        ),
-                        const Divider(height: 1, indent: 60, color: kBorder),
-                        _AnalysisButton(
-                          icon: Icons.sports_cricket_rounded,
-                          color: kSleep,
-                          title: 'Bowling Mechanics',
-                          subtitle: 'Bowling action analysis',
-                          onTap: () => Navigator.push(context, _route(const BowlingAnalysisScreen())),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ── My Day ───────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'MY DAY',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: kTextPrimary,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () {},
-                        child: Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: kCard,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: kBorder),
-                          ),
-                          child: const Icon(Icons.add_rounded, size: 20, color: kTextPrimary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ── Day In Review ─────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                  child: _DayReviewCard(firstName: _firstName),
                 ),
 
                 // ── Tonight's Sleep ───────────────────────────────────────────
@@ -288,7 +162,7 @@ class HomeTab extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 6),
-              child: const Text(
+              child: Text(
                 'RECENT SESSIONS',
                 style: TextStyle(
                   fontSize: 11,
@@ -364,6 +238,7 @@ class _SpeedometerGauge extends StatefulWidget {
   final IconData   icon;
   final String     maxLabel;
   final VoidCallback onTap;
+  final List<double>? trend; // optional in-gauge sparkline
 
   const _SpeedometerGauge({
     required this.value,
@@ -374,6 +249,7 @@ class _SpeedometerGauge extends StatefulWidget {
     required this.icon,
     this.maxLabel = '100',
     required this.onTap,
+    this.trend,
   });
 
   @override
@@ -432,6 +308,7 @@ class _SpeedometerGaugeState extends State<_SpeedometerGauge>
                         value:        widget.value,
                         suffix:       widget.suffix,
                         pulse:        p,
+                        trend:        widget.trend,
                       ),
                     ),
                     Align(
@@ -473,6 +350,7 @@ class _SpeedometerPainter extends CustomPainter {
   final double pulse;
   final Color  gaugeColor;
   final String value, suffix;
+  final List<double>? trend;
 
   const _SpeedometerPainter({
     required this.animProgress,
@@ -480,6 +358,7 @@ class _SpeedometerPainter extends CustomPainter {
     required this.value,
     required this.suffix,
     required this.pulse,
+    this.trend,
   });
 
   // Arc: gap at the bottom — starts lower-left, sweeps 270° to lower-right
@@ -600,6 +479,48 @@ class _SpeedometerPainter extends CustomPainter {
         ).createShader(faceRect),
     );
 
+    // ─── 6.5 Trend sparkline (in the band between icon and value) ────────────
+    final t = trend;
+    if (t != null && t.length >= 2) {
+      final minV = t.reduce(min), maxV = t.reduce(max);
+      final range = (maxV - minV).abs() < 1e-6 ? 1.0 : (maxV - minV);
+      final left  = cx - faceR * 0.52;
+      final right = cx + faceR * 0.52;
+      final bot   = cy - faceR * 0.04;
+      final top   = cy - faceR * 0.30;
+      double px(int i) => left + (right - left) * i / (t.length - 1);
+      double py(double v) => bot - (bot - top) * (v - minV) / range;
+
+      final line = Path()..moveTo(px(0), py(t[0]));
+      for (int i = 1; i < t.length; i++) {
+        line.lineTo(px(i), py(t[i]));
+      }
+      final fill = Path.from(line)
+        ..lineTo(right, bot)
+        ..lineTo(left, bot)
+        ..close();
+      canvas.drawPath(
+        fill,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [gaugeColor.withValues(alpha: 0.22), gaugeColor.withValues(alpha: 0.0)],
+          ).createShader(Rect.fromLTRB(left, top, right, bot)),
+      );
+      canvas.drawPath(
+        line,
+        Paint()
+          ..color = gaugeColor.withValues(alpha: 0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+      canvas.drawCircle(
+        Offset(px(t.length - 1), py(t.last)), 1.8, Paint()..color = gaugeColor);
+    }
+
     // ─── 7. Value text (lower-center of face, below icon) ────────────────────
     final valueFontSize  = size.width * 0.22;
     final suffixFontSize = valueFontSize * 0.40;
@@ -637,7 +558,8 @@ class _SpeedometerPainter extends CustomPainter {
   bool shouldRepaint(covariant _SpeedometerPainter old) =>
       old.animProgress != animProgress ||
       old.pulse        != pulse        ||
-      old.gaugeColor   != gaugeColor;
+      old.gaugeColor   != gaugeColor   ||
+      old.trend        != trend;
 }
 
 // ── Gauge Icon Badge ──────────────────────────────────────────────────────────
@@ -684,7 +606,7 @@ class _DotProgressBar extends StatelessWidget {
 
     return Row(
       children: [
-        Text('0',      style: const TextStyle(fontSize: 9, color: kTextMuted)),
+        Text('0',      style: TextStyle(fontSize: 9, color: kTextMuted)),
         const SizedBox(width: 5),
         Expanded(
           child: Row(
@@ -708,130 +630,8 @@ class _DotProgressBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 5),
-        Text(maxLabel, style: const TextStyle(fontSize: 9, color: kTextMuted)),
+        Text(maxLabel, style: TextStyle(fontSize: 9, color: kTextMuted)),
       ],
-    );
-  }
-}
-
-// ── Monitor Card ──────────────────────────────────────────────────────────────
-
-class _MonitorCard extends StatelessWidget {
-  final String title, statusLabel, detail;
-  final Color statusColor;
-  final VoidCallback onTap;
-
-  const _MonitorCard({
-    required this.title,
-    required this.statusColor,
-    required this.statusLabel,
-    required this.detail,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: kBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: kTextSecondary,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-                const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: kTextMuted),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 3),
-            Text(
-              detail,
-              style: const TextStyle(fontSize: 10, color: kTextSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Day In Review Card ────────────────────────────────────────────────────────
-
-class _DayReviewCard extends StatelessWidget {
-  final String firstName;
-  const _DayReviewCard({required this.firstName});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [kAccent.withValues(alpha: 0.18), kStrain.withValues(alpha: 0.12)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: kAccent.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.nights_stay_rounded, color: kAccent, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Your Day In Review',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: kTextPrimary,
-                ),
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: kTextSecondary),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -855,12 +655,12 @@ class _SleepCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 "TONIGHT'S SLEEP",
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 0.8),
               ),
               const Spacer(),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: kTextMuted),
+              Icon(Icons.arrow_forward_ios_rounded, size: 10, color: kTextMuted),
             ],
           ),
           const SizedBox(height: 14),
@@ -872,7 +672,7 @@ class _SleepCard extends StatelessWidget {
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
-                      children: const [
+                      children: [
                         Icon(Icons.bedtime_rounded, size: 16, color: kTextSecondary),
                         SizedBox(width: 6),
                         Text(
@@ -882,7 +682,7 @@ class _SleepCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 3),
-                    const Text(
+                    Text(
                       'RECOMMENDED\nBEDTIME',
                       style: TextStyle(fontSize: 9, color: kTextSecondary, letterSpacing: 0.3, height: 1.4),
                     ),
@@ -898,7 +698,7 @@ class _SleepCard extends StatelessWidget {
                     children: [
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
-                        children: const [
+                        children: [
                           Icon(Icons.alarm_rounded, size: 16, color: kAccent),
                           SizedBox(width: 6),
                           Text(
@@ -909,7 +709,7 @@ class _SleepCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Row(
-                        children: const [
+                        children: [
                           Icon(Icons.circle, size: 7, color: kAccent),
                           SizedBox(width: 4),
                           Text(
@@ -930,55 +730,125 @@ class _SleepCard extends StatelessWidget {
   }
 }
 
-// ── Analysis Button ───────────────────────────────────────────────────────────
+// ── Tomorrow's Load Target (combined card) ────────────────────────────────────
 
-class _AnalysisButton extends StatelessWidget {
-  final IconData icon;
-  final Color    color;
-  final String   title, subtitle;
+class _LoadTargetCard extends StatelessWidget {
   final VoidCallback onTap;
-
-  const _AnalysisButton({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
+  const _LoadTargetCard({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final t    = tomorrowLoadTargets(1); // ATS-2025-002
+    final hero = t.total;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        child: Row(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [hero.color.withValues(alpha: 0.14), kCard],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: hero.color.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+            // Header
+            Row(children: [
+              Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(
+                  color: hero.color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.track_changes_rounded, size: 18, color: hero.color),
               ),
-              child: Icon(icon, color: color, size: 19),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "TOMORROW'S LOAD TARGET",
+                  style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2, color: kTextSecondary,
+                  ),
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded, size: 12, color: kTextMuted),
+            ]),
+            const SizedBox(height: 14),
+
+            // Hero range — the total target
+            Text(
+              '${hero.low} – ${hero.high}',
+              style: TextStyle(
+                fontSize: 32, fontWeight: FontWeight.w800,
+                letterSpacing: -1, color: hero.color, height: 1.0,
+              ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
+            const SizedBox(height: 4),
+            Text(
+              'Recommended total · 80–130% of chronic ${hero.chronic.toStringAsFixed(0)}',
+              style: TextStyle(fontSize: 11, color: kTextSecondary),
+            ),
+            const SizedBox(height: 14),
+
+            // Breakdown — the streams that make up the total
+            Row(
+              children: [
+                for (int i = 0; i < t.components.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Expanded(child: _LoadTargetChip(target: t.components[i])),
                 ],
-              ),
+              ],
             ),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: kTextMuted),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LoadTargetChip extends StatelessWidget {
+  final LoadTarget target;
+  const _LoadTargetChip({required this.target});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: target.color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: target.color.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 7, height: 7,
+              decoration: BoxDecoration(color: target.color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              target.label,
+              style: TextStyle(
+                fontSize: 11, color: kTextSecondary, fontWeight: FontWeight.w600),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            '${target.low} – ${target.high}',
+            style: TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w800,
+              letterSpacing: -0.5, color: target.color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1021,9 +891,9 @@ class _RecentSessionRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: kTextPrimary)),
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: kTextPrimary)),
                 const SizedBox(height: 2),
-                Text(time, style: const TextStyle(fontSize: 11, color: kTextSecondary)),
+                Text(time, style: TextStyle(fontSize: 11, color: kTextSecondary)),
               ],
             ),
           ),
