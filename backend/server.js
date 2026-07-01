@@ -37,6 +37,9 @@ app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/body-composition', require('./routes/bodyComposition'));
 app.use('/api/admin', require('./routes/admin'));
 
+// Public legal pages (hosted URLs for the app stores) — before the SPA catch-all
+app.use('/', require('./routes/legal'));
+
 // SPA catch-all — serve React's index.html for any non-API route
 app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
