@@ -49,3 +49,6 @@ app.*.map.json
 
 # Node dependencies (backend + admin frontend)
 **/node_modules/
+
+# Vercel/Vite build output for the admin frontend
+frontend/dist/
