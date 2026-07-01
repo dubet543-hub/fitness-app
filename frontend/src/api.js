@@ -1,4 +1,6 @@
-const BASE = '/api';
+// Backend API base. Configurable via Vite env (VITE_API_BASE_URL); defaults to
+// same-origin "/api" since the backend serves this admin build.
+const BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const getToken = () => localStorage.getItem('sc_token');
 export const getUser  = () => {
