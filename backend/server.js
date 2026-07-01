@@ -10,7 +10,12 @@ const app = express();
 // ── Middleware ─────────────────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
+  // Trim whitespace and drop empties/trailing slashes so a stray space or "/"
+  // in CORS_ORIGINS doesn't silently break cross-origin requests.
+  origin: (process.env.CORS_ORIGINS || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.replace(/\s+/g, '').replace(/\/$/, '')) // strip ALL whitespace (incl. pasted newlines) + trailing slash
+    .filter(Boolean),
   credentials: true,
 }));
 app.use(express.json());
