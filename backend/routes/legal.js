@@ -29,7 +29,7 @@ function page(title, sections) {
   <h1>${title}</h1>
   <div class="eff">Effective ${EFFECTIVE}</div>
   ${body}
-  <div class="foot">© 2026 SolidCore Performance Inc.</div>
+  <div class="foot">© 2026 SolidCore AMS</div>
 </div></body></html>`;
 }
 
@@ -38,14 +38,14 @@ const TERMS = [
   { h: '2. Use of the App', b: 'SolidCore is provided for general fitness, training, and informational purposes. You agree to use the App only for lawful purposes and not to misuse, reverse-engineer, or interfere with its normal operation.' },
   { h: '3. Health &amp; Fitness Disclaimer', b: 'The App provides estimates, scores, and insights — including body-composition estimates — that are informational only and are not medical advice, diagnosis, or treatment. Always consult a qualified health professional before starting or changing any training or nutrition programme. You use the App at your own risk.' },
   { h: '4. Accounts', b: 'You are responsible for maintaining the confidentiality of your account credentials and for all activity that occurs under your account.' },
-  { h: '5. Intellectual Property', b: 'All content, trademarks, and software in the App are owned by or licensed to SolidCore Performance Inc. and may not be copied or redistributed without permission.' },
-  { h: '6. Limitation of Liability', b: 'To the maximum extent permitted by law, SolidCore Performance Inc. shall not be liable for any indirect, incidental, or consequential damages arising from your use of the App.' },
+  { h: '5. Intellectual Property', b: 'All content, trademarks, and software in the App are owned by or licensed to SolidCore AMS and may not be copied or redistributed without permission.' },
+  { h: '6. Limitation of Liability', b: 'To the maximum extent permitted by law, SolidCore AMS shall not be liable for any indirect, incidental, or consequential damages arising from your use of the App.' },
   { h: '7. Changes to These Terms', b: 'We may update these Terms from time to time. Continued use of the App after changes take effect constitutes acceptance of the revised Terms.' },
   { h: '8. Contact', b: 'Questions about these Terms can be sent to <a href="mailto:legal@solidcore.app">legal@solidcore.app</a>.' },
 ];
 
 const PRIVACY = [
-  { h: '1. Overview', b: 'This Privacy Policy explains how SolidCore Performance Inc. collects, uses, and protects your information when you use the App.' },
+  { h: '1. Overview', b: 'This Privacy Policy explains how SolidCore AMS collects, uses, and protects your information when you use the App.' },
   { h: '2. Information We Collect', b: 'We collect the information you provide directly — such as your profile details and the measurements you enter — as well as the training, recovery, and body-composition data generated as you use the App.' },
   { h: '3. On-Device Processing', b: 'Wherever possible, analyses such as body composition and camera-based movement assessments are processed on your device. Data stored on your device stays under your control.' },
   { h: '4. How We Use Your Information', b: 'Your information is used to calculate your scores, personalise insights, and improve the App. We do not sell your personal data.' },
