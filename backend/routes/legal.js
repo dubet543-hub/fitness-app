@@ -29,7 +29,7 @@ function page(title, sections) {
   <h1>${title}</h1>
   <div class="eff">Effective ${EFFECTIVE}</div>
   ${body}
-  <div class="foot">© 2026 SolidCore AMS</div>
+  <div class="foot">© 2026 Tushar Dube</div>
 </div></body></html>`;
 }
 
@@ -45,7 +45,7 @@ const TERMS = [
 ];
 
 const PRIVACY = [
-  { h: '1. Overview', b: 'This Privacy Policy explains how SolidCore AMS collects, uses, and protects your information when you use the App.' },
+  { h: '1. Overview', b: 'This Privacy Policy explains how SolidCore AMS (operated by Tushar Dube) collects, uses, and protects your information when you use the App.' },
   { h: '2. Information We Collect', b: 'We collect the information you provide directly — such as your profile details and the measurements you enter — as well as the training, recovery, and body-composition data generated as you use the App.' },
   { h: '3. On-Device Processing', b: 'Wherever possible, analyses such as body composition and camera-based movement assessments are processed on your device. Data stored on your device stays under your control.' },
   { h: '4. How We Use Your Information', b: 'Your information is used to calculate your scores, personalise insights, and improve the App. We do not sell your personal data.' },

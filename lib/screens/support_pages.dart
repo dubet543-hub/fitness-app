@@ -220,7 +220,7 @@ class AboutPage extends StatelessWidget {
 
           Center(
             child: Text(
-              '© 2026 SolidCore AMS.\nAll rights reserved.',
+              '© 2026 Tushar Dube.\nAll rights reserved.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.7),
             ),

@@ -52,7 +52,7 @@ class LegalDocPage extends StatelessWidget {
           ],
           const SizedBox(height: 4),
           Center(
-            child: Text('© 2026 SolidCore AMS',
+            child: Text('© 2026 Tushar Dube',
                 style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
         ],
@@ -136,8 +136,8 @@ class PrivacyPolicyPage extends StatelessWidget {
     sections: [
       (
         heading: '1. Overview',
-        body: 'This Privacy Policy explains how SolidCore AMS '
-            'collects, uses, and protects your information when you use the App.',
+        body: 'This Privacy Policy explains how SolidCore AMS (operated '
+            'by Tushar Dube) collects, uses, and protects your information when you use the App.',
       ),
       (
         heading: '2. Information We Collect',
