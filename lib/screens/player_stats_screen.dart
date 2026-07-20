@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../api_service.dart';
 import '../services/dashboard_metrics.dart';
+import '../services/sleep_metrics.dart';
 import 'workload_monitor_screen.dart';
 
 // ── Data Models & series ────────────────────────────────────────────────────────
@@ -23,29 +24,55 @@ const _a2Total = kA2Total;
 const _well1   = kWell1;
 const _well2   = kWell2;
 
-// ── Sleep Detail History (effective sleep & time in bed, hrs) ──────────────────
-class _SD {
-  final String d;
-  final double inBed;   // total time in bed (hrs)
-  final double asleep;  // effective sleep (hrs)
-  const _SD(this.d, this.inBed, this.asleep);
-  double get efficiency => inBed > 0 ? (asleep / inBed * 100).clamp(0, 100) : 0;
-  double get debt => max(0.0, 8.0 - asleep); // vs 8h nightly need
-}
+// ── Sleep Detail History ──────────────────────────────────────────────────────
+// Logged clock times per night. Sleep time, efficiency, 7-day average and debt
+// are all derived from these by the sheet formulae in sleep_metrics.dart rather
+// than stored, so the dashboard can never disagree with the spreadsheet.
+// Columns: bed → fell asleep → woke → out of bed, plus minutes awake after a
+// disturbance.
 
-const _sleep1 = <_SD>[
-  _SD('24/04', 8.2, 7.4), _SD('25/04', 7.5, 6.9), _SD('26/04', 8.0, 7.0),
-  _SD('27/04', 8.5, 7.8), _SD('28/04', 7.2, 6.3), _SD('29/04', 8.3, 7.6),
-  _SD('30/04', 8.6, 8.0), _SD('01/05', 7.0, 6.1), _SD('02/05', 7.8, 6.8),
-  _SD('03/05', 7.3, 6.4), _SD('04/05', 8.4, 7.9), _SD('05/05', 8.5, 8.0),
-  _SD('06/05', 7.1, 6.2), _SD('07/05', 8.2, 7.5),
+SleepNight _n(String d, int bedH, int bedM, int lat, int wakeH, int wakeM,
+        {int outH = -1, int outM = 0, int awake = 0}) =>
+    nightFromLog(
+      d: d,
+      timeToBed: hm(bedH, bedM),
+      latencyMinutes: lat,
+      wokeUp: hm(wakeH, wakeM),
+      outOfBed: outH < 0 ? null : hm(outH, outM),
+      awakeMinutes: awake,
+    );
+
+final _sleep1 = <SleepNight>[
+  _n('24/04', 22, 20, 20, 6, 32, awake: 28),
+  _n('25/04', 22, 50, 15, 6, 20, awake: 21),
+  _n('26/04', 22, 30, 25, 6, 30, awake: 35),
+  _n('27/04', 22,  5, 20, 6, 35, awake: 22),
+  _n('28/04', 23, 15, 20, 6, 27, awake: 34),
+  _n('29/04', 22, 15, 15, 6, 33, awake: 27),
+  _n('30/04', 22,  0, 15, 6, 36, awake: 21),
+  _n('01/05', 23, 30, 20, 6, 30, awake: 34),
+  _n('02/05', 22, 45, 25, 6, 33, awake: 35),
+  _n('03/05', 23, 10, 20, 6, 28, awake: 34),
+  _n('04/05', 22, 10, 15, 6, 34, awake: 15),
+  _n('05/05', 22,  0, 15, 6, 30, awake: 15),
+  _n('06/05', 23, 25, 20, 6, 31, awake: 34),
+  _n('07/05', 22, 20, 15, 6, 32, awake: 27),
 ];
-const _sleep2 = <_SD>[
-  _SD('24/04', 7.0, 5.9), _SD('25/04', 7.8, 6.9), _SD('26/04', 6.8, 5.6),
-  _SD('27/04', 8.1, 7.4), _SD('28/04', 7.2, 6.1), _SD('29/04', 8.0, 7.2),
-  _SD('30/04', 8.3, 7.6), _SD('01/05', 6.9, 5.7), _SD('02/05', 7.4, 6.5),
-  _SD('03/05', 8.5, 8.0), _SD('04/05', 8.6, 8.1), _SD('05/05', 7.6, 6.7),
-  _SD('06/05', 7.0, 5.9), _SD('07/05', 8.4, 7.8),
+final _sleep2 = <SleepNight>[
+  _n('24/04', 23, 10, 25, 6, 10, awake: 41),
+  _n('25/04', 22, 40, 20, 6, 28, awake: 34),
+  _n('26/04', 23, 50, 30, 6, 38, awake: 42),
+  _n('27/04', 22, 20, 20, 6, 26, awake: 22),
+  _n('28/04', 23, 20, 25, 6, 32, awake: 41),
+  _n('29/04', 22, 30, 20, 6, 30, awake: 28),
+  _n('30/04', 22, 15, 15, 6, 33, awake: 27),
+  _n('01/05', 23, 55, 30, 6, 49, awake: 42),
+  _n('02/05', 23,  5, 20, 6, 29, awake: 34),
+  _n('03/05', 22,  0, 15, 6, 30, awake: 15),
+  _n('04/05', 21, 55, 15, 6, 31, awake: 15),
+  _n('05/05', 22, 50, 20, 6, 26, awake: 34),
+  _n('06/05', 23, 15, 25, 6, 15, awake: 41),
+  _n('07/05', 22,  5, 15, 6, 29, awake: 21),
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -95,7 +122,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   List<_WP> get _skillData => _filter(_athlete == 0 ? _a1Skill : _a2Skill);
   List<_WP> get _totalData => _filter(_athlete == 0 ? _a1Total : _a2Total);
   List<_RP> get _wellData  => _athlete == 0 ? _well1 : _well2;
-  List<_SD> get _sleepData => _athlete == 0 ? _sleep1 : _sleep2;
+  List<SleepNight> get _sleepData => _athlete == 0 ? _sleep1 : _sleep2;
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -406,18 +433,28 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
 
   // ── Sleep Summary Panel ─────────────────────────────────────────────────────
 
-  Widget _sleepSummaryPanel(List<_SD> sleep) {
-    final last7   = sleep.sublist(max(0, sleep.length - 7));
-    final avgEff  = last7.map((s) => s.efficiency).reduce((a, b) => a + b) / last7.length;
-    final debt    = last7.map((s) => s.debt).reduce((a, b) => a + b);
-    final last    = sleep.last;
-    final effCol  = avgEff >= 85 ? kAccent : avgEff >= 75 ? Colors.orangeAccent : Colors.redAccent;
-    final debtCol = debt <= 3 ? kAccent : debt <= 7 ? Colors.orangeAccent : Colors.redAccent;
-    final summary = avgEff >= 85 && debt <= 3
-        ? 'Sleep is restorative — efficiency is high and accumulated debt is low. Maintain current routine.'
-        : debt > 7
-            ? 'Significant sleep debt has accrued this week. Prioritise earlier bedtimes and recovery naps.'
+  Widget _sleepSummaryPanel(List<SleepNight> sleep) {
+    // All four headline figures come straight from the sheet formulae:
+    // sleep time (1), 7-day average (3), efficiency (5) and sleep debt (6).
+    final i       = sleep.length - 1;
+    final last    = sleep[i];
+    final avgMins = averageSleepMinutes(sleep, i);
+    final debt    = sleepDebtMinutes(sleep, i);      // null = no debt that night
+    final effPct  = last.efficiency * 100;
+
+    final effCol  = effPct >= 85 ? kAccent : effPct >= 75 ? Colors.orangeAccent : Colors.redAccent;
+    // Debt is measured against the athlete's own weekly average, so an hour
+    // behind is already meaningful — much tighter thresholds than a fixed need.
+    final debtCol = debt == null || debt <= 30
+        ? kAccent
+        : debt <= 60 ? Colors.orangeAccent : Colors.redAccent;
+
+    final summary = effPct >= 85 && (debt ?? 0) <= 30
+        ? 'Sleep is restorative — efficiency is high and last night held the weekly average. Maintain current routine.'
+        : (debt ?? 0) > 60
+            ? 'Last night fell more than an hour below the 7-day average. Prioritise an earlier bedtime tonight and a recovery nap.'
             : 'Sleep is adequate but inconsistent. Aim for steadier bedtimes to lift efficiency and clear debt.';
+
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Icon(Icons.bedtime_rounded, size: 14, color: kSleep),
@@ -425,16 +462,25 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         Text('Sleep Summary',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
         const Spacer(),
-        Text('Last night ${last.asleep.toStringAsFixed(1)}h',
+        Text('In bed ${formatHhMm(last.timeInBedMinutes)}',
             style: TextStyle(fontSize: 10, color: kTextSecondary)),
       ]),
       const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: _sleepStat('Efficiency', '${avgEff.toStringAsFixed(0)}%', '7-day avg', effCol)),
+        Expanded(child: _sleepStat('Sleep Time', formatHhMm(last.sleepMinutes), 'last night', kSleep)),
         const SizedBox(width: 10),
-        Expanded(child: _sleepStat('Sleep Debt', '${debt.toStringAsFixed(1)}h', 'vs 8h need', debtCol)),
+        Expanded(child: _sleepStat('7-Day Average', formatHhMm(avgMins), 'rolling', kSleep)),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: _sleepStat('Efficiency', '${effPct.toStringAsFixed(0)}%', 'asleep / in bed', effCol)),
         const SizedBox(width: 10),
-        Expanded(child: _sleepStat('Time in Bed', '${last.inBed.toStringAsFixed(1)}h', 'last night', kSleep)),
+        Expanded(child: _sleepStat(
+          'Sleep Debt',
+          debt == null ? '—' : formatHhMm(debt),
+          debt == null ? 'at or above avg' : 'vs 7-day avg',
+          debtCol,
+        )),
       ]),
       const SizedBox(height: 12),
       Container(
