@@ -118,7 +118,7 @@ class TermsPage extends StatelessWidget {
       ),
       (
         heading: '8. Contact',
-        body: 'Questions about these Terms can be sent to legal@solidcore.app.',
+        body: 'Questions about these Terms can be sent to support@solidcoreats.com.',
       ),
     ],
   );
@@ -176,7 +176,7 @@ class PrivacyPolicyPage extends StatelessWidget {
       ),
       (
         heading: '8. Contact',
-        body: 'For privacy questions or requests, contact privacy@solidcore.app.',
+        body: 'For privacy questions or requests, contact support@solidcoreats.com.',
       ),
     ],
   );

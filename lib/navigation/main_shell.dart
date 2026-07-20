@@ -50,6 +50,9 @@ class _MainShellState extends State<MainShell> {
         email:    widget.email,
         photoUrl: widget.photoUrl,
         onLogout: widget.onLogout,
+        // Tapping the app-bar avatar selects the Profile tab rather than
+        // pushing a second copy of it over the shell.
+        onOpenProfile: () => setState(() => _currentIndex = 3),
       ),
       const ExploreTab(),
       const PlayerDashboardScreen(),

@@ -377,7 +377,9 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
       ]),
       const SizedBox(height: 10),
       SizedBox(
-        height: 68,
+        // Tall enough that one point of score is worth ~15px of bar. At the
+        // previous 68 it was ~10px, which read as noise against the bar width.
+        height: 100,
         child: CustomPaint(
           painter: _MetricBarsPainter(values: last7v, labels: last7d, color: color),
           size: Size.infinite,
@@ -937,6 +939,9 @@ class _AcwrSparkPainter extends CustomPainter {
 
 // ── Metric Bars Painter ───────────────────────────────────────────────────────
 
+/// Height a score of 1 draws at, as a fraction of the tallest bar.
+const double _kMinBar = 0.12;
+
 class _MetricBarsPainter extends CustomPainter {
   final List<int> values;
   final List<String> labels;
@@ -955,9 +960,17 @@ class _MetricBarsPainter extends CustomPainter {
       // Bar length tracks the raw 1–5 score, so 5 draws longest and 1 shortest.
       // Height therefore reads as severity, not quality — on these metrics a
       // taller bar is a worse day.
-      final severity = values[i].clamp(1, 5) / 5.0;
+      //
+      // The scale is stretched to 0.12–1.0 rather than the natural v/5 (0.2–1.0)
+      // so the mid-range scores that dominate real logs separate a little more.
+      // It stays a fixed mapping, not a per-panel normalisation, so bar heights
+      // remain comparable across metrics and athletes.
+      final severity = _kMinBar +
+          (values[i].clamp(1, 5) - 1) / 4.0 * (1.0 - _kMinBar);
       final barH    = size.height * maxH * severity;
-      final barW    = slotW * 0.62;
+      // Narrow bars: at 0.62 of the slot they came out wider than they were
+      // tall, so height differences read as noise next to the block of colour.
+      final barW    = slotW * 0.36;
       final x       = i * slotW + (slotW - barW) / 2;
       final y       = size.height * maxH - barH;
 

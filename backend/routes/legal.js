@@ -41,7 +41,7 @@ const TERMS = [
   { h: '5. Intellectual Property', b: 'All content, trademarks, and software in the App are owned by or licensed to SolidCore AMS and may not be copied or redistributed without permission.' },
   { h: '6. Limitation of Liability', b: 'To the maximum extent permitted by law, SolidCore AMS shall not be liable for any indirect, incidental, or consequential damages arising from your use of the App.' },
   { h: '7. Changes to These Terms', b: 'We may update these Terms from time to time. Continued use of the App after changes take effect constitutes acceptance of the revised Terms.' },
-  { h: '8. Contact', b: 'Questions about these Terms can be sent to <a href="mailto:legal@solidcore.app">legal@solidcore.app</a>.' },
+  { h: '8. Contact', b: 'Questions about these Terms can be sent to <a href="mailto:support@solidcoreats.com">support@solidcoreats.com</a>.' },
 ];
 
 const PRIVACY = [
@@ -52,7 +52,7 @@ const PRIVACY = [
   { h: '5. Consent', b: 'You can control data-collecting features through the consent settings in Privacy &amp; Security. Withdrawing consent disables the related feature going forward.' },
   { h: '6. Data Retention &amp; Deletion', b: 'You may delete your logs and account data at any time from within the App. Deleting your account permanently removes your data from our servers.' },
   { h: '7. Security', b: 'We use reasonable technical and organisational measures to protect your information, though no method of storage or transmission is completely secure.' },
-  { h: '8. Contact', b: 'For privacy questions or requests, contact <a href="mailto:privacy@solidcore.app">privacy@solidcore.app</a>.' },
+  { h: '8. Contact', b: 'For privacy questions or requests, contact <a href="mailto:support@solidcoreats.com">support@solidcoreats.com</a>.' },
 ];
 
 router.get('/terms', (_req, res) => res.type('html').send(page('Terms & Conditions', TERMS)));

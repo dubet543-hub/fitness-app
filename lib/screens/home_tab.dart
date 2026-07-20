@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/dashboard_metrics.dart';
+import '../services/notification_service.dart';
+import 'notifications_page.dart';
 import 'player_stats_screen.dart';
 import 'workload_monitor_screen.dart';
 
@@ -12,10 +15,15 @@ class HomeTab extends StatelessWidget {
   final String? photoUrl;
   final VoidCallback onLogout;
 
+  /// Switches the shell to the Profile tab. Required rather than optional so a
+  /// caller cannot silently leave the avatar inert.
+  final VoidCallback onOpenProfile;
+
   const HomeTab({
     super.key,
     required this.name,
     required this.email,
+    required this.onOpenProfile,
     required this.photoUrl,
     required this.onLogout,
   });
@@ -41,32 +49,37 @@ class HomeTab extends StatelessWidget {
             elevation: 0,
             centerTitle: true,
             automaticallyImplyLeading: false,
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.chevron_left_rounded, color: kTextSecondary, size: 22),
-                const SizedBox(width: 6),
-                Text(
-                  dateStr.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: kTextPrimary,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Icon(Icons.chevron_right_rounded, color: kTextSecondary, size: 22),
-              ],
+            title: Text(
+              dateStr.toUpperCase(),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: kTextPrimary,
+                letterSpacing: 1.4,
+              ),
             ),
             leading: Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: AvatarWidget(name: name, photoUrl: photoUrl, radius: 18),
+              child: GestureDetector(
+                onTap: onOpenProfile,
+                // Without this the transparent padding around the circle would
+                // not register a tap.
+                behavior: HitTestBehavior.opaque,
+                child: Semantics(
+                  button: true,
+                  label: 'Profile',
+                  child: AvatarWidget(name: name, photoUrl: photoUrl, radius: 18),
+                ),
+              ),
             ),
             actions: [
               IconButton(
                 icon: Icon(Icons.notifications_outlined, size: 22, color: kTextSecondary),
-                onPressed: () {},
+                tooltip: 'Notifications',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                ),
               ),
             ],
             bottom: PreferredSize(
@@ -158,62 +171,8 @@ class HomeTab extends StatelessWidget {
             ),
           ),
 
-          // ── Recent Sessions ───────────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 6),
-              child: Text(
-                'RECENT SESSIONS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: kTextSecondary,
-                  letterSpacing: 1.6,
-                ),
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                Container(
-                  decoration: BoxDecoration(
-                    color: kCard,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kBorder),
-                  ),
-                  child: Column(
-                    children: [
-                      _RecentSessionRow(
-                        icon: Icons.directions_run_rounded,
-                        color: const Color(0xFFFF6B35),
-                        title: 'Running Analysis',
-                        time: '2h ago',
-                        score: 87,
-                      ),
-                      Divider(height: 1, indent: 56, color: kBorder),
-                      _RecentSessionRow(
-                        icon: Icons.accessibility_new_rounded,
-                        color: const Color(0xFF38BDF8),
-                        title: 'Posture Check',
-                        time: 'Yesterday',
-                        score: 92,
-                      ),
-                      Divider(height: 1, indent: 56, color: kBorder),
-                      _RecentSessionRow(
-                        icon: Icons.bar_chart_rounded,
-                        color: kAccent,
-                        title: 'Training Load',
-                        time: '2d ago',
-                        score: 78,
-                      ),
-                    ],
-                  ),
-                ),
-              ]),
-            ),
-          ),
+          // Trailing space so the last card clears the bottom nav bar.
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
       ),
     );
@@ -638,11 +597,88 @@ class _DotProgressBar extends StatelessWidget {
 
 // ── Tonight's Sleep Card ──────────────────────────────────────────────────────
 
-class _SleepCard extends StatelessWidget {
+class _SleepCard extends StatefulWidget {
   const _SleepCard();
 
   @override
+  State<_SleepCard> createState() => _SleepCardState();
+}
+
+class _SleepCardState extends State<_SleepCard> {
+  static const _kHourKey = 'wake_alarm_hour';
+  static const _kMinKey  = 'wake_alarm_minute';
+  static const _kOnKey   = 'wake_alarm_on';
+
+  TimeOfDay _alarm = const TimeOfDay(hour: 8, minute: 30);
+  bool _alarmOn = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _alarm = TimeOfDay(
+        hour:   prefs.getInt(_kHourKey) ?? _alarm.hour,
+        minute: prefs.getInt(_kMinKey)  ?? _alarm.minute,
+      );
+      _alarmOn = prefs.getBool(_kOnKey) ?? true;
+    });
+  }
+
+  Future<void> _persist() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kHourKey, _alarm.hour);
+    await prefs.setInt(_kMinKey, _alarm.minute);
+    await prefs.setBool(_kOnKey, _alarmOn);
+    await NotificationService.scheduleWakeAlarm(
+      enabled: _alarmOn,
+      hour: _alarm.hour,
+      minute: _alarm.minute,
+    );
+  }
+
+  /// Tap the alarm to pick a new wake time; picking one also turns it on.
+  Future<void> _pickAlarm() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _alarm,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.dark(
+            primary: kAccent,
+            surface: kSurface,
+            onSurface: kTextPrimary,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _alarm = picked;
+      _alarmOn = true;
+    });
+    await _persist();
+  }
+
+  /// Tap the ON/OFF pip to arm or disarm without changing the time.
+  Future<void> _toggleAlarm() async {
+    setState(() => _alarmOn = !_alarmOn);
+    await _persist();
+  }
+
+  String get _alarmLabel =>
+      '${_alarm.hourOfPeriod == 0 ? 12 : _alarm.hourOfPeriod}:'
+      '${_alarm.minute.toString().padLeft(2, '0')}';
+
+  @override
   Widget build(BuildContext context) {
+    final alarmColor = _alarmOn ? kAccent : kTextMuted;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -696,27 +732,42 @@ class _SleepCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Icon(Icons.alarm_rounded, size: 16, color: kAccent),
-                          SizedBox(width: 6),
-                          Text(
-                            '8:30',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
-                          ),
-                        ],
+                      GestureDetector(
+                        onTap: _pickAlarm,
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Icon(Icons.alarm_rounded, size: 16, color: alarmColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              _alarmLabel,
+                              style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w800,
+                                color: _alarmOn ? kTextPrimary : kTextMuted,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Icon(Icons.circle, size: 7, color: kAccent),
-                          SizedBox(width: 4),
-                          Text(
-                            'ALARM ON',
-                            style: TextStyle(fontSize: 9, color: kAccent, letterSpacing: 0.3, fontWeight: FontWeight.w700),
-                          ),
-                        ],
+                      GestureDetector(
+                        onTap: _toggleAlarm,
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          children: [
+                            Icon(Icons.circle, size: 7, color: alarmColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              _alarmOn ? 'ALARM ON' : 'ALARM OFF',
+                              style: TextStyle(
+                                fontSize: 9, color: alarmColor,
+                                letterSpacing: 0.3, fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -854,55 +905,3 @@ class _LoadTargetChip extends StatelessWidget {
   }
 }
 
-// ── Recent Session Row ────────────────────────────────────────────────────────
-
-class _RecentSessionRow extends StatelessWidget {
-  final IconData icon;
-  final Color    color;
-  final String   title, time;
-  final int      score;
-
-  const _RecentSessionRow({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.time,
-    required this.score,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                const SizedBox(height: 2),
-                Text(time, style: TextStyle(fontSize: 11, color: kTextSecondary)),
-              ],
-            ),
-          ),
-          Text(
-            '$score',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5),
-          ),
-        ],
-      ),
-    );
-  }
-}

@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import 'legal_pages.dart';
 
-const _supportEmail = 'support@solidcore.app';
+const _supportEmail = 'support@solidcoreats.com';
 
 Future<void> _openEmail(BuildContext context, {String subject = '', String body = ''}) async {
   final uri = Uri(
