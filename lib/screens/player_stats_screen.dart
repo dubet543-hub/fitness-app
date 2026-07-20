@@ -952,8 +952,11 @@ class _MetricBarsPainter extends CustomPainter {
 
     for (int i = 0; i < n; i++) {
       final isLast  = i == n - 1;
-      final goodness = (6 - values[i]) / 5.0;
-      final barH    = size.height * maxH * goodness;
+      // Bar length tracks the raw 1–5 score, so 5 draws longest and 1 shortest.
+      // Height therefore reads as severity, not quality — on these metrics a
+      // taller bar is a worse day.
+      final severity = values[i].clamp(1, 5) / 5.0;
+      final barH    = size.height * maxH * severity;
       final barW    = slotW * 0.62;
       final x       = i * slotW + (slotW - barW) / 2;
       final y       = size.height * maxH - barH;
