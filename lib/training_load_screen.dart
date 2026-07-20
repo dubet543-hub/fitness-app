@@ -191,9 +191,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
 
   late final TabController _tabController;
 
-  // ── Wellness form ──────────────────────────────────────────────────────────
-  int _wSleep = 1, _wWellness = 1, _wSoreness = 1, _wFatigue = 1;
-
   // ── Training form ──────────────────────────────────────────────────────────
   bool _showTrainingForm = false;
   final Set<PrimarySessionType>   _tPrimaryTypes = {};
@@ -390,17 +387,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
 
   String _dateKey(DateTime dt) =>
       '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-
-  bool get _todayWellnessLogged {
-    final key = _dateKey(DateTime.now());
-    return _wellnessLogs.any((w) => _dateKey(w.date) == key);
-  }
-
-  WellnessLog? get _todayWellness {
-    final key = _dateKey(DateTime.now());
-    try { return _wellnessLogs.lastWhere((w) => _dateKey(w.date) == key); }
-    catch (_) { return null; }
-  }
 
   List<TrainingLog> get _todayTraining {
     final key = _dateKey(DateTime.now());
@@ -599,40 +585,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     });
   }
 
-  // ── Submit: Wellness ──────────────────────────────────────────────────────
-
-  Future<void> _submitWellness() async {
-    final now = DateTime.now();
-    try {
-      await ApiService.submitSession({
-        'date': now.toIso8601String(),
-        'sleep': _wSleep,
-        'wellness': _wWellness,
-        'soreness': _wSoreness,
-        'fatigue': _wFatigue,
-      });
-      await _loadSessions();
-      _snack("Morning wellness logged!");
-    } catch (err) {
-      _snack("Failed to save wellness: $err");
-    }
-  }
-
-  Future<void> _resetWellnessForm() async {
-    final current = _todayWellness;
-    if (current?.id != null) {
-      try {
-        await ApiService.deleteSession(current!.id!);
-      } catch (_) {}
-    }
-    await _loadSessions();
-  }
-
   // ── Submit: Training ──────────────────────────────────────────────────────
 
-  // Daily activity-log caps: 2 training sessions + 1 skill session.
+  // Daily activity-log caps: 2 training sessions + 2 skill sessions.
   static const int _maxTrainingPerDay = 2;
-  static const int _maxSkillPerDay    = 1;
+  static const int _maxSkillPerDay    = 2;
 
   Future<void> _submitTraining() async {
     if (_todayTraining.length >= _maxTrainingPerDay) {
@@ -681,7 +638,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
 
   Future<void> _submitSkill() async {
     if (_todaySkills.length >= _maxSkillPerDay) {
-      _snack("Daily limit reached — max $_maxSkillPerDay skill session per day");
+      _snack("Daily limit reached — max $_maxSkillPerDay skill sessions per day");
       return;
     }
     if (_sTypes.isEmpty) { _snack("Select at least one skill type"); return; }
@@ -821,86 +778,12 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             ),
             const SizedBox(height: 12),
           ],
-          _buildWellnessSection(),
-          const SizedBox(height: 14),
           _buildTrainingSessions(),
           const SizedBox(height: 14),
           _buildSkillSessions(),
           const SizedBox(height: 14),
           _buildDayByDayHistory(),
           const SizedBox(height: 32),
-        ],
-      ),
-    );
-  }
-
-  // ── Wellness section ──────────────────────────────────────────────────────
-
-  Widget _buildWellnessSection() {
-    if (_todayWellnessLogged) {
-      final w = _todayWellness!;
-      return _SectionCard(
-        title: "Morning Wellness",
-        subtitle: "Logged today",
-        child: Row(
-          children: [
-            _ReadinessDot(pct: w.readinessPercent, color: w.readinessColor),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "${w.readinessPercent.toStringAsFixed(0)}% Ready",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: w.readinessColor),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Sleep ${w.sleep}  ·  Wellness ${w.wellness}  ·  Soreness ${w.soreness}  ·  Fatigue ${w.fatigue}",
-                    style: TextStyle(fontSize: 11, color: kTextSecondary),
-                  ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: _resetWellnessForm,
-                    child: Text("Re-log",
-                        style: TextStyle(fontSize: 12, color: kAccent, fontWeight: FontWeight.w600)),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 24),
-          ],
-        ),
-      );
-    }
-
-    return _SectionCard(
-      title: "Morning Wellness",
-      subtitle: "Log once upon waking up",
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ReadinessRow(label: "Sleep Score",    value: _wSleep,    lowLabel: "Excellent",   highLabel: "Poor",        onChanged: (v) => setState(() => _wSleep    = v)),
-          const SizedBox(height: 10),
-          _ReadinessRow(label: "Wellness Score", value: _wWellness, lowLabel: "Excellent",   highLabel: "Poor",        onChanged: (v) => setState(() => _wWellness = v)),
-          const SizedBox(height: 10),
-          _ReadinessRow(label: "Soreness Score", value: _wSoreness, lowLabel: "No Soreness", highLabel: "Very Severe", onChanged: (v) => setState(() => _wSoreness = v)),
-          const SizedBox(height: 10),
-          _ReadinessRow(label: "Fatigue Score",  value: _wFatigue,  lowLabel: "Fully Fresh", highLabel: "Exhausted",   onChanged: (v) => setState(() => _wFatigue  = v)),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _submitWellness,
-            icon: const Icon(Icons.wb_sunny_rounded, size: 18),
-            label: const Text("Log Morning Wellness"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD97706),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-          ),
         ],
       ),
     );
@@ -1131,7 +1014,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             const SizedBox(height: 12),
           ],
           if (capped)
-            _DailyLimitNotice(text: "Daily skill limit reached ($_maxSkillPerDay session).")
+            _DailyLimitNotice(text: "Daily skill limit reached ($_maxSkillPerDay sessions).")
           else
             OutlinedButton.icon(
               onPressed: () => setState(() {
@@ -1220,7 +1103,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                     ),
                     Switch(
                       value: _sHasSub,
-                      activeColor: Colors.greenAccent,
+                      activeThumbColor: Colors.greenAccent,
                       onChanged: (v) => setState(() => _sHasSub = v),
                     ),
                   ],
@@ -1698,59 +1581,6 @@ class _DayRecordTileState extends State<_DayRecordTile> {
           const SizedBox(height: 4),
         ],
         Divider(height: 1, color: kBorder),
-      ],
-    );
-  }
-}
-
-// ── Readiness Row ─────────────────────────────────────────────────────────────
-
-class _ReadinessRow extends StatelessWidget {
-  final String label, lowLabel, highLabel;
-  final int    value;
-  final ValueChanged<int> onChanged;
-  const _ReadinessRow({required this.label, required this.value, required this.lowLabel, required this.highLabel, required this.onChanged});
-
-  Color _color(int v) {
-    if (v == 1) return Colors.greenAccent;
-    if (v == 2) return Colors.lightGreenAccent;
-    if (v == 3) return Colors.yellowAccent;
-    if (v == 4) return Colors.orangeAccent;
-    return Colors.redAccent;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 13)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: _color(value).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: _color(value).withValues(alpha: 0.6)),
-              ),
-              child: Text(value.toString(), style: TextStyle(color: _color(value), fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        Slider(
-          value: value.toDouble(), min: 1, max: 5, divisions: 4,
-          activeColor: _color(value),
-          onChanged: (v) => onChanged(v.round()),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(lowLabel,  style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            Text(highLabel, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          ],
-        ),
       ],
     );
   }

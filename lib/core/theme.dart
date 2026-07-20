@@ -25,6 +25,20 @@ Color kSleep         = _darkSleep;
 /// (status bar style, etc.).
 bool kIsLight = false;
 
+// ── Typography ────────────────────────────────────────────────────────────────
+/// Display font for headlines/titles/large stats (Conthrax-style techno face).
+const String kHeadlineFont = 'ChakraPetch';
+/// Default font across the entire app.
+const String kBodyFont = 'ChakraPetch';
+
+/// The "bold slanted" headline treatment: bold weight + italic slant.
+/// Apply on top of a base style, e.g. `TextStyle(fontSize: 24).merge(kHeadline)`.
+const TextStyle kHeadline = TextStyle(
+  fontFamily: kHeadlineFont,
+  fontWeight: FontWeight.w700,
+  fontStyle: FontStyle.italic,
+);
+
 // ── Dark palette ──────────────────────────────────────────────────────────────
 const Color _darkBg            = Color(0xFF191C22);
 const Color _darkSurface       = Color(0xFF13151C);
@@ -125,7 +139,7 @@ Brightness effectiveBrightness(ThemeMode mode) {
 ThemeData buildAppTheme() => ThemeData(
   brightness: kIsLight ? Brightness.light : Brightness.dark,
   scaffoldBackgroundColor: kBg,
-  fontFamily: 'SF Pro Display',
+  fontFamily: kBodyFont,
   colorScheme: ColorScheme(
     brightness: kIsLight ? Brightness.light : Brightness.dark,
     primary: kAccent,
@@ -143,10 +157,12 @@ ThemeData buildAppTheme() => ThemeData(
     centerTitle: false,
     iconTheme: IconThemeData(color: kTextPrimary),
     titleTextStyle: TextStyle(
+      fontFamily: kHeadlineFont,
+      fontStyle: FontStyle.italic,
       color: kTextPrimary,
       fontSize: 17,
       fontWeight: FontWeight.w700,
-      letterSpacing: -0.3,
+      letterSpacing: 0.2,
     ),
     systemOverlayStyle: kIsLight ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light,
   ),
@@ -186,5 +202,21 @@ ThemeData buildAppTheme() => ThemeData(
     behavior: SnackBarBehavior.floating,
   ),
   dividerTheme: DividerThemeData(color: kBorder, thickness: 1),
+  // Chakra Petch is the default throughout the app. Display styles additionally
+  // receive the bold italic headline treatment.
+  textTheme: _baseTextTheme.copyWith(
+    displayLarge:   _baseTextTheme.displayLarge?.merge(kHeadline),
+    displayMedium:  _baseTextTheme.displayMedium?.merge(kHeadline),
+    displaySmall:   _baseTextTheme.displaySmall?.merge(kHeadline),
+    headlineLarge:  _baseTextTheme.headlineLarge?.merge(kHeadline),
+    headlineMedium: _baseTextTheme.headlineMedium?.merge(kHeadline),
+    headlineSmall:  _baseTextTheme.headlineSmall?.merge(kHeadline),
+    titleLarge:     _baseTextTheme.titleLarge?.merge(kHeadline),
+  ),
   useMaterial3: false,
 );
+
+/// Base text theme for the active brightness, used to derive [buildAppTheme]'s
+/// mixed body/headline typography.
+final TextTheme _baseTextTheme =
+    (kIsLight ? ThemeData.light() : ThemeData.dark()).textTheme;

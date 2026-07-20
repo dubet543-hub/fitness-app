@@ -50,6 +50,8 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     text.toUpperCase(),
     style: TextStyle(
+      fontFamily: kHeadlineFont,
+      fontStyle: FontStyle.italic,
       fontSize: 11,
       fontWeight: FontWeight.w700,
       color: kTextSecondary,
