@@ -175,22 +175,22 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
           const SizedBox(height: 12),
           _rangeBar(),
           const SizedBox(height: 16),
-          _acwrPanel('Training Workload', _trainData, Colors.lightBlueAccent),
+          _acwrPanel('Training Workload', _trainData, kSky),
           const SizedBox(height: 12),
-          _acwrPanel('Skill Workload',    _skillData, Colors.greenAccent),
+          _acwrPanel('Skill Workload',    _skillData, kSuccess),
           const SizedBox(height: 12),
-          _acwrPanel('Daily Total',       _totalData, Colors.purpleAccent),
+          _acwrPanel('Daily Total',       _totalData, kViolet),
           const SizedBox(height: 18),
 
           Text('LOAD VS EXERTION',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
                   color: kTextSecondary, letterSpacing: 1.4)),
           const SizedBox(height: 10),
-          _loadExertionPanel('Training Load vs Exertion', _trainData, Colors.lightBlueAccent),
+          _loadExertionPanel('Training Load vs Exertion', _trainData, kSky),
           const SizedBox(height: 12),
-          _loadExertionPanel('Skill Load vs Exertion',    _skillData, Colors.greenAccent),
+          _loadExertionPanel('Skill Load vs Exertion',    _skillData, kSuccess),
           const SizedBox(height: 12),
-          _loadExertionPanel('Daily Load vs Exertion',    _totalData, Colors.purpleAccent),
+          _loadExertionPanel('Daily Load vs Exertion',    _totalData, kViolet),
         ],
       ),
     );
@@ -292,7 +292,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final last7  = well.sublist(max(0, well.length - 7));
     final avgPct = last7.map((r) => r.readinessPct).reduce((a, b) => a + b) / last7.length;
     final todayR = well.last.readinessPct;
-    final rColor = todayR >= 0.60 ? kAccent : todayR >= 0.35 ? Colors.orangeAccent : Colors.redAccent;
+    final rColor = todayR >= 0.60 ? kAccent : todayR >= 0.35 ? kWarn : kDanger;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
@@ -349,9 +349,9 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         const SizedBox(height: 10),
         _metricBars('Wellness',         well.map((r) => r.wellness).toList(), kAccent,             well.map((r) => r.d).toList()),
         const SizedBox(height: 10),
-        _metricBars('Muscle Soreness',  well.map((r) => r.soreness).toList(), Colors.orangeAccent, well.map((r) => r.d).toList()),
+        _metricBars('Muscle Soreness',  well.map((r) => r.soreness).toList(), kWarn, well.map((r) => r.d).toList()),
         const SizedBox(height: 10),
-        _metricBars('Fatigue',          well.map((r) => r.fatigue).toList(),  Colors.redAccent,    well.map((r) => r.d).toList()),
+        _metricBars('Fatigue',          well.map((r) => r.fatigue).toList(),  kDanger,    well.map((r) => r.d).toList()),
       ]),
     );
   }
@@ -360,7 +360,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final last7v = values.sublist(max(0, values.length - 7));
     final last7d = dates.sublist(max(0, dates.length - 7));
     final cur    = last7v.last;
-    final col    = cur <= 2 ? kAccent : cur == 3 ? Colors.orangeAccent : Colors.redAccent;
+    final col    = cur <= 2 ? kAccent : cur == 3 ? kWarn : kDanger;
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Container(width: 3, height: 14, margin: const EdgeInsets.only(right: 8),
@@ -393,7 +393,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   Widget _cumulativeScorePanel(List<_RP> well) {
     final totals = well.map((r) => r.sleep + r.wellness + r.soreness + r.fatigue).toList();
     final cur    = totals.last;
-    final col    = cur <= 8 ? kAccent : cur <= 13 ? Colors.orangeAccent : Colors.redAccent;
+    final col    = cur <= 8 ? kAccent : cur <= 13 ? kWarn : kDanger;
     final zone   = cur <= 8 ? 'Optimal Recovery' : cur <= 13 ? 'Monitor — Moderate Load' : 'High Exertion — Intervene';
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
@@ -427,8 +427,8 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
       const SizedBox(height: 8),
       Wrap(spacing: 14, runSpacing: 4, children: [
         _ldot(kAccent,             '≤ 8  Optimal'),
-        _ldot(Colors.orangeAccent, '8–13  Caution'),
-        _ldot(Colors.redAccent,    '> 13  Risk'),
+        _ldot(kWarn, '8–13  Caution'),
+        _ldot(kDanger,    '> 13  Risk'),
       ]),
     ]));
   }
@@ -444,12 +444,12 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final debt    = sleepDebtMinutes(sleep, i);      // null = no debt that night
     final effPct  = last.efficiency * 100;
 
-    final effCol  = effPct >= 85 ? kAccent : effPct >= 75 ? Colors.orangeAccent : Colors.redAccent;
+    final effCol  = effPct >= 85 ? kAccent : effPct >= 75 ? kWarn : kDanger;
     // Debt is measured against the athlete's own weekly average, so an hour
     // behind is already meaningful — much tighter thresholds than a fixed need.
     final debtCol = debt == null || debt <= 30
         ? kAccent
-        : debt <= 60 ? Colors.orangeAccent : Colors.redAccent;
+        : debt <= 60 ? kWarn : kDanger;
 
     final summary = effPct >= 85 && (debt ?? 0) <= 30
         ? 'Sleep is restorative — efficiency is high and last night held the weekly average. Maintain current routine.'
@@ -553,20 +553,20 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
 
         // Exertion arc trio
         Row(children: [
-          Expanded(child: _exertionArc('Training', train.exertion, Colors.lightBlueAccent)),
+          Expanded(child: _exertionArc('Training', train.exertion, kSky)),
           const SizedBox(width: 10),
-          Expanded(child: _exertionArc('Skill',    skill.exertion, Colors.greenAccent)),
+          Expanded(child: _exertionArc('Skill',    skill.exertion, kSuccess)),
           const SizedBox(width: 10),
-          Expanded(child: _exertionArc('Total',    total.exertion, Colors.purpleAccent)),
+          Expanded(child: _exertionArc('Total',    total.exertion, kViolet)),
         ]),
         const SizedBox(height: 14),
 
         // Session cards
-        _sessionCard('Training',    train, Colors.lightBlueAccent, Icons.fitness_center_rounded),
+        _sessionCard('Training',    train, kSky, Icons.fitness_center_rounded),
         const SizedBox(height: 10),
-        _sessionCard('Skill',       skill, Colors.greenAccent,     Icons.sports_cricket_rounded),
+        _sessionCard('Skill',       skill, kSuccess,     Icons.sports_cricket_rounded),
         const SizedBox(height: 10),
-        _sessionCard('Daily Total', total, Colors.purpleAccent,    Icons.stacked_bar_chart_rounded),
+        _sessionCard('Daily Total', total, kViolet,    Icons.stacked_bar_chart_rounded),
         const SizedBox(height: 14),
 
         // Readiness today
@@ -579,8 +579,8 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
             const Spacer(),
             () {
               final col = well.readinessPct >= 0.6 ? kAccent
-                  : well.readinessPct >= 0.35 ? Colors.orangeAccent
-                  : Colors.redAccent;
+                  : well.readinessPct >= 0.35 ? kWarn
+                  : kDanger;
               return Text('${(well.readinessPct * 100).round()}%',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: col));
             }(),
@@ -718,7 +718,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   ]);
 
   Widget _microBadge(String label, int value) {
-    final col = value <= 2 ? kAccent : value == 3 ? Colors.orangeAccent : Colors.redAccent;
+    final col = value <= 2 ? kAccent : value == 3 ? kWarn : kDanger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
@@ -731,7 +731,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   }
 
   Widget _readyBadge(String label, int value) {
-    final col = value <= 2 ? kAccent : value == 3 ? Colors.orangeAccent : Colors.redAccent;
+    final col = value <= 2 ? kAccent : value == 3 ? kWarn : kDanger;
     return Column(children: [
       Container(
         width: 36, height: 36,
@@ -763,10 +763,10 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   Color _acwrColor(double v) {
-    if (v < 0.8)  return Colors.blueAccent;
-    if (v <= 1.3) return Colors.greenAccent;
-    if (v <= 1.5) return Colors.orangeAccent;
-    return Colors.redAccent;
+    if (v < 0.8)  return kInfo;
+    if (v <= 1.3) return kSuccess;
+    if (v <= 1.5) return kWarn;
+    return kDanger;
   }
 
   String _acwrZone(double v) {
@@ -809,7 +809,7 @@ class _LoadExertionPainter extends CustomPainter {
     // Track background
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(0, tPad, size.width, chartH), const Radius.circular(4)),
-      Paint()..color = Colors.white.withValues(alpha: 0.04),
+      Paint()..color = kTextPrimary.withValues(alpha: 0.04),
     );
 
     // Bars = load
@@ -881,15 +881,15 @@ class _AcwrSparkPainter extends CustomPainter {
     // Zone bands
     void band(double lo, double hi, Color c) =>
         canvas.drawRect(Rect.fromLTRB(0, yAt(hi), w, yAt(lo)), Paint()..color = c);
-    band(1.5, 2.0, Colors.redAccent.withValues(alpha: 0.07));
-    band(1.3, 1.5, Colors.orangeAccent.withValues(alpha: 0.07));
-    band(0.8, 1.3, Colors.greenAccent.withValues(alpha: 0.07));
-    band(0.0, 0.8, Colors.blueAccent.withValues(alpha: 0.06));
+    band(1.5, 2.0, kDanger.withValues(alpha: 0.07));
+    band(1.3, 1.5, kWarn.withValues(alpha: 0.07));
+    band(0.8, 1.3, kSuccess.withValues(alpha: 0.07));
+    band(0.0, 0.8, kInfo.withValues(alpha: 0.06));
 
     // Threshold lines
     for (final v in [0.8, 1.3, 1.5]) {
       canvas.drawLine(Offset(0, yAt(v)), Offset(w, yAt(v)),
-          Paint()..color = Colors.white.withValues(alpha: 0.09)..strokeWidth = 0.5);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.09)..strokeWidth = 0.5);
     }
 
     final vals = data.map((p) => p.acwr.clamp(vMin, vMax)).toList();
@@ -929,7 +929,7 @@ class _AcwrSparkPainter extends CustomPainter {
     // Last dot
     canvas.drawCircle(pts.last, 4.5, Paint()..color = color);
     canvas.drawCircle(pts.last, 4.5, Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
+      ..color = kTextPrimary.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke..strokeWidth = 1.0);
   }
 
@@ -990,7 +990,7 @@ class _MetricBarsPainter extends CustomPainter {
       // Day label
       final dayLbl = labels[i].split('/')[0];
       final td = TextPainter(
-        text: TextSpan(text: dayLbl, style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8.5)),
+        text: TextSpan(text: dayLbl, style: TextStyle(color: kGrid, fontSize: 8.5)),
         textDirection: TextDirection.ltr,
       )..layout();
       td.paint(canvas, Offset(i * slotW + slotW / 2 - td.width / 2, size.height * maxH + 4));
@@ -1039,7 +1039,7 @@ class _ExertionArcPainter extends CustomPainter {
     final tp = TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(text: exertion.toStringAsFixed(1),
-          style: TextStyle(color: Colors.white, fontSize: fs, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+          style: TextStyle(color: kTextPrimary, fontSize: fs, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
     )..layout();
     tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2 + 3));
 
@@ -1076,14 +1076,14 @@ class _CumulativeScorePainter extends CustomPainter {
 
     // Zone bands
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(8), size.width, yAt(4)),
-        Paint()..color = Colors.greenAccent.withValues(alpha: 0.06));
+        Paint()..color = kSuccess.withValues(alpha: 0.06));
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(13), size.width, yAt(8)),
-        Paint()..color = Colors.orangeAccent.withValues(alpha: 0.06));
+        Paint()..color = kWarn.withValues(alpha: 0.06));
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(20), size.width, yAt(13)),
-        Paint()..color = Colors.redAccent.withValues(alpha: 0.06));
+        Paint()..color = kDanger.withValues(alpha: 0.06));
 
     // Reference lines at 8 and 13 (PDF requirement)
-    for (final entry in [[8.0, Colors.greenAccent], [13.0, Colors.redAccent]]) {
+    for (final entry in [[8.0, kSuccess], [13.0, kDanger]]) {
       final v = entry[0] as double;
       final c = entry[1] as Color;
       final y = yAt(v);
@@ -1105,7 +1105,7 @@ class _CumulativeScorePainter extends CustomPainter {
     for (final v in [4.0, 12.0, 20.0]) {
       final tp = TextPainter(
         text: TextSpan(text: v.toStringAsFixed(0),
-            style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8)),
+            style: TextStyle(color: kGrid, fontSize: 8)),
         textDirection: TextDirection.ltr,
       )..layout();
       if (v != 4 && v != 20) tp.paint(canvas, Offset(2, yAt(v) - tp.height / 2));
@@ -1124,13 +1124,13 @@ class _CumulativeScorePainter extends CustomPainter {
       path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
     }
     canvas.drawPath(path, Paint()
-      ..color = Colors.purpleAccent..strokeWidth = 2.2
+      ..color = kViolet..strokeWidth = 2.2
       ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
 
     // Dots, coloured by zone
     for (int i = 0; i < n; i++) {
       final v = totals[i];
-      final c = v <= 8 ? kAccent : v <= 13 ? Colors.orangeAccent : Colors.redAccent;
+      final c = v <= 8 ? kAccent : v <= 13 ? kWarn : kDanger;
       canvas.drawCircle(pts[i], i == n - 1 ? 4.0 : 2.6, Paint()..color = c);
     }
 
@@ -1139,7 +1139,7 @@ class _CumulativeScorePainter extends CustomPainter {
     for (int i = 0; i < n; i += step) {
       final lbl = dates[i].split('/')[0];
       final tp = TextPainter(
-        text: TextSpan(text: lbl, style: const TextStyle(color: Color(0xFF5C6280), fontSize: 7.5)),
+        text: TextSpan(text: lbl, style: TextStyle(color: kGrid, fontSize: 7.5)),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(xAt(i) - tp.width / 2, size.height - bPad + 4));

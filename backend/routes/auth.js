@@ -129,6 +129,22 @@ router.post('/change-password', authenticate, async (req, res) => {
   }
 });
 
+// DELETE /api/auth/me/data — erase recorded training data, keep the account.
+router.delete('/me/data', authenticate, async (req, res) => {
+  try {
+    const id = req.user._id;
+    const TrainingSession = require('../models/TrainingSession');
+    const BodyComposition = require('../models/BodyComposition');
+    await Promise.all([
+      TrainingSession.deleteMany({ athlete: id }),
+      BodyComposition.deleteMany({ athlete: id }),
+    ]);
+    res.json({ message: 'Data deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE /api/auth/me  — permanently delete own account + data
 router.delete('/me', authenticate, async (req, res) => {
   try {

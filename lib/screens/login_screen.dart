@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../services/local_log_store.dart';
+import '../widgets/common_widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   final Future<void> Function(String email, String password) onEmailSignIn;
@@ -100,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // ── Logo ─────────────────────────────────────────────────
                   Center(
-                    child: Image.asset('assets/images/solidcore_logo.png', width: 190),
+                    child: BrandLogo(width: 190),
                   ),
                   const SizedBox(height: 34),
 
@@ -229,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   child: _remember
-                      ? const Icon(Icons.check_rounded, size: 14, color: Colors.black)
+                      ? Icon(Icons.check_rounded, size: 14, color: kOnAccent)
                       : null,
                 ),
                 const SizedBox(width: 10),
@@ -248,14 +249,14 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _loading ? null : _submit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kAccent,
-                foregroundColor: Colors.black,
+                foregroundColor: kOnAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 8,
                 shadowColor: kAccent.withValues(alpha: 0.55),
               ),
               child: _loading
-                  ? const SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5))
+                  ? SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(color: kOnAccent, strokeWidth: 2.5))
                   : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
             ),
           ),

@@ -69,7 +69,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           title: Text('Change password', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700, fontSize: 17)),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             if (error != null) ...[
-              Text(error!, style: TextStyle(color: Colors.redAccent, fontSize: 12.5)),
+              Text(error!, style: TextStyle(color: kDanger, fontSize: 12.5)),
               const SizedBox(height: 10),
             ],
             _pwField(currentCtrl, 'Current password'),
@@ -131,9 +131,46 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       };
       final json = const JsonEncoder.withIndent('  ').convert(export);
       await Share.share(json, subject: 'My SolidCore data export');
-    } catch (_) {
-      if (mounted) _snack('Could not export your data. Please try again.');
+    } catch (e) {
+      if (mounted) _snack('Could not export your data: ${e.toString().replaceFirst('Exception: ', '')}');
     }
+  }
+
+  // ── Delete my data ───────────────────────────────────────────────────────────
+  // Erases recorded training/body-composition history but keeps the account
+  // and session — distinct from "Delete account" below, which erases both.
+  void _confirmDeleteData() {
+    showDialog(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Delete my data?', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700)),
+        content: Text(
+          'This permanently erases your training sessions and body-composition history. Your account stays active.',
+          style: TextStyle(color: kTextSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dctx),
+            child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dctx);
+              try {
+                await ApiService.deleteMyData();
+                await LocalLogStore.clearBcaHistory();
+                if (mounted) _snack('Your data has been deleted');
+              } catch (e) {
+                if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+              }
+            },
+            child: Text('Delete', style: TextStyle(color: kDanger, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Delete account ───────────────────────────────────────────────────────────
@@ -166,7 +203,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
               }
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
+            child: Text('Delete', style: TextStyle(color: kDanger, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -192,7 +229,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           _Group(children: [
             _RowItem(
               icon: Icons.lock_outline_rounded,
-              iconColor: const Color(0xFF38BDF8),
+              iconColor: kSky,
               label: 'Change password',
               onTap: _changePassword,
             ),
@@ -206,7 +243,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
             _RowItem(
               icon: Icons.phone_android_rounded,
-              iconColor: const Color(0xFFA78BFA),
+              iconColor: kViolet,
               label: 'Manage devices',
               trailing: '2 active',
               onTap: () => _snack('Active sessions listed'),
@@ -231,7 +268,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
             _ToggleItem(
               icon: Icons.camera_alt_outlined,
-              iconColor: const Color(0xFF38BDF8),
+              iconColor: kSky,
               label: 'Camera-based features',
               subtitle: 'On-device posture, running & bowling analysis',
               value: cameraConsent,
@@ -243,7 +280,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
             _ToggleItem(
               icon: Icons.analytics_outlined,
-              iconColor: const Color(0xFFF59E0B),
+              iconColor: kWarn,
               label: 'Analytics sharing',
               subtitle: 'Help improve SolidCore',
               value: analyticsShare,
@@ -264,6 +301,12 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             icon: Icons.person_off_outlined,
             label: 'Deactivate account',
             onTap: () => _snack('Deactivation requires confirmation'),
+          ),
+          const SizedBox(height: 8),
+          _DangerButton(
+            icon: Icons.delete_sweep_outlined,
+            label: 'Delete my data',
+            onTap: _confirmDeleteData,
           ),
           const SizedBox(height: 8),
           _DangerButton(
@@ -412,9 +455,9 @@ class _DangerButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: Colors.redAccent),
+            Icon(icon, size: 18, color: kDanger),
             const SizedBox(width: 12),
-            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.redAccent)),
+            Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kDanger)),
           ],
         ),
       ),

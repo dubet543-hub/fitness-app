@@ -111,7 +111,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                         color: kAccent, shape: BoxShape.circle,
                         border: Border.all(color: kBg, width: 2),
                       ),
-                      child: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.black),
+                      child: Icon(Icons.camera_alt_rounded, size: 14, color: kOnAccent),
                     ),
                   ),
                 ],
@@ -198,7 +198,7 @@ class _FormField extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kAccent, width: 1.5)),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.redAccent)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kDanger)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );

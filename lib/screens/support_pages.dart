@@ -54,7 +54,7 @@ class HelpCenterPage extends StatelessWidget {
           _Group(children: [
             _ContactRow(
               icon: Icons.email_outlined,
-              iconColor: const Color(0xFF38BDF8),
+              iconColor: kSky,
               label: 'Email support',
               onTap: () => _openEmail(context, subject: 'SolidCore support request'),
             ),

@@ -293,6 +293,17 @@ class ApiService {
       throw Exception(_body(res)['error'] ?? 'Failed to change password');
   }
 
+  /// DELETE /api/auth/me/data — erase recorded training data, keep the account
+  /// and session intact.
+  static Future<void> deleteMyData() async {
+    final res = await http.delete(
+      Uri.parse('$_baseUrl/auth/me/data'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode != 200)
+      throw Exception(_body(res)['error'] ?? 'Failed to delete your data');
+  }
+
   /// DELETE /api/auth/me — permanently delete the account, then clear the session.
   static Future<void> deleteAccount() async {
     final res = await http.delete(

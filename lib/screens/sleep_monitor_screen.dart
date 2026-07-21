@@ -251,7 +251,7 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: kSleep,
-                foregroundColor: Colors.black,
+                foregroundColor: kOnAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
               ),
@@ -284,9 +284,9 @@ class _SleepSummaryCard extends StatelessWidget {
 
   Color get _qualityColor {
     if (_sleepHours >= 8.0) return kAccent;
-    if (_sleepHours >= 7.0) return const Color(0xFF38BDF8);
-    if (_sleepHours >= 6.0) return const Color(0xFFFBBF24);
-    return const Color(0xFFF87171);
+    if (_sleepHours >= 7.0) return kSky;
+    if (_sleepHours >= 6.0) return kWarn;
+    return kDanger;
   }
 
   String get _qualityLabel {
@@ -611,7 +611,7 @@ class _YesNoTile extends StatelessWidget {
     children: [
       Expanded(child: _ChoiceChip(label: 'No', selected: !value,  color: kAccent,  onTap: () => onChanged(false))),
       const SizedBox(width: 10),
-      Expanded(child: _ChoiceChip(label: 'Yes', selected: value, color: const Color(0xFFF87171), onTap: () => onChanged(true))),
+      Expanded(child: _ChoiceChip(label: 'Yes', selected: value, color: kDanger, onTap: () => onChanged(true))),
     ],
   );
 }
@@ -688,7 +688,7 @@ class _RoomConditionRow extends StatelessWidget {
         label: 'Temperature',
         hint: 'e.g. 20°C, Cold, Warm',
         controller: tempCtrl,
-        color: const Color(0xFFFF6B35),
+        color: kOrange,
       ),
       const SizedBox(height: 8),
       _RoomTile(
@@ -696,7 +696,7 @@ class _RoomConditionRow extends StatelessWidget {
         label: 'Noise',
         hint: 'e.g. Silent, Fan, Traffic',
         controller: noiseCtrl,
-        color: const Color(0xFF38BDF8),
+        color: kSky,
       ),
       const SizedBox(height: 8),
       _RoomTile(
@@ -704,7 +704,7 @@ class _RoomConditionRow extends StatelessWidget {
         label: 'Light',
         hint: 'e.g. Pitch Black, Dim, Bright',
         controller: lightCtrl,
-        color: const Color(0xFFFBBF24),
+        color: kWarn,
       ),
     ],
   );

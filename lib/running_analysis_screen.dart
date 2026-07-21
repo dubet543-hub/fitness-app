@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import 'services/local_log_store.dart';
+import 'core/theme.dart';
 
 // ── Running Metrics Data Model ────────────────────────────────────────────────
 
@@ -460,13 +461,13 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   Color _statusColor(String status) {
     switch (status) {
       case 'good':
-        return Colors.greenAccent;
+        return kSuccess;
       case 'fair':
-        return Colors.yellowAccent;
+        return kWarn;
       case 'poor':
-        return Colors.redAccent;
+        return kDanger;
       default:
-        return Colors.grey;
+        return kTextSecondary;
     }
   }
 
@@ -573,7 +574,7 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 20),
-          const Icon(Icons.directions_run, size: 60, color: Colors.tealAccent),
+          Icon(Icons.directions_run, size: 60, color: kSuccess),
           const SizedBox(height: 20),
           const Text(
             "Running Form Analysis",
@@ -581,9 +582,9 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             "Record a 10-second running session from the side view",
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(fontSize: 14, color: kTextSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 30),
@@ -614,8 +615,8 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             icon: const Icon(Icons.camera_alt),
             label: const Text("Start Recording"),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.tealAccent,
-              foregroundColor: Colors.black,
+              backgroundColor: kSuccess,
+              foregroundColor: kOnAccent,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),
@@ -632,8 +633,8 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        border: Border.all(color: Colors.white24),
+        color: kTextPrimary.withValues(alpha: 0.05),
+        border: Border.all(color: kBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -641,14 +642,14 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.tealAccent, size: 24),
+              Icon(icon, color: kSuccess, size: 24),
               const SizedBox(width: 10),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white70,
+                  color: kTextSecondary,
                 ),
               ),
             ],
@@ -658,11 +659,11 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: [
-                const Text("• ", style: TextStyle(color: Colors.tealAccent)),
+                Text("• ", style: TextStyle(color: kSuccess)),
                 Expanded(
                   child: Text(
                     item,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: kTextSecondary),
                   ),
                 ),
               ],
@@ -698,7 +699,7 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.yellowAccent, width: 1.5),
+                    border: Border.all(color: kWarn, width: 1.5),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -725,19 +726,19 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 5),
                         decoration: BoxDecoration(
-                          color: Colors.black54,
+                          color: kCameraScrim,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.fiber_manual_record,
-                                color: Colors.redAccent, size: 10),
+                            Icon(Icons.fiber_manual_record,
+                                color: kDanger, size: 10),
                             const SizedBox(width: 5),
                             Text(
                               "$_frameCount fr  •  ${(_frameCount * 0.2).toStringAsFixed(1)}s",
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12),
+                              style: TextStyle(
+                                  color: kOnCamera, fontSize: 12),
                             ),
                           ],
                         ),
@@ -786,12 +787,12 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
                         height: 68,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
+                          border: Border.all(color: kOnCamera, width: 3),
                         ),
                         padding: const EdgeInsets.all(5),
                         child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
+                          decoration: BoxDecoration(
+                            color: kDanger,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -800,7 +801,7 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
                     const SizedBox(height: 10),
                     const Text("Stop Recording",
                         style:
-                            TextStyle(color: Colors.white70, fontSize: 12)),
+                            TextStyle(color: kOnCameraSoft, fontSize: 12)),
                   ],
                 ),
               ),
@@ -818,11 +819,11 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(color: Colors.tealAccent),
+          CircularProgressIndicator(color: kSuccess),
           const SizedBox(height: 20),
           Text(
             "Analyzing $_frameCount frames...",
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(fontSize: 14, color: kTextSecondary),
           ),
         ],
       ),
@@ -855,32 +856,32 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.tealAccent.withValues(alpha: 0.3),
-                  Colors.tealAccent.withValues(alpha: 0.1),
+                  kSuccess.withValues(alpha: 0.3),
+                  kSuccess.withValues(alpha: 0.1),
                 ],
               ),
-              border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.5)),
+              border: Border.all(color: kSuccess.withValues(alpha: 0.5)),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               children: [
-                const Text(
+                Text(
                   "Overall Form Score",
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  style: TextStyle(fontSize: 14, color: kTextSecondary),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   "${_results!.overallScore.toStringAsFixed(0)}",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 48,
                     fontWeight: FontWeight.bold,
-                    color: Colors.tealAccent,
+                    color: kSuccess,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   _getScoreInterpretation(_results!.overallScore),
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  style: TextStyle(fontSize: 12, color: kTextSecondary),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -941,17 +942,17 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.tealAccent.withValues(alpha: 0.10),
+              color: kSuccess.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.4)),
+              border: Border.all(color: kSuccess.withValues(alpha: 0.4)),
             ),
             child: Row(children: [
-              const Icon(Icons.medical_services_outlined, color: Colors.tealAccent, size: 20),
+              Icon(Icons.medical_services_outlined, color: kSuccess, size: 20),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'This analysis flags running-form defaults only. Consult a Physiotherapist or SNC coach to address them.',
-                  style: TextStyle(fontSize: 11.5, color: Colors.white, height: 1.35),
+                  style: TextStyle(fontSize: 11.5, color: kTextPrimary, height: 1.35),
                 ),
               ),
             ]),
@@ -962,8 +963,8 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             icon: const Icon(Icons.refresh),
             label: const Text("Analyze Another Run"),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.tealAccent,
-              foregroundColor: Colors.black,
+              backgroundColor: kSuccess,
+              foregroundColor: kOnAccent,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),
@@ -1025,14 +1026,14 @@ class _CamIconButton extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: active
-              ? Colors.white.withValues(alpha: 0.9)
-              : Colors.black.withValues(alpha: 0.45),
+              ? kTextPrimary.withValues(alpha: 0.9)
+              : kOnAccent.withValues(alpha: 0.45),
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
           size: 22,
-          color: active ? Colors.black : Colors.white,
+          color: active ? kOnAccent : kTextPrimary,
         ),
       ),
     );
@@ -1064,13 +1065,13 @@ class _ZoomControls extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: kOnAccent.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             "${zoom.toStringAsFixed(1)}×",
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: kTextPrimary,
               fontSize: 11,
               fontWeight: FontWeight.bold,
             ),
@@ -1095,11 +1096,11 @@ class _ZoomBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.45),
+          color: kOnAccent.withValues(alpha: 0.45),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 18,
-            color: onTap != null ? Colors.white : Colors.white30),
+            color: onTap != null ? kTextPrimary : kTextMuted),
       ),
     );
   }
@@ -1140,10 +1141,10 @@ class _MetricCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white70,
+                    color: kTextSecondary,
                   ),
                 ),
               ),
@@ -1168,7 +1169,7 @@ class _MetricCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             feedback,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
+            style: TextStyle(fontSize: 11, color: kTextSecondary),
           ),
         ],
       ),

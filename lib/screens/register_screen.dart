@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../widgets/common_widgets.dart';
 
 class RegisterScreen extends StatefulWidget {
   final Future<void> Function(String name, String email, String password, String? sport) onRegister;
@@ -88,7 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               const SizedBox(height: 8),
               Center(
-                child: Image.asset('assets/images/solidcore_logo.png', width: 150),
+                child: BrandLogo(width: 150),
               ),
               const SizedBox(height: 8),
               Text('Create your account',
@@ -141,8 +142,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                      ? SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: kOnAccent))
                       : const Text('Create Account',
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                 ),

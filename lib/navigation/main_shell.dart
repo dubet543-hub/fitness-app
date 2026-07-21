@@ -54,8 +54,14 @@ class _MainShellState extends State<MainShell> {
         // pushing a second copy of it over the shell.
         onOpenProfile: () => setState(() => _currentIndex = 3),
       ),
-      const ExploreTab(),
-      const PlayerDashboardScreen(),
+      // NOT const. The palette in theme.dart is mutable globals read at build
+      // time, so a screen only picks up a light/dark switch if it actually
+      // rebuilds. Flutter's updateChild skips the subtree when the new widget
+      // is identical to the old one, which is exactly what a const constructor
+      // guarantees — so `const` here leaves these two tabs stuck on the old
+      // palette while the parameterised tabs repaint correctly.
+      ExploreTab(),               // ignore: prefer_const_constructors
+      PlayerDashboardScreen(),    // ignore: prefer_const_constructors
       ProfileTab(
         name:     widget.name,
         email:    widget.email,
@@ -195,7 +201,7 @@ class _MagicTab extends StatelessWidget {
                 child: Icon(
                   active ? activeIcon : icon,
                   size: 22,
-                  color: active ? Colors.black : kTextMuted,
+                  color: active ? kOnAccent : kTextMuted,
                 ),
               ),
             ),
@@ -413,7 +419,7 @@ class _LogButton extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.add_rounded, size: 24, color: Colors.black),
+              child: Icon(Icons.add_rounded, size: 24, color: kOnAccent),
             ),
             const SizedBox(height: 4),
             Text(

@@ -64,10 +64,10 @@ class WellnessLog {
 
   Color get readinessColor {
     final p = readinessPercent;
-    if (p >= 75) return Colors.greenAccent;
-    if (p >= 50) return Colors.yellowAccent;
-    if (p >= 25) return Colors.orangeAccent;
-    return Colors.redAccent;
+    if (p >= 75) return kSuccess;
+    if (p >= 50) return kWarn;
+    if (p >= 25) return kWarn;
+    return kDanger;
   }
 }
 
@@ -166,7 +166,7 @@ class DailyRecord {
   double get totalLoad    => trainingLoad + skillLoad;
 
   double get readinessPercent => wellness?.readinessPercent ?? 0;
-  Color  get readinessColor   => wellness?.readinessColor   ?? Colors.grey;
+  Color  get readinessColor   => wellness?.readinessColor   ?? kTextSecondary;
 
   double get scaledGrade {
     if (totalLoad <= 0) return 0;
@@ -767,13 +767,13 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.redAccent.withValues(alpha: 0.12),
+                color: kDanger.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
+                border: Border.all(color: kDanger.withValues(alpha: 0.35)),
               ),
               child: Text(
                 'Failed to sync sessions: $_sessionError',
-                style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                style: TextStyle(fontSize: 12, color: kDanger),
               ),
             ),
             const SizedBox(height: 12),
@@ -971,7 +971,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             label: const Text("Log Training Session"),
             style: ElevatedButton.styleFrom(
               backgroundColor: kAccent,
-              foregroundColor: Colors.white,
+              foregroundColor: kTextPrimary,
               elevation: 0,
               padding: const EdgeInsets.symmetric(vertical: 13),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1024,8 +1024,8 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
               icon: Icon(_showSkillForm ? Icons.close_rounded : Icons.add_rounded, size: 18),
               label: Text(_showSkillForm ? "Cancel" : "+ Add Skill Session"),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.greenAccent,
-                side: BorderSide(color: _showSkillForm ? kBorder : Colors.greenAccent),
+                foregroundColor: kSuccess,
+                side: BorderSide(color: _showSkillForm ? kBorder : kSuccess),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -1081,7 +1081,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
               color: kCard,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: _sHasSub ? Colors.greenAccent.withValues(alpha: 0.45) : kBorder),
+                  color: _sHasSub ? kSuccess.withValues(alpha: 0.45) : kBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1103,7 +1103,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                     ),
                     Switch(
                       value: _sHasSub,
-                      activeThumbColor: Colors.greenAccent,
+                      activeThumbColor: kSuccess,
                       onChanged: (v) => setState(() => _sHasSub = v),
                     ),
                   ],
@@ -1139,7 +1139,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             label: const Text("Log Skill Session"),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF16A34A),
-              foregroundColor: Colors.white,
+              foregroundColor: kTextPrimary,
               elevation: 0,
               padding: const EdgeInsets.symmetric(vertical: 13),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1236,7 +1236,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                         Text(
                           "Sleep ${last.wellness!.sleep}  ·  Wellness ${last.wellness!.wellness}"
                           "  ·  Soreness ${last.wellness!.soreness}  ·  Fatigue ${last.wellness!.fatigue}",
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          style: TextStyle(fontSize: 11, color: kTextSecondary),
                         ),
                       ],
                     ),
@@ -1251,9 +1251,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             child: Column(
               children: [
                 Row(children: [
-                  Expanded(child: _MetricTile(label: "Acute Load",   subtitle: "Last 7 days",   value: _acuteLoad.toStringAsFixed(0),  color: Colors.lightBlueAccent)),
+                  Expanded(child: _MetricTile(label: "Acute Load",   subtitle: "Last 7 days",   value: _acuteLoad.toStringAsFixed(0),  color: kSky)),
                   const SizedBox(width: 12),
-                  Expanded(child: _MetricTile(label: "Chronic Load", subtitle: "EWMA 28-day",   value: _chronicLoad.toStringAsFixed(1), color: Colors.purpleAccent)),
+                  Expanded(child: _MetricTile(label: "Chronic Load", subtitle: "EWMA 28-day",   value: _chronicLoad.toStringAsFixed(1), color: kViolet)),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
@@ -1266,14 +1266,14 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                   Expanded(child: _MetricTile(
                     label: "Scaled Grade", subtitle: "Last day",
                     value: last != null ? last.scaledGrade.toStringAsFixed(1) : "—",
-                    color: Colors.yellowAccent,
+                    color: kWarn,
                   )),
                 ]),
                 const SizedBox(height: 12),
                 _MetricTile(
                   label: "Z-Score", subtitle: "Last vs chronic baseline",
                   value: records.length < 2 ? "—" : zScore.toStringAsFixed(2),
-                  color: zScore > 2 ? Colors.redAccent : zScore < -2 ? Colors.blueAccent : Colors.tealAccent,
+                  color: zScore > 2 ? kDanger : zScore < -2 ? kInfo : kSuccess,
                 ),
               ],
             ),
@@ -1300,11 +1300,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             title: "ACWR Trends",
             subtitle: "Solid = Chronic Load  ·  Orange dashed = ACWR",
             child: Column(children: [
-              _AcwrTrendChart(data: _buildSeries((r) => r.trainingLoad), title: "Training ACWR",  lineColor: Colors.lightBlueAccent),
+              _AcwrTrendChart(data: _buildSeries((r) => r.trainingLoad), title: "Training ACWR",  lineColor: kSky),
               const SizedBox(height: 14),
-              _AcwrTrendChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill ACWR",     lineColor: Colors.greenAccent),
+              _AcwrTrendChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill ACWR",     lineColor: kSuccess),
               const SizedBox(height: 14),
-              _AcwrTrendChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily ACWR",     lineColor: Colors.purpleAccent),
+              _AcwrTrendChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily ACWR",     lineColor: kViolet),
             ]),
           ),
           const SizedBox(height: 12),
@@ -1313,11 +1313,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             title: "Load vs Exertion",
             subtitle: "Bars = Load  ·  White line = Scaled Grade",
             child: Column(children: [
-              _LoadExertionChart(data: _buildSeries((r) => r.trainingLoad), title: "Training Load vs Exertion", barColor: Colors.lightBlueAccent),
+              _LoadExertionChart(data: _buildSeries((r) => r.trainingLoad), title: "Training Load vs Exertion", barColor: kSky),
               const SizedBox(height: 14),
-              _LoadExertionChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill Load vs Exertion",    barColor: Colors.greenAccent),
+              _LoadExertionChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill Load vs Exertion",    barColor: kSuccess),
               const SizedBox(height: 14),
-              _LoadExertionChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily Load vs Exertion",    barColor: Colors.purpleAccent),
+              _LoadExertionChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily Load vs Exertion",    barColor: kViolet),
             ]),
           ),
           const SizedBox(height: 12),
@@ -1351,11 +1351,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   }
 
   Color  _acwrColor(double v) {
-    if (v == 0)   return Colors.grey;
-    if (v < 0.8)  return Colors.blueAccent;
-    if (v <= 1.3) return Colors.greenAccent;
-    if (v <= 1.5) return Colors.orangeAccent;
-    return Colors.redAccent;
+    if (v == 0)   return kTextSecondary;
+    if (v < 0.8)  return kInfo;
+    if (v <= 1.3) return kSuccess;
+    if (v <= 1.5) return kWarn;
+    return kDanger;
   }
 
   String _acwrLabel(double v) {
@@ -1382,7 +1382,7 @@ class _DailyLimitNotice extends StatelessWidget {
       border: Border.all(color: kBorder),
     ),
     child: Row(children: [
-      const Icon(Icons.check_circle_rounded, size: 18, color: Colors.greenAccent),
+      Icon(Icons.check_circle_rounded, size: 18, color: kSuccess),
       const SizedBox(width: 10),
       Expanded(
         child: Text(text,
@@ -1462,17 +1462,17 @@ class _SkillLogTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.greenAccent.withValues(alpha: 0.07),
+        color: kSuccess.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.25)),
+        border: Border.all(color: kSuccess.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
           Container(
             width: 32, height: 32,
-            decoration: BoxDecoration(color: Colors.greenAccent.withValues(alpha: 0.15), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: kSuccess.withValues(alpha: 0.15), shape: BoxShape.circle),
             child: Center(
-              child: Text("$index", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.greenAccent)),
+              child: Text("$index", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kSuccess)),
             ),
           ),
           const SizedBox(width: 10),
@@ -1594,10 +1594,10 @@ class _RpeSlider extends StatelessWidget {
   const _RpeSlider({required this.value, required this.onChanged});
 
   Color _color(int v) {
-    if (v <= 3) return Colors.greenAccent;
-    if (v <= 6) return Colors.yellowAccent;
-    if (v <= 8) return Colors.orangeAccent;
-    return Colors.redAccent;
+    if (v <= 3) return kSuccess;
+    if (v <= 6) return kWarn;
+    if (v <= 8) return kWarn;
+    return kDanger;
   }
 
   @override
@@ -1611,9 +1611,9 @@ class _RpeSlider extends StatelessWidget {
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text("1 Not Intense", style: TextStyle(fontSize: 10, color: Colors.grey)),
+          Text("1 Not Intense", style: TextStyle(fontSize: 10, color: kTextSecondary)),
           Text("RPE $value", style: TextStyle(fontWeight: FontWeight.bold, color: _color(value))),
-          const Text("10 Very Intense", style: TextStyle(fontSize: 10, color: Colors.grey)),
+          Text("10 Very Intense", style: TextStyle(fontSize: 10, color: kTextSecondary)),
         ],
       ),
     ]);
@@ -1636,12 +1636,12 @@ class _ChipSelector<T> extends StatelessWidget {
       children: values.map((v) {
         final on = selected.contains(v);
         return FilterChip(
-          label: Text(label(v), style: TextStyle(fontSize: 12, color: on ? Colors.white : kTextSecondary, fontWeight: on ? FontWeight.w600 : FontWeight.normal)),
+          label: Text(label(v), style: TextStyle(fontSize: 12, color: on ? kTextPrimary : kTextSecondary, fontWeight: on ? FontWeight.w600 : FontWeight.normal)),
           selected: on,
           onSelected: (_) => onToggle(v),
           selectedColor: kAccent,
           backgroundColor: kBg,
-          checkmarkColor: Colors.white,
+          checkmarkColor: kTextPrimary,
           side: BorderSide(color: on ? kAccent : kBorder),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1704,7 +1704,7 @@ class _ReadinessDot extends StatelessWidget {
         children: [
           CircularProgressIndicator(
             value: pct / 100, strokeWidth: 5,
-            backgroundColor: Colors.white12,
+            backgroundColor: kBorder,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
           Text("${pct.toStringAsFixed(0)}%",
@@ -1732,10 +1732,10 @@ class _AcwrGauge extends StatelessWidget {
           child: SizedBox(
             height: 18,
             child: Row(children: [
-              Expanded(flex: 40,  child: Container(color: Colors.blueAccent.withValues(alpha: 0.7))),
-              Expanded(flex: 50,  child: Container(color: Colors.greenAccent.withValues(alpha: 0.85))),
-              Expanded(flex: 10,  child: Container(color: Colors.orangeAccent.withValues(alpha: 0.85))),
-              Expanded(flex: 100, child: Container(color: Colors.redAccent.withValues(alpha: 0.7))),
+              Expanded(flex: 40,  child: Container(color: kInfo.withValues(alpha: 0.7))),
+              Expanded(flex: 50,  child: Container(color: kSuccess.withValues(alpha: 0.85))),
+              Expanded(flex: 10,  child: Container(color: kWarn.withValues(alpha: 0.85))),
+              Expanded(flex: 100, child: Container(color: kDanger.withValues(alpha: 0.7))),
             ]),
           ),
         ),
@@ -1755,23 +1755,23 @@ class _AcwrGauge extends StatelessWidget {
           final x = (c.maxWidth * (clamped / 2.0)).clamp(0.0, c.maxWidth - 20.0);
           return Stack(children: [
             const SizedBox(height: 24),
-            Positioned(left: x, child: Icon(Icons.arrow_drop_down, color: acwr == 0 ? Colors.grey : Colors.white, size: 20)),
+            Positioned(left: x, child: Icon(Icons.arrow_drop_down, color: acwr == 0 ? kTextSecondary : kTextPrimary, size: 20)),
           ]);
         }),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
           acwr == 0 ? "Log sessions to see ACWR" : "ACWR: ${acwr.toStringAsFixed(2)}",
           textAlign: TextAlign.center,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: const [
-            _ZoneLabel("Under-\ntraining", Colors.blueAccent),
-            _ZoneLabel("Sweet\nSpot",      Colors.greenAccent),
-            _ZoneLabel("Caution",          Colors.orangeAccent),
-            _ZoneLabel("Danger",           Colors.redAccent),
+          children: [
+            _ZoneLabel("Under-\ntraining", kInfo),
+            _ZoneLabel("Sweet\nSpot",      kSuccess),
+            _ZoneLabel("Caution",          kWarn),
+            _ZoneLabel("Danger",           kDanger),
           ],
         ),
       ],
@@ -1815,7 +1815,7 @@ class _DailyLoadBarChart extends StatelessWidget {
                   Container(
                     height: 90 * frac + 4,
                     decoration: BoxDecoration(
-                      color: Colors.tealAccent.withValues(alpha: 0.8),
+                      color: kSuccess.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -1872,12 +1872,12 @@ class _AcwrTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return SizedBox(height: 80, child: Center(child: Text(title, style: const TextStyle(color: Colors.grey, fontSize: 11))));
+      return SizedBox(height: 80, child: Center(child: Text(title, style: TextStyle(color: kTextSecondary, fontSize: 11))));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(title, style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
+        Text(title, style: TextStyle(fontSize: 11, color: kTextSecondary, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         SizedBox(
           height: 160,
@@ -1929,18 +1929,18 @@ class _DualLinePainter extends CustomPainter {
       _text(canvas, "ACWR:${acwrValues[i].toStringAsFixed(2)}", p.dx, p.dy - 13, lineColor, 7.5);
     }
 
-    final oPaint = Paint()..color = Colors.orangeAccent..strokeWidth = 1.5..style = PaintingStyle.stroke;
+    final oPaint = Paint()..color = kWarn..strokeWidth = 1.5..style = PaintingStyle.stroke;
     for (int i = 0; i < n - 1; i++) {
       _dash(canvas, oPaint,
         Offset(xAt(i),     normY(acwrValues[i],     acwrMin, acwrMax)),
         Offset(xAt(i + 1), normY(acwrValues[i + 1], acwrMin, acwrMax)));
     }
     for (int i = 0; i < n; i++) {
-      canvas.drawCircle(Offset(xAt(i), normY(acwrValues[i], acwrMin, acwrMax)), 3, Paint()..color = Colors.orangeAccent);
+      canvas.drawCircle(Offset(xAt(i), normY(acwrValues[i], acwrMin, acwrMax)), 3, Paint()..color = kWarn);
     }
     for (int i = 0; i < n; i++) {
       final d = dates[i];
-      _text(canvas, "${d.day}/${d.month}", xAt(i), size.height - bPad + 5, Colors.grey, 7);
+      _text(canvas, "${d.day}/${d.month}", xAt(i), size.height - bPad + 5, kTextSecondary, 7);
     }
   }
 
@@ -1978,12 +1978,12 @@ class _LoadExertionChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return SizedBox(height: 80, child: Center(child: Text(title, style: const TextStyle(color: Colors.grey, fontSize: 11))));
+      return SizedBox(height: 80, child: Center(child: Text(title, style: TextStyle(color: kTextSecondary, fontSize: 11))));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(title, style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
+        Text(title, style: TextStyle(fontSize: 11, color: kTextSecondary, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         SizedBox(
           height: 160,
@@ -2021,7 +2021,7 @@ class _BarLinePainter extends CustomPainter {
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(0, tPad, size.width, chartH), const Radius.circular(4)),
-      Paint()..color = Colors.white.withValues(alpha: 0.04),
+      Paint()..color = kTextPrimary.withValues(alpha: 0.04),
     );
 
     final bPaint = Paint()..color = barColor.withValues(alpha: 0.75);
@@ -2032,13 +2032,13 @@ class _BarLinePainter extends CustomPainter {
         RRect.fromRectAndRadius(Rect.fromLTWH(x, size.height - bPad - bh, barW, bh), const Radius.circular(3)),
         bPaint,
       );
-      _text(canvas, barValues[i].toStringAsFixed(0), i * slotW + slotW / 2, size.height - bPad - bh - 11, Colors.white70, 7);
+      _text(canvas, barValues[i].toStringAsFixed(0), i * slotW + slotW / 2, size.height - bPad - bh - 11, kTextSecondary, 7);
     }
 
     double lineY(double v) =>
         maxLine == minLine ? tPad + chartH / 2 : tPad + chartH * (1 - (v - minLine) / (maxLine - minLine));
 
-    final lp   = Paint()..color = Colors.white..strokeWidth = 2..style = PaintingStyle.stroke;
+    final lp   = Paint()..color = kTextPrimary..strokeWidth = 2..style = PaintingStyle.stroke;
     final path = Path();
     for (int i = 0; i < n; i++) {
       final x = i * slotW + slotW / 2;
@@ -2047,9 +2047,9 @@ class _BarLinePainter extends CustomPainter {
     canvas.drawPath(path, lp);
     for (int i = 0; i < n; i++) {
       final x = i * slotW + slotW / 2;
-      canvas.drawCircle(Offset(x, lineY(lineValues[i])), 3, Paint()..color = Colors.white);
-      _text(canvas, lineValues[i].toStringAsFixed(2), x, lineY(lineValues[i]) - 12, Colors.white, 7);
-      _text(canvas, "${dates[i].day}/${dates[i].month}", x, size.height - bPad + 5, Colors.grey, 7);
+      canvas.drawCircle(Offset(x, lineY(lineValues[i])), 3, Paint()..color = kTextPrimary);
+      _text(canvas, lineValues[i].toStringAsFixed(2), x, lineY(lineValues[i]) - 12, kTextPrimary, 7);
+      _text(canvas, "${dates[i].day}/${dates[i].month}", x, size.height - bPad + 5, kTextSecondary, 7);
     }
   }
 
@@ -2073,7 +2073,7 @@ class _ReadinessTrendChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final withWellness = records.where((r) => r.wellness != null).toList();
     if (withWellness.isEmpty) {
-      return const SizedBox(height: 80, child: Center(child: Text("No wellness data yet", style: TextStyle(color: Colors.grey, fontSize: 11))));
+      return SizedBox(height: 80, child: Center(child: Text("No wellness data yet", style: TextStyle(color: kTextSecondary, fontSize: 11))));
     }
     return SizedBox(height: 140, child: CustomPaint(painter: _ReadinessPainter(records: withWellness)));
   }
@@ -2094,14 +2094,14 @@ class _ReadinessPainter extends CustomPainter {
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(0, tPad, size.width, chartH), const Radius.circular(4)),
-      Paint()..color = Colors.white.withValues(alpha: 0.04),
+      Paint()..color = kTextPrimary.withValues(alpha: 0.04),
     );
     final refY = tPad + chartH * (1 - 0.75);
     canvas.drawLine(Offset(0, refY), Offset(size.width, refY),
-        Paint()..color = Colors.greenAccent.withValues(alpha: 0.3)..strokeWidth = 1);
-    _text(canvas, "75%", 16, refY - 9, Colors.greenAccent.withValues(alpha: 0.6), 7);
+        Paint()..color = kSuccess.withValues(alpha: 0.3)..strokeWidth = 1);
+    _text(canvas, "75%", 16, refY - 9, kSuccess.withValues(alpha: 0.6), 7);
 
-    final linePaint = Paint()..color = Colors.yellowAccent..strokeWidth = 2..style = PaintingStyle.stroke;
+    final linePaint = Paint()..color = kWarn..strokeWidth = 2..style = PaintingStyle.stroke;
     final path = Path();
     for (int i = 0; i < n; i++) {
       final x = xAt(i), y = tPad + chartH * (1 - records[i].readinessPercent / 100);
@@ -2113,7 +2113,7 @@ class _ReadinessPainter extends CustomPainter {
     fill.lineTo(xAt(n - 1), size.height - bPad);
     fill.lineTo(xAt(0),     size.height - bPad);
     fill.close();
-    canvas.drawPath(fill, Paint()..color = Colors.yellowAccent.withValues(alpha: 0.08));
+    canvas.drawPath(fill, Paint()..color = kWarn.withValues(alpha: 0.08));
 
     for (int i = 0; i < n; i++) {
       final pct = records[i].readinessPercent;
@@ -2122,7 +2122,7 @@ class _ReadinessPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), 4, Paint()..color = col);
       _text(canvas, "${pct.toStringAsFixed(0)}%", x, y - 12, col, 7.5);
       final d = records[i].date;
-      _text(canvas, "${d.day}/${d.month}", x, size.height - bPad + 5, Colors.grey, 7);
+      _text(canvas, "${d.day}/${d.month}", x, size.height - bPad + 5, kTextSecondary, 7);
     }
   }
 

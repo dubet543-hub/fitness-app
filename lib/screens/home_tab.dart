@@ -402,7 +402,7 @@ class _SpeedometerPainter extends CustomPainter {
       canvas.drawCircle(tipPt, 4.5, Paint()..color = gaugeColor);
       canvas.drawCircle(tipPt, 4.5,
         Paint()
-          ..color       = Colors.white.withValues(alpha: 0.50 + 0.30 * pulse)
+          ..color       = kTextPrimary.withValues(alpha: 0.50 + 0.30 * pulse)
           ..style       = PaintingStyle.stroke
           ..strokeWidth = 1.5,
       );

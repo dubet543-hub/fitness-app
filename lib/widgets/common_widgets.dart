@@ -42,6 +42,28 @@ class AvatarWidget extends StatelessWidget {
   }
 }
 
+/// The SolidCore mark: chrome ribbon with a teal highlight, drawn for display
+/// on a dark surface (same treatment as the app icon). On the light palette's
+/// near-white backgrounds the pale highlights wash out to almost nothing, so
+/// this always seats the artwork on a fixed dark plate rather than the
+/// theme's (possibly light) page background.
+class BrandLogo extends StatelessWidget {
+  final double width;
+  const BrandLogo({super.key, required this.width});
+
+  static const _plate = Color(0xFF0D1117);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.symmetric(horizontal: width * 0.08, vertical: width * 0.08),
+    decoration: BoxDecoration(
+      color: _plate,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Image.asset('assets/images/solidcore_logo.png', width: width),
+  );
+}
+
 class SectionHeader extends StatelessWidget {
   final String text;
   const SectionHeader(this.text, {super.key});

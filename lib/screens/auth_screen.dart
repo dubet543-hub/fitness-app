@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
 import '../navigation/main_shell.dart';
+import '../widgets/common_widgets.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
@@ -90,7 +91,7 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/images/solidcore_logo.png', width: 200),
+            BrandLogo(width: 200),
             const SizedBox(height: 28),
             CircularProgressIndicator(color: kAccent, strokeWidth: 2),
           ],
