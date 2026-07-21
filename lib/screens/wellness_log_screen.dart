@@ -121,7 +121,7 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
       if (mounted) {
         setState(() => _alreadyLogged = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Wellness log saved'), backgroundColor: Color(0xFF22C55E)),
+          SnackBar(content: Text('Wellness log saved'), backgroundColor: kSuccess),
         );
         Navigator.of(context).pop();
       }
@@ -379,9 +379,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF450A0A),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFF87171)),
+                border: Border.all(color: kDanger),
               ),
-              child: Text(_error!, style: const TextStyle(color: Color(0xFFF87171), fontSize: 13)),
+              child: Text(_error!, style: TextStyle(color: kDanger, fontSize: 13)),
             ),
             const SizedBox(height: 12),
           ],
@@ -412,7 +412,7 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
             child: ElevatedButton(
               onPressed: (_submitting || _alreadyLogged) ? null : _submit,
               child: _submitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black))
+                  ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: kOnAccent))
                   : Text(_alreadyLogged ? 'Logged for Today' : 'Save Wellness Log',
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
             ),
@@ -462,9 +462,9 @@ class _RatingSlider extends StatelessWidget {
   const _RatingSlider({required this.label, required this.value, required this.onChanged});
 
   Color get _color {
-    if (value <= 2) return const Color(0xFF22C55E);
-    if (value == 3) return const Color(0xFFFBBF24);
-    return const Color(0xFFF87171);
+    if (value <= 2) return kSuccess;
+    if (value == 3) return kWarn;
+    return kDanger;
   }
 
   String get _label {

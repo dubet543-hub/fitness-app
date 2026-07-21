@@ -99,7 +99,7 @@ class _ProfileTabState extends State<ProfileTab> {
                               shape: BoxShape.circle,
                               border: Border.fromBorderSide(BorderSide(color: kBg, width: 2)),
                             ),
-                            child: const Icon(Icons.edit_rounded, size: 12, color: Colors.black),
+                            child: Icon(Icons.edit_rounded, size: 12, color: kOnAccent),
                           ),
                         ),
                       ),
@@ -161,9 +161,9 @@ class _ProfileTabState extends State<ProfileTab> {
             _SectionLabel('ACCOUNT'),
             const SizedBox(height: 8),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.person_outline_rounded, iconColor: const Color(0xFF38BDF8), label: 'Personal info',      onTap: _goPersonal),
-              _MenuItem(icon: Icons.notifications_outlined,  iconColor: const Color(0xFFF59E0B), label: 'Notifications',      onTap: () => _go((_) => const NotificationsPage())),
-              _MenuItem(icon: Icons.lock_outline_rounded,    iconColor: const Color(0xFFA78BFA), label: 'Privacy & security', onTap: () => _go((_) => PrivacySecurityPage(onLoggedOut: widget.onLogout))),
+              _MenuItem(icon: Icons.person_outline_rounded, iconColor: kSky, label: 'Personal info',      onTap: _goPersonal),
+              _MenuItem(icon: Icons.notifications_outlined,  iconColor: kWarn, label: 'Notifications',      onTap: () => _go((_) => const NotificationsPage())),
+              _MenuItem(icon: Icons.lock_outline_rounded,    iconColor: kViolet, label: 'Privacy & security', onTap: () => _go((_) => PrivacySecurityPage(onLoggedOut: widget.onLogout))),
             ]),
 
             const SizedBox(height: 20),
@@ -213,11 +213,11 @@ class _ProfileTabState extends State<ProfileTab> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.logout_rounded, size: 18, color: Colors.redAccent),
+                      Icon(Icons.logout_rounded, size: 18, color: kDanger),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'Sign out',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.redAccent),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kDanger),
                       ),
                     ],
                   ),

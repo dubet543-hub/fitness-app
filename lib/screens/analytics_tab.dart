@@ -28,11 +28,11 @@ class AnalyticsTab extends StatelessWidget {
             // ── Stat Cards ─────────────────────────────────────────
             Row(
               children: [
-                Expanded(child: _StatCard(label: 'SESSIONS', value: '12', color: const Color(0xFF38BDF8))),
+                Expanded(child: _StatCard(label: 'SESSIONS', value: '12', color: kSky)),
                 const SizedBox(width: 10),
                 Expanded(child: _StatCard(label: 'AVG SCORE', value: '85', color: kAccent)),
                 const SizedBox(width: 10),
-                Expanded(child: _StatCard(label: 'HOURS', value: '8.5', color: const Color(0xFFA78BFA))),
+                Expanded(child: _StatCard(label: 'HOURS', value: '8.5', color: kViolet)),
               ],
             ),
             const SizedBox(height: 28),
@@ -46,13 +46,13 @@ class AnalyticsTab extends StatelessWidget {
             // ── Breakdown ──────────────────────────────────────────
             const _SectionLabel('BY FEATURE'),
             const SizedBox(height: 12),
-            _BreakdownItem(label: 'Running Analysis', percent: 0.87, color: const Color(0xFFFF6B35), trend: _Trend.up),
+            _BreakdownItem(label: 'Running Analysis', percent: 0.87, color: kOrange, trend: _Trend.up),
             const SizedBox(height: 8),
-            _BreakdownItem(label: 'Posture Analysis',  percent: 0.92, color: const Color(0xFF38BDF8), trend: _Trend.up),
+            _BreakdownItem(label: 'Posture Analysis',  percent: 0.92, color: kSky, trend: _Trend.up),
             const SizedBox(height: 8),
             _BreakdownItem(label: 'Training Load',     percent: 0.74, color: kAccent,                trend: _Trend.stable),
             const SizedBox(height: 8),
-            _BreakdownItem(label: 'Bowling Analysis',  percent: 0.68, color: const Color(0xFFA78BFA), trend: _Trend.down),
+            _BreakdownItem(label: 'Bowling Analysis',  percent: 0.68, color: kViolet, trend: _Trend.down),
           ],
         ),
       ),
@@ -260,7 +260,7 @@ class _AreaChartPainter extends CustomPainter {
         // Solid dot
         canvas.drawCircle(pts[i], 4, Paint()..color = kAccent);
         // Inner white
-        canvas.drawCircle(pts[i], 1.8, Paint()..color = Colors.black);
+        canvas.drawCircle(pts[i], 1.8, Paint()..color = kOnAccent);
       } else {
         canvas.drawCircle(pts[i], 2.5, Paint()..color = kBorderBright);
       }
@@ -296,7 +296,7 @@ class _BreakdownItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trendIcon  = trend == _Trend.up ? Icons.arrow_upward_rounded : trend == _Trend.down ? Icons.arrow_downward_rounded : Icons.remove_rounded;
-    final trendColor = trend == _Trend.up ? kAccent : trend == _Trend.down ? Color(0xFFEF4444) : kTextSecondary;
+    final trendColor = trend == _Trend.up ? kAccent : trend == _Trend.down ? kDanger : kTextSecondary;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),

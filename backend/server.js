@@ -56,7 +56,33 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(async () => {
     console.log('✓ MongoDB connected');
     await seedAdmin();
-    app.listen(PORT, '::', () => console.log(`✓ Server running → port ${PORT} (dual-stack IPv4 + IPv6, reachable on your LAN)`));
+
+    const server = app.listen(PORT, '::', () => console.log(`✓ Server running → port ${PORT} (dual-stack IPv4 + IPv6, reachable on your LAN)`));
+
+    // Friendly message instead of an unhandled 'error' crash when the port is taken.
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`✗ Port ${PORT} is already in use — another instance is still running. Free it with: lsof -ti:${PORT} | xargs kill`);
+        process.exit(1);
+      }
+      throw err;
+    });
+
+    // Release the port on shutdown/restart so stale instances don't pile up.
+    // SIGUSR2 is what nodemon sends on restart; SIGINT/SIGTERM cover Ctrl+C and kill.
+    const shutdown = (signal) => () => {
+      console.log(`\n${signal} received — shutting down gracefully`);
+      server.close(() => {
+        mongoose.connection.close(false).finally(() => process.exit(0));
+      });
+    };
+    process.once('SIGINT', shutdown('SIGINT'));
+    process.once('SIGTERM', shutdown('SIGTERM'));
+    process.once('SIGUSR2', () => {
+      server.close(() => {
+        mongoose.connection.close(false).finally(() => process.kill(process.pid, 'SIGUSR2'));
+      });
+    });
   })
   .catch(err => {
     console.error('✗ MongoDB connection failed:', err.message);

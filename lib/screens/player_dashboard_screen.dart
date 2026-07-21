@@ -76,15 +76,15 @@ class _PDS extends State<PlayerDashboardScreen> with SingleTickerProviderStateMi
         children: [
           _MotionLabEmpty(
             icon: Icons.accessibility_new_rounded,
-            accent: const Color(0xFF38BDF8),
+            accent: kSky,
             title: 'No posture result yet',
             hint: 'Run a postural analysis to see your alignment results here.',
             runLabel: 'Run Postural Analysis',
-            builder: () => const PostureGuideScreen(),
+            builder: () => PostureGuideScreen(),
           ),
           _MotionLabEmpty(
             icon: Icons.directions_run_rounded,
-            accent: const Color(0xFFFF6B35),
+            accent: kOrange,
             title: 'No running result yet',
             hint: 'Record a running analysis to see your mechanics here.',
             runLabel: 'Run Running Analysis',

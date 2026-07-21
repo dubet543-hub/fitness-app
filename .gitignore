@@ -36,6 +36,9 @@ migrate_working_dir/
 # Environment variables (keep secrets out of git)
 .env
 
+# Golden-test failure diffs (regenerated locally whenever a golden test fails)
+test/failures/
+
 # Symbolication related
 app.*.symbols
 

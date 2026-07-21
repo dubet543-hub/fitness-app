@@ -78,113 +78,113 @@ class _Grade {
 
 _Grade _gradeBF(double pct, bool male) {
   if (male) {
-    if (pct < 5)  return const _Grade('Below Essential', Color(0xFFEF4444));
-    if (pct <= 13) return const _Grade('Elite / Athletic',      Color(0xFF00CF74));
-    if (pct <= 17) return const _Grade('Good / Competitive',    Color(0xFF4AADFF));
-    if (pct <= 24) return const _Grade('Moderate / Transition', Color(0xFFF59E0B));
-    return const _Grade('High', Color(0xFFEF4444));
+    if (pct < 5)  return _Grade('Below Essential', kDanger);
+    if (pct <= 13) return _Grade('Elite / Athletic',      kSuccess);
+    if (pct <= 17) return _Grade('Good / Competitive',    kInfo);
+    if (pct <= 24) return _Grade('Moderate / Transition', kWarn);
+    return _Grade('High', kDanger);
   } else {
-    if (pct < 12)  return const _Grade('Below Essential', Color(0xFFEF4444));
-    if (pct <= 20) return const _Grade('Elite / Athletic',      Color(0xFF00CF74));
-    if (pct <= 24) return const _Grade('Good / Competitive',    Color(0xFF4AADFF));
-    if (pct <= 31) return const _Grade('Moderate / Transition', Color(0xFFF59E0B));
-    return const _Grade('High', Color(0xFFEF4444));
+    if (pct < 12)  return _Grade('Below Essential', kDanger);
+    if (pct <= 20) return _Grade('Elite / Athletic',      kSuccess);
+    if (pct <= 24) return _Grade('Good / Competitive',    kInfo);
+    if (pct <= 31) return _Grade('Moderate / Transition', kWarn);
+    return _Grade('High', kDanger);
   }
 }
 
 _Grade _gradeFFMI(double v, bool male) {
   if (male) {
-    if (v < 18)  return const _Grade('Below Average',              Color(0xFFEF4444));
-    if (v < 20)  return const _Grade('Average / Untrained',        Color(0xFFF59E0B));
-    if (v < 22)  return const _Grade('Good / Athletic',            Color(0xFF4AADFF));
-    if (v < 24)  return const _Grade('Advanced / Excellent',       Color(0xFF00CF74));
-    if (v <= 25) return const _Grade('Elite Natural Limit',        Color(0xFF9D8AFF));
-    return const _Grade('Exceptional Outlier', Color(0xFF9D8AFF));
+    if (v < 18)  return _Grade('Below Average',              kDanger);
+    if (v < 20)  return _Grade('Average / Untrained',        kWarn);
+    if (v < 22)  return _Grade('Good / Athletic',            kInfo);
+    if (v < 24)  return _Grade('Advanced / Excellent',       kSuccess);
+    if (v <= 25) return _Grade('Elite Natural Limit',        kViolet);
+    return _Grade('Exceptional Outlier', kViolet);
   } else {
-    if (v < 15)  return const _Grade('Below Average',              Color(0xFFEF4444));
-    if (v < 18)  return const _Grade('Good Baseline',              Color(0xFFF59E0B));
-    if (v < 20)  return const _Grade('Advanced Athletic',          Color(0xFF4AADFF));
-    if (v < 22)  return const _Grade('Elite / Exceptional',        Color(0xFF00CF74));
-    return const _Grade('Exceptional', Color(0xFF9D8AFF));
+    if (v < 15)  return _Grade('Below Average',              kDanger);
+    if (v < 18)  return _Grade('Good Baseline',              kWarn);
+    if (v < 20)  return _Grade('Advanced Athletic',          kInfo);
+    if (v < 22)  return _Grade('Elite / Exceptional',        kSuccess);
+    return _Grade('Exceptional', kViolet);
   }
 }
 
 _Grade _gradeSMM(double pct, bool male) {
   if (male) {
-    if (pct < 39)  return const _Grade('Deficient – Risk Zone',    Color(0xFFEF4444));
-    if (pct < 43)  return const _Grade('Sub-Optimal / Lean',       Color(0xFFF59E0B));
-    if (pct < 48)  return const _Grade('Optimal / Athletic',       Color(0xFF00CF74));
-    return const _Grade('Elite / Hypertrophic', Color(0xFF4AADFF));
+    if (pct < 39)  return _Grade('Deficient – Risk Zone',    kDanger);
+    if (pct < 43)  return _Grade('Sub-Optimal / Lean',       kWarn);
+    if (pct < 48)  return _Grade('Optimal / Athletic',       kSuccess);
+    return _Grade('Elite / Hypertrophic', kInfo);
   } else {
-    if (pct < 32)  return const _Grade('Deficient – Risk Zone',    Color(0xFFEF4444));
-    if (pct < 36)  return const _Grade('Sub-Optimal / Lean',       Color(0xFFF59E0B));
-    if (pct < 40)  return const _Grade('Optimal / Athletic',       Color(0xFF00CF74));
-    return const _Grade('Elite / Hypertrophic', Color(0xFF4AADFF));
+    if (pct < 32)  return _Grade('Deficient – Risk Zone',    kDanger);
+    if (pct < 36)  return _Grade('Sub-Optimal / Lean',       kWarn);
+    if (pct < 40)  return _Grade('Optimal / Athletic',       kSuccess);
+    return _Grade('Elite / Hypertrophic', kInfo);
   }
 }
 
 _Grade _gradeSMI(double v, bool male) {
   if (male) {
-    if (v < 8.5)   return const _Grade('Deficient – Risk Zone',    Color(0xFFEF4444));
-    if (v < 9.5)   return const _Grade('Sub-Optimal / Lean',       Color(0xFFF59E0B));
-    if (v <= 11.5) return const _Grade('Optimal / Athletic',       Color(0xFF00CF74));
-    return const _Grade('Elite / Hypertrophic', Color(0xFF4AADFF));
+    if (v < 8.5)   return _Grade('Deficient – Risk Zone',    kDanger);
+    if (v < 9.5)   return _Grade('Sub-Optimal / Lean',       kWarn);
+    if (v <= 11.5) return _Grade('Optimal / Athletic',       kSuccess);
+    return _Grade('Elite / Hypertrophic', kInfo);
   } else {
-    if (v < 7.0)   return const _Grade('Deficient – Risk Zone',    Color(0xFFEF4444));
-    if (v < 8.0)   return const _Grade('Sub-Optimal / Lean',       Color(0xFFF59E0B));
-    if (v <= 9.5)  return const _Grade('Optimal / Athletic',       Color(0xFF00CF74));
-    return const _Grade('Elite / Hypertrophic', Color(0xFF4AADFF));
+    if (v < 7.0)   return _Grade('Deficient – Risk Zone',    kDanger);
+    if (v < 8.0)   return _Grade('Sub-Optimal / Lean',       kWarn);
+    if (v <= 9.5)  return _Grade('Optimal / Athletic',       kSuccess);
+    return _Grade('Elite / Hypertrophic', kInfo);
   }
 }
 
 _Grade _gradeRelASM(double pct, bool male) {
   if (male) {
-    if (pct < 19.4) return const _Grade('Clinical Risk (Sarcopenic)', Color(0xFFEF4444));
-    if (pct < 26.0) return const _Grade('Low / Under-Conditioned',    Color(0xFFF59E0B));
-    if (pct < 31.5) return const _Grade('Average / Healthy Baseline', Color(0xFF4AADFF));
-    if (pct < 35.0) return const _Grade('Well-Conditioned',           Color(0xFF00CF74));
-    return const _Grade('Elite / Highly Conditioned', Color(0xFF9D8AFF));
+    if (pct < 19.4) return _Grade('Clinical Risk (Sarcopenic)', kDanger);
+    if (pct < 26.0) return _Grade('Low / Under-Conditioned',    kWarn);
+    if (pct < 31.5) return _Grade('Average / Healthy Baseline', kInfo);
+    if (pct < 35.0) return _Grade('Well-Conditioned',           kSuccess);
+    return _Grade('Elite / Highly Conditioned', kViolet);
   } else {
-    if (pct < 15.0) return const _Grade('Clinical Risk (Sarcopenic)', Color(0xFFEF4444));
-    if (pct < 21.0) return const _Grade('Low / Under-Conditioned',    Color(0xFFF59E0B));
-    if (pct < 26.5) return const _Grade('Average / Healthy Baseline', Color(0xFF4AADFF));
-    if (pct < 30.0) return const _Grade('Well-Conditioned',           Color(0xFF00CF74));
-    return const _Grade('Elite / Highly Conditioned', Color(0xFF9D8AFF));
+    if (pct < 15.0) return _Grade('Clinical Risk (Sarcopenic)', kDanger);
+    if (pct < 21.0) return _Grade('Low / Under-Conditioned',    kWarn);
+    if (pct < 26.5) return _Grade('Average / Healthy Baseline', kInfo);
+    if (pct < 30.0) return _Grade('Well-Conditioned',           kSuccess);
+    return _Grade('Elite / Highly Conditioned', kViolet);
   }
 }
 
 _Grade _gradeMBR(double v) {
-  if (v < 15) return const _Grade('Critical – Under-Muscled', Color(0xFFEF4444));
-  if (v < 19) return const _Grade('Weak / Sedentary',         Color(0xFFF59E0B));
-  if (v < 24) return const _Grade('Normal / Healthy Baseline', Color(0xFF4AADFF));
-  return const _Grade('Strong / Athletic Framework', Color(0xFF00CF74));
+  if (v < 15) return _Grade('Critical – Under-Muscled', kDanger);
+  if (v < 19) return _Grade('Weak / Sedentary',         kWarn);
+  if (v < 24) return _Grade('Normal / Healthy Baseline', kInfo);
+  return _Grade('Strong / Athletic Framework', kSuccess);
 }
 
 _Grade _gradeAppendicular(double pct, bool male) {
   if (male) {
-    if (pct < 44) return const _Grade('Grade 4 – At Risk',        Color(0xFFEF4444));
-    if (pct < 49) return const _Grade('Grade 3 – Compact',        Color(0xFFF59E0B));
-    if (pct < 54) return const _Grade('Grade 2 – Balanced',       Color(0xFF00CF74));
-    return const _Grade('Grade 1 – Distal Lever Dominant', Color(0xFF4AADFF));
+    if (pct < 44) return _Grade('Grade 4 – At Risk',        kDanger);
+    if (pct < 49) return _Grade('Grade 3 – Compact',        kWarn);
+    if (pct < 54) return _Grade('Grade 2 – Balanced',       kSuccess);
+    return _Grade('Grade 1 – Distal Lever Dominant', kInfo);
   } else {
-    if (pct < 42) return const _Grade('Grade 4 – At Risk',        Color(0xFFEF4444));
-    if (pct < 47) return const _Grade('Grade 3 – Compact',        Color(0xFFF59E0B));
-    if (pct < 52) return const _Grade('Grade 2 – Balanced',       Color(0xFF00CF74));
-    return const _Grade('Grade 1 – Distal Lever Dominant', Color(0xFF4AADFF));
+    if (pct < 42) return _Grade('Grade 4 – At Risk',        kDanger);
+    if (pct < 47) return _Grade('Grade 3 – Compact',        kWarn);
+    if (pct < 52) return _Grade('Grade 2 – Balanced',       kSuccess);
+    return _Grade('Grade 1 – Distal Lever Dominant', kInfo);
   }
 }
 
 _Grade _gradeAxial(double pct, bool male) {
   if (male) {
-    if (pct < 40) return const _Grade('Grade 4 – Structural Insufficiency', Color(0xFFEF4444));
-    if (pct < 46) return const _Grade('Grade 3 – Elongated / Locomotive',  Color(0xFFF59E0B));
-    if (pct < 56) return const _Grade('Grade 2 – Balanced Core Base',      Color(0xFF00CF74));
-    return const _Grade('Grade 1 – Rotational Anchor', Color(0xFF4AADFF));
+    if (pct < 40) return _Grade('Grade 4 – Structural Insufficiency', kDanger);
+    if (pct < 46) return _Grade('Grade 3 – Elongated / Locomotive',  kWarn);
+    if (pct < 56) return _Grade('Grade 2 – Balanced Core Base',      kSuccess);
+    return _Grade('Grade 1 – Rotational Anchor', kInfo);
   } else {
-    if (pct < 42) return const _Grade('Grade 4 – Structural Insufficiency', Color(0xFFEF4444));
-    if (pct < 48) return const _Grade('Grade 3 – Elongated / Locomotive',  Color(0xFFF59E0B));
-    if (pct < 58) return const _Grade('Grade 2 – Balanced Core Base',      Color(0xFF00CF74));
-    return const _Grade('Grade 1 – Rotational Anchor', Color(0xFF4AADFF));
+    if (pct < 42) return _Grade('Grade 4 – Structural Insufficiency', kDanger);
+    if (pct < 48) return _Grade('Grade 3 – Elongated / Locomotive',  kWarn);
+    if (pct < 58) return _Grade('Grade 2 – Balanced Core Base',      kSuccess);
+    return _Grade('Grade 1 – Rotational Anchor', kInfo);
   }
 }
 
@@ -454,15 +454,15 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                  color: kDanger.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+                  border: Border.all(color: kDanger.withValues(alpha: 0.4)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                  Icon(Icons.error_outline_rounded, color: kDanger, size: 16),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_error!,
-                      style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12.5))),
+                      style: TextStyle(color: kDanger, fontSize: 12.5))),
                 ]),
               ),
             ],
@@ -778,7 +778,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       child: Column(children: [
         _tableHeader(),
         _tableRow('Total Body Weight',     '100.00%', r.weightKg,           bold: true),
-        _tableRow('Total Body Fat',        _pct(r.bfPercent),      r.bfKg,    accent: const Color(0xFFEF4444)),
+        _tableRow('Total Body Fat',        _pct(r.bfPercent),      r.bfKg,    accent: kDanger),
         _tableRow('Lean Body Mass (LBM)',  _pct(100 - r.bfPercent), r.lbm,   accent: kAccent),
         Divider(height: 20, color: kBorder),
         _tableRow('Total Skeletal Muscle', _pct(r.smmPercent),     r.tsm,    accent: kExertion),
@@ -842,7 +842,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             height: 140,
             child: CustomPaint(
               painter: _DonutPainter(segments: [
-                _Seg(r.bfPercent,        const Color(0xFFEF4444), 'Body Fat'),
+                _Seg(r.bfPercent,        kDanger, 'Body Fat'),
                 _Seg(100 - r.bfPercent,  kAccent,                 'LBM'),
               ]),
               child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -853,7 +853,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _legend(const Color(0xFFEF4444), 'Body Fat  ${r.bfPercent.toStringAsFixed(1)}%'),
+          _legend(kDanger, 'Body Fat  ${r.bfPercent.toStringAsFixed(1)}%'),
           const SizedBox(height: 6),
           _legend(kAccent, 'LBM  ${(100 - r.bfPercent).toStringAsFixed(1)}%'),
         ]),
@@ -867,8 +867,8 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             child: CustomPaint(
               painter: _DonutPainter(segments: [
                 _Seg(r.tsm  / r.lbm * 100, kExertion,                  'Muscle'),
-                _Seg(r.essentialOrgans / r.lbm * 100, const Color(0xFFF59E0B), 'Organs'),
-                _Seg(r.bmc  / r.lbm * 100, const Color(0xFF9D8AFF),  'Bone'),
+                _Seg(r.essentialOrgans / r.lbm * 100, kWarn, 'Organs'),
+                _Seg(r.bmc  / r.lbm * 100, kViolet,  'Bone'),
                 _Seg(r.skinConnective / r.lbm * 100, const Color(0xFF4ADE80), 'Skin'),
                 _Seg(r.nonMuscleFluid / r.lbm * 100, kTextSecondary, 'Fluids'),
               ]),
@@ -877,9 +877,9 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
           const SizedBox(height: 12),
           _legend(kExertion,                  'Muscle ${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%'),
           const SizedBox(height: 4),
-          _legend(const Color(0xFFF59E0B), 'Organs ${(r.essentialOrgans / r.lbm * 100).toStringAsFixed(0)}%'),
+          _legend(kWarn, 'Organs ${(r.essentialOrgans / r.lbm * 100).toStringAsFixed(0)}%'),
           const SizedBox(height: 4),
-          _legend(const Color(0xFF9D8AFF), 'Bone ${(r.bmc / r.lbm * 100).toStringAsFixed(0)}%'),
+          _legend(kViolet, 'Bone ${(r.bmc / r.lbm * 100).toStringAsFixed(0)}%'),
         ]),
       )),
     ]);
@@ -993,12 +993,12 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     final bcas = _historyBcas;
     List<double> s(double Function(_BCA) f) => bcas.map(f).toList();
     return [
-      _TrendMetric('Body Fat', '%',        s((b) => b.bfPercent),   const Color(0xFFEF4444), goalDown: true),
+      _TrendMetric('Body Fat', '%',        s((b) => b.bfPercent),   kDanger, goalDown: true),
       _TrendMetric('FFMI', '',             s((b) => b.ffmi),        kAccent,                 goalDown: false),
       _TrendMetric('Skeletal Muscle', '%', s((b) => b.smmPercent),  kExertion,                 goalDown: false),
-      _TrendMetric('Muscle Index', '',     s((b) => b.smi),         const Color(0xFF4AADFF), goalDown: false),
-      _TrendMetric('Relative ASM', '%',    s((b) => b.relativeAsm), const Color(0xFF9D8AFF), goalDown: false),
-      _TrendMetric('Weight', 'kg',         s((b) => b.weightKg),    const Color(0xFFF59E0B), goalDown: false),
+      _TrendMetric('Muscle Index', '',     s((b) => b.smi),         kInfo, goalDown: false),
+      _TrendMetric('Relative ASM', '%',    s((b) => b.relativeAsm), kViolet, goalDown: false),
+      _TrendMetric('Weight', 'kg',         s((b) => b.weightKg),    kWarn, goalDown: false),
     ];
   }
 
@@ -1011,7 +1011,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     final last    = m.values.last;
     final change  = last - first;
     final improved = m.goalDown ? change < 0 : change > 0;
-    final chgCol  = improved ? kAccent : Color(0xFFEF4444);
+    final chgCol  = improved ? kAccent : kDanger;
     final readings = m.values.length;
     final single  = readings < 2;
 
@@ -1103,7 +1103,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     final isAtRisk    = r.bfPercent > (r.isMale ? 24 : 31) || r.smmPercent < (r.isMale ? 39 : 32);
     final isAthletic  = r.bfPercent <= (r.isMale ? 13 : 20) && r.smmPercent >= (r.isMale ? 43 : 36);
     final overallLabel = isAtRisk ? 'Sub-optimal / At-Risk' : (isAthletic ? 'Optimal / Athletic' : 'Balanced / Developing');
-    final overallColor = isAtRisk ? Color(0xFFEF4444) : (isAthletic ? kAccent : kExertion);
+    final overallColor = isAtRisk ? kDanger : (isAthletic ? kAccent : kExertion);
 
     // Limb dominance
     final limbDominant = r.appendicularToTotal > r.axialToTotal;
@@ -1306,7 +1306,7 @@ class _TrendChartPainter extends CustomPainter {
     for (int g = 0; g <= 3; g++) {
       final y = tPad + chartH * g / 3;
       canvas.drawLine(Offset(lPad, y), Offset(size.width - rPad, y),
-          Paint()..color = Colors.white.withValues(alpha: 0.06)..strokeWidth = 0.5);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.06)..strokeWidth = 0.5);
     }
 
     final pts = List.generate(n, (i) => Offset(xAt(i), yAt(values[i])));
@@ -1344,14 +1344,14 @@ class _TrendChartPainter extends CustomPainter {
     // Latest highlighted
     canvas.drawCircle(pts.last, 4.5, Paint()..color = color);
     canvas.drawCircle(pts.last, 4.5, Paint()
-      ..color = Colors.white.withValues(alpha: 0.4)
+      ..color = kTextPrimary.withValues(alpha: 0.4)
       ..style = PaintingStyle.stroke..strokeWidth = 1.2);
 
     // Date labels (every ~5th)
     final step = max(1, n ~/ 5);
     for (int i = 0; i < n; i += step) {
       final tp = TextPainter(
-        text: TextSpan(text: dates[i], style: const TextStyle(color: Color(0xFF5C6280), fontSize: 7.5)),
+        text: TextSpan(text: dates[i], style: TextStyle(color: kGrid, fontSize: 7.5)),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset((xAt(i) - tp.width / 2).clamp(0.0, size.width - tp.width), size.height - bPad + 4));

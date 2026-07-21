@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../api_service.dart';
 import '../services/dashboard_metrics.dart';
+import '../services/sleep_metrics.dart';
 import 'workload_monitor_screen.dart';
 
 // ── Data Models & series ────────────────────────────────────────────────────────
@@ -23,29 +24,55 @@ const _a2Total = kA2Total;
 const _well1   = kWell1;
 const _well2   = kWell2;
 
-// ── Sleep Detail History (effective sleep & time in bed, hrs) ──────────────────
-class _SD {
-  final String d;
-  final double inBed;   // total time in bed (hrs)
-  final double asleep;  // effective sleep (hrs)
-  const _SD(this.d, this.inBed, this.asleep);
-  double get efficiency => inBed > 0 ? (asleep / inBed * 100).clamp(0, 100) : 0;
-  double get debt => max(0.0, 8.0 - asleep); // vs 8h nightly need
-}
+// ── Sleep Detail History ──────────────────────────────────────────────────────
+// Logged clock times per night. Sleep time, efficiency, 7-day average and debt
+// are all derived from these by the sheet formulae in sleep_metrics.dart rather
+// than stored, so the dashboard can never disagree with the spreadsheet.
+// Columns: bed → fell asleep → woke → out of bed, plus minutes awake after a
+// disturbance.
 
-const _sleep1 = <_SD>[
-  _SD('24/04', 8.2, 7.4), _SD('25/04', 7.5, 6.9), _SD('26/04', 8.0, 7.0),
-  _SD('27/04', 8.5, 7.8), _SD('28/04', 7.2, 6.3), _SD('29/04', 8.3, 7.6),
-  _SD('30/04', 8.6, 8.0), _SD('01/05', 7.0, 6.1), _SD('02/05', 7.8, 6.8),
-  _SD('03/05', 7.3, 6.4), _SD('04/05', 8.4, 7.9), _SD('05/05', 8.5, 8.0),
-  _SD('06/05', 7.1, 6.2), _SD('07/05', 8.2, 7.5),
+SleepNight _n(String d, int bedH, int bedM, int lat, int wakeH, int wakeM,
+        {int outH = -1, int outM = 0, int awake = 0}) =>
+    nightFromLog(
+      d: d,
+      timeToBed: hm(bedH, bedM),
+      latencyMinutes: lat,
+      wokeUp: hm(wakeH, wakeM),
+      outOfBed: outH < 0 ? null : hm(outH, outM),
+      awakeMinutes: awake,
+    );
+
+final _sleep1 = <SleepNight>[
+  _n('24/04', 22, 20, 20, 6, 32, awake: 28),
+  _n('25/04', 22, 50, 15, 6, 20, awake: 21),
+  _n('26/04', 22, 30, 25, 6, 30, awake: 35),
+  _n('27/04', 22,  5, 20, 6, 35, awake: 22),
+  _n('28/04', 23, 15, 20, 6, 27, awake: 34),
+  _n('29/04', 22, 15, 15, 6, 33, awake: 27),
+  _n('30/04', 22,  0, 15, 6, 36, awake: 21),
+  _n('01/05', 23, 30, 20, 6, 30, awake: 34),
+  _n('02/05', 22, 45, 25, 6, 33, awake: 35),
+  _n('03/05', 23, 10, 20, 6, 28, awake: 34),
+  _n('04/05', 22, 10, 15, 6, 34, awake: 15),
+  _n('05/05', 22,  0, 15, 6, 30, awake: 15),
+  _n('06/05', 23, 25, 20, 6, 31, awake: 34),
+  _n('07/05', 22, 20, 15, 6, 32, awake: 27),
 ];
-const _sleep2 = <_SD>[
-  _SD('24/04', 7.0, 5.9), _SD('25/04', 7.8, 6.9), _SD('26/04', 6.8, 5.6),
-  _SD('27/04', 8.1, 7.4), _SD('28/04', 7.2, 6.1), _SD('29/04', 8.0, 7.2),
-  _SD('30/04', 8.3, 7.6), _SD('01/05', 6.9, 5.7), _SD('02/05', 7.4, 6.5),
-  _SD('03/05', 8.5, 8.0), _SD('04/05', 8.6, 8.1), _SD('05/05', 7.6, 6.7),
-  _SD('06/05', 7.0, 5.9), _SD('07/05', 8.4, 7.8),
+final _sleep2 = <SleepNight>[
+  _n('24/04', 23, 10, 25, 6, 10, awake: 41),
+  _n('25/04', 22, 40, 20, 6, 28, awake: 34),
+  _n('26/04', 23, 50, 30, 6, 38, awake: 42),
+  _n('27/04', 22, 20, 20, 6, 26, awake: 22),
+  _n('28/04', 23, 20, 25, 6, 32, awake: 41),
+  _n('29/04', 22, 30, 20, 6, 30, awake: 28),
+  _n('30/04', 22, 15, 15, 6, 33, awake: 27),
+  _n('01/05', 23, 55, 30, 6, 49, awake: 42),
+  _n('02/05', 23,  5, 20, 6, 29, awake: 34),
+  _n('03/05', 22,  0, 15, 6, 30, awake: 15),
+  _n('04/05', 21, 55, 15, 6, 31, awake: 15),
+  _n('05/05', 22, 50, 20, 6, 26, awake: 34),
+  _n('06/05', 23, 15, 25, 6, 15, awake: 41),
+  _n('07/05', 22,  5, 15, 6, 29, awake: 21),
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -95,7 +122,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   List<_WP> get _skillData => _filter(_athlete == 0 ? _a1Skill : _a2Skill);
   List<_WP> get _totalData => _filter(_athlete == 0 ? _a1Total : _a2Total);
   List<_RP> get _wellData  => _athlete == 0 ? _well1 : _well2;
-  List<_SD> get _sleepData => _athlete == 0 ? _sleep1 : _sleep2;
+  List<SleepNight> get _sleepData => _athlete == 0 ? _sleep1 : _sleep2;
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -148,22 +175,22 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
           const SizedBox(height: 12),
           _rangeBar(),
           const SizedBox(height: 16),
-          _acwrPanel('Training Workload', _trainData, Colors.lightBlueAccent),
+          _acwrPanel('Training Workload', _trainData, kSky),
           const SizedBox(height: 12),
-          _acwrPanel('Skill Workload',    _skillData, Colors.greenAccent),
+          _acwrPanel('Skill Workload',    _skillData, kSuccess),
           const SizedBox(height: 12),
-          _acwrPanel('Daily Total',       _totalData, Colors.purpleAccent),
+          _acwrPanel('Daily Total',       _totalData, kViolet),
           const SizedBox(height: 18),
 
           Text('LOAD VS EXERTION',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
                   color: kTextSecondary, letterSpacing: 1.4)),
           const SizedBox(height: 10),
-          _loadExertionPanel('Training Load vs Exertion', _trainData, Colors.lightBlueAccent),
+          _loadExertionPanel('Training Load vs Exertion', _trainData, kSky),
           const SizedBox(height: 12),
-          _loadExertionPanel('Skill Load vs Exertion',    _skillData, Colors.greenAccent),
+          _loadExertionPanel('Skill Load vs Exertion',    _skillData, kSuccess),
           const SizedBox(height: 12),
-          _loadExertionPanel('Daily Load vs Exertion',    _totalData, Colors.purpleAccent),
+          _loadExertionPanel('Daily Load vs Exertion',    _totalData, kViolet),
         ],
       ),
     );
@@ -265,7 +292,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final last7  = well.sublist(max(0, well.length - 7));
     final avgPct = last7.map((r) => r.readinessPct).reduce((a, b) => a + b) / last7.length;
     final todayR = well.last.readinessPct;
-    final rColor = todayR >= 0.60 ? kAccent : todayR >= 0.35 ? Colors.orangeAccent : Colors.redAccent;
+    final rColor = todayR >= 0.60 ? kAccent : todayR >= 0.35 ? kWarn : kDanger;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
@@ -322,9 +349,9 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         const SizedBox(height: 10),
         _metricBars('Wellness',         well.map((r) => r.wellness).toList(), kAccent,             well.map((r) => r.d).toList()),
         const SizedBox(height: 10),
-        _metricBars('Muscle Soreness',  well.map((r) => r.soreness).toList(), Colors.orangeAccent, well.map((r) => r.d).toList()),
+        _metricBars('Muscle Soreness',  well.map((r) => r.soreness).toList(), kWarn, well.map((r) => r.d).toList()),
         const SizedBox(height: 10),
-        _metricBars('Fatigue',          well.map((r) => r.fatigue).toList(),  Colors.redAccent,    well.map((r) => r.d).toList()),
+        _metricBars('Fatigue',          well.map((r) => r.fatigue).toList(),  kDanger,    well.map((r) => r.d).toList()),
       ]),
     );
   }
@@ -333,7 +360,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final last7v = values.sublist(max(0, values.length - 7));
     final last7d = dates.sublist(max(0, dates.length - 7));
     final cur    = last7v.last;
-    final col    = cur <= 2 ? kAccent : cur == 3 ? Colors.orangeAccent : Colors.redAccent;
+    final col    = cur <= 2 ? kAccent : cur == 3 ? kWarn : kDanger;
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Container(width: 3, height: 14, margin: const EdgeInsets.only(right: 8),
@@ -350,7 +377,9 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
       ]),
       const SizedBox(height: 10),
       SizedBox(
-        height: 68,
+        // Tall enough that one point of score is worth ~15px of bar. At the
+        // previous 68 it was ~10px, which read as noise against the bar width.
+        height: 100,
         child: CustomPaint(
           painter: _MetricBarsPainter(values: last7v, labels: last7d, color: color),
           size: Size.infinite,
@@ -364,7 +393,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   Widget _cumulativeScorePanel(List<_RP> well) {
     final totals = well.map((r) => r.sleep + r.wellness + r.soreness + r.fatigue).toList();
     final cur    = totals.last;
-    final col    = cur <= 8 ? kAccent : cur <= 13 ? Colors.orangeAccent : Colors.redAccent;
+    final col    = cur <= 8 ? kAccent : cur <= 13 ? kWarn : kDanger;
     final zone   = cur <= 8 ? 'Optimal Recovery' : cur <= 13 ? 'Monitor — Moderate Load' : 'High Exertion — Intervene';
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
@@ -398,26 +427,36 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
       const SizedBox(height: 8),
       Wrap(spacing: 14, runSpacing: 4, children: [
         _ldot(kAccent,             '≤ 8  Optimal'),
-        _ldot(Colors.orangeAccent, '8–13  Caution'),
-        _ldot(Colors.redAccent,    '> 13  Risk'),
+        _ldot(kWarn, '8–13  Caution'),
+        _ldot(kDanger,    '> 13  Risk'),
       ]),
     ]));
   }
 
   // ── Sleep Summary Panel ─────────────────────────────────────────────────────
 
-  Widget _sleepSummaryPanel(List<_SD> sleep) {
-    final last7   = sleep.sublist(max(0, sleep.length - 7));
-    final avgEff  = last7.map((s) => s.efficiency).reduce((a, b) => a + b) / last7.length;
-    final debt    = last7.map((s) => s.debt).reduce((a, b) => a + b);
-    final last    = sleep.last;
-    final effCol  = avgEff >= 85 ? kAccent : avgEff >= 75 ? Colors.orangeAccent : Colors.redAccent;
-    final debtCol = debt <= 3 ? kAccent : debt <= 7 ? Colors.orangeAccent : Colors.redAccent;
-    final summary = avgEff >= 85 && debt <= 3
-        ? 'Sleep is restorative — efficiency is high and accumulated debt is low. Maintain current routine.'
-        : debt > 7
-            ? 'Significant sleep debt has accrued this week. Prioritise earlier bedtimes and recovery naps.'
+  Widget _sleepSummaryPanel(List<SleepNight> sleep) {
+    // All four headline figures come straight from the sheet formulae:
+    // sleep time (1), 7-day average (3), efficiency (5) and sleep debt (6).
+    final i       = sleep.length - 1;
+    final last    = sleep[i];
+    final avgMins = averageSleepMinutes(sleep, i);
+    final debt    = sleepDebtMinutes(sleep, i);      // null = no debt that night
+    final effPct  = last.efficiency * 100;
+
+    final effCol  = effPct >= 85 ? kAccent : effPct >= 75 ? kWarn : kDanger;
+    // Debt is measured against the athlete's own weekly average, so an hour
+    // behind is already meaningful — much tighter thresholds than a fixed need.
+    final debtCol = debt == null || debt <= 30
+        ? kAccent
+        : debt <= 60 ? kWarn : kDanger;
+
+    final summary = effPct >= 85 && (debt ?? 0) <= 30
+        ? 'Sleep is restorative — efficiency is high and last night held the weekly average. Maintain current routine.'
+        : (debt ?? 0) > 60
+            ? 'Last night fell more than an hour below the 7-day average. Prioritise an earlier bedtime tonight and a recovery nap.'
             : 'Sleep is adequate but inconsistent. Aim for steadier bedtimes to lift efficiency and clear debt.';
+
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Icon(Icons.bedtime_rounded, size: 14, color: kSleep),
@@ -425,16 +464,25 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         Text('Sleep Summary',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
         const Spacer(),
-        Text('Last night ${last.asleep.toStringAsFixed(1)}h',
+        Text('In bed ${formatHhMm(last.timeInBedMinutes)}',
             style: TextStyle(fontSize: 10, color: kTextSecondary)),
       ]),
       const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: _sleepStat('Efficiency', '${avgEff.toStringAsFixed(0)}%', '7-day avg', effCol)),
+        Expanded(child: _sleepStat('Sleep Time', formatHhMm(last.sleepMinutes), 'last night', kSleep)),
         const SizedBox(width: 10),
-        Expanded(child: _sleepStat('Sleep Debt', '${debt.toStringAsFixed(1)}h', 'vs 8h need', debtCol)),
+        Expanded(child: _sleepStat('7-Day Average', formatHhMm(avgMins), 'rolling', kSleep)),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: _sleepStat('Efficiency', '${effPct.toStringAsFixed(0)}%', 'asleep / in bed', effCol)),
         const SizedBox(width: 10),
-        Expanded(child: _sleepStat('Time in Bed', '${last.inBed.toStringAsFixed(1)}h', 'last night', kSleep)),
+        Expanded(child: _sleepStat(
+          'Sleep Debt',
+          debt == null ? '—' : formatHhMm(debt),
+          debt == null ? 'at or above avg' : 'vs 7-day avg',
+          debtCol,
+        )),
       ]),
       const SizedBox(height: 12),
       Container(
@@ -505,20 +553,20 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
 
         // Exertion arc trio
         Row(children: [
-          Expanded(child: _exertionArc('Training', train.exertion, Colors.lightBlueAccent)),
+          Expanded(child: _exertionArc('Training', train.exertion, kSky)),
           const SizedBox(width: 10),
-          Expanded(child: _exertionArc('Skill',    skill.exertion, Colors.greenAccent)),
+          Expanded(child: _exertionArc('Skill',    skill.exertion, kSuccess)),
           const SizedBox(width: 10),
-          Expanded(child: _exertionArc('Total',    total.exertion, Colors.purpleAccent)),
+          Expanded(child: _exertionArc('Total',    total.exertion, kViolet)),
         ]),
         const SizedBox(height: 14),
 
         // Session cards
-        _sessionCard('Training',    train, Colors.lightBlueAccent, Icons.fitness_center_rounded),
+        _sessionCard('Training',    train, kSky, Icons.fitness_center_rounded),
         const SizedBox(height: 10),
-        _sessionCard('Skill',       skill, Colors.greenAccent,     Icons.sports_cricket_rounded),
+        _sessionCard('Skill',       skill, kSuccess,     Icons.sports_cricket_rounded),
         const SizedBox(height: 10),
-        _sessionCard('Daily Total', total, Colors.purpleAccent,    Icons.stacked_bar_chart_rounded),
+        _sessionCard('Daily Total', total, kViolet,    Icons.stacked_bar_chart_rounded),
         const SizedBox(height: 14),
 
         // Readiness today
@@ -531,8 +579,8 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
             const Spacer(),
             () {
               final col = well.readinessPct >= 0.6 ? kAccent
-                  : well.readinessPct >= 0.35 ? Colors.orangeAccent
-                  : Colors.redAccent;
+                  : well.readinessPct >= 0.35 ? kWarn
+                  : kDanger;
               return Text('${(well.readinessPct * 100).round()}%',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: col));
             }(),
@@ -670,7 +718,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   ]);
 
   Widget _microBadge(String label, int value) {
-    final col = value <= 2 ? kAccent : value == 3 ? Colors.orangeAccent : Colors.redAccent;
+    final col = value <= 2 ? kAccent : value == 3 ? kWarn : kDanger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
@@ -683,7 +731,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   }
 
   Widget _readyBadge(String label, int value) {
-    final col = value <= 2 ? kAccent : value == 3 ? Colors.orangeAccent : Colors.redAccent;
+    final col = value <= 2 ? kAccent : value == 3 ? kWarn : kDanger;
     return Column(children: [
       Container(
         width: 36, height: 36,
@@ -715,10 +763,10 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   Color _acwrColor(double v) {
-    if (v < 0.8)  return Colors.blueAccent;
-    if (v <= 1.3) return Colors.greenAccent;
-    if (v <= 1.5) return Colors.orangeAccent;
-    return Colors.redAccent;
+    if (v < 0.8)  return kInfo;
+    if (v <= 1.3) return kSuccess;
+    if (v <= 1.5) return kWarn;
+    return kDanger;
   }
 
   String _acwrZone(double v) {
@@ -761,7 +809,7 @@ class _LoadExertionPainter extends CustomPainter {
     // Track background
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(0, tPad, size.width, chartH), const Radius.circular(4)),
-      Paint()..color = Colors.white.withValues(alpha: 0.04),
+      Paint()..color = kTextPrimary.withValues(alpha: 0.04),
     );
 
     // Bars = load
@@ -833,15 +881,15 @@ class _AcwrSparkPainter extends CustomPainter {
     // Zone bands
     void band(double lo, double hi, Color c) =>
         canvas.drawRect(Rect.fromLTRB(0, yAt(hi), w, yAt(lo)), Paint()..color = c);
-    band(1.5, 2.0, Colors.redAccent.withValues(alpha: 0.07));
-    band(1.3, 1.5, Colors.orangeAccent.withValues(alpha: 0.07));
-    band(0.8, 1.3, Colors.greenAccent.withValues(alpha: 0.07));
-    band(0.0, 0.8, Colors.blueAccent.withValues(alpha: 0.06));
+    band(1.5, 2.0, kDanger.withValues(alpha: 0.07));
+    band(1.3, 1.5, kWarn.withValues(alpha: 0.07));
+    band(0.8, 1.3, kSuccess.withValues(alpha: 0.07));
+    band(0.0, 0.8, kInfo.withValues(alpha: 0.06));
 
     // Threshold lines
     for (final v in [0.8, 1.3, 1.5]) {
       canvas.drawLine(Offset(0, yAt(v)), Offset(w, yAt(v)),
-          Paint()..color = Colors.white.withValues(alpha: 0.09)..strokeWidth = 0.5);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.09)..strokeWidth = 0.5);
     }
 
     final vals = data.map((p) => p.acwr.clamp(vMin, vMax)).toList();
@@ -881,7 +929,7 @@ class _AcwrSparkPainter extends CustomPainter {
     // Last dot
     canvas.drawCircle(pts.last, 4.5, Paint()..color = color);
     canvas.drawCircle(pts.last, 4.5, Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
+      ..color = kTextPrimary.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke..strokeWidth = 1.0);
   }
 
@@ -890,6 +938,9 @@ class _AcwrSparkPainter extends CustomPainter {
 }
 
 // ── Metric Bars Painter ───────────────────────────────────────────────────────
+
+/// Height a score of 1 draws at, as a fraction of the tallest bar.
+const double _kMinBar = 0.12;
 
 class _MetricBarsPainter extends CustomPainter {
   final List<int> values;
@@ -906,9 +957,20 @@ class _MetricBarsPainter extends CustomPainter {
 
     for (int i = 0; i < n; i++) {
       final isLast  = i == n - 1;
-      final goodness = (6 - values[i]) / 5.0;
-      final barH    = size.height * maxH * goodness;
-      final barW    = slotW * 0.62;
+      // Bar length tracks the raw 1–5 score, so 5 draws longest and 1 shortest.
+      // Height therefore reads as severity, not quality — on these metrics a
+      // taller bar is a worse day.
+      //
+      // The scale is stretched to 0.12–1.0 rather than the natural v/5 (0.2–1.0)
+      // so the mid-range scores that dominate real logs separate a little more.
+      // It stays a fixed mapping, not a per-panel normalisation, so bar heights
+      // remain comparable across metrics and athletes.
+      final severity = _kMinBar +
+          (values[i].clamp(1, 5) - 1) / 4.0 * (1.0 - _kMinBar);
+      final barH    = size.height * maxH * severity;
+      // Narrow bars: at 0.62 of the slot they came out wider than they were
+      // tall, so height differences read as noise next to the block of colour.
+      final barW    = slotW * 0.36;
       final x       = i * slotW + (slotW - barW) / 2;
       final y       = size.height * maxH - barH;
 
@@ -928,7 +990,7 @@ class _MetricBarsPainter extends CustomPainter {
       // Day label
       final dayLbl = labels[i].split('/')[0];
       final td = TextPainter(
-        text: TextSpan(text: dayLbl, style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8.5)),
+        text: TextSpan(text: dayLbl, style: TextStyle(color: kGrid, fontSize: 8.5)),
         textDirection: TextDirection.ltr,
       )..layout();
       td.paint(canvas, Offset(i * slotW + slotW / 2 - td.width / 2, size.height * maxH + 4));
@@ -977,7 +1039,7 @@ class _ExertionArcPainter extends CustomPainter {
     final tp = TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(text: exertion.toStringAsFixed(1),
-          style: TextStyle(color: Colors.white, fontSize: fs, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+          style: TextStyle(color: kTextPrimary, fontSize: fs, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
     )..layout();
     tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2 + 3));
 
@@ -1014,14 +1076,14 @@ class _CumulativeScorePainter extends CustomPainter {
 
     // Zone bands
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(8), size.width, yAt(4)),
-        Paint()..color = Colors.greenAccent.withValues(alpha: 0.06));
+        Paint()..color = kSuccess.withValues(alpha: 0.06));
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(13), size.width, yAt(8)),
-        Paint()..color = Colors.orangeAccent.withValues(alpha: 0.06));
+        Paint()..color = kWarn.withValues(alpha: 0.06));
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(20), size.width, yAt(13)),
-        Paint()..color = Colors.redAccent.withValues(alpha: 0.06));
+        Paint()..color = kDanger.withValues(alpha: 0.06));
 
     // Reference lines at 8 and 13 (PDF requirement)
-    for (final entry in [[8.0, Colors.greenAccent], [13.0, Colors.redAccent]]) {
+    for (final entry in [[8.0, kSuccess], [13.0, kDanger]]) {
       final v = entry[0] as double;
       final c = entry[1] as Color;
       final y = yAt(v);
@@ -1043,7 +1105,7 @@ class _CumulativeScorePainter extends CustomPainter {
     for (final v in [4.0, 12.0, 20.0]) {
       final tp = TextPainter(
         text: TextSpan(text: v.toStringAsFixed(0),
-            style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8)),
+            style: TextStyle(color: kGrid, fontSize: 8)),
         textDirection: TextDirection.ltr,
       )..layout();
       if (v != 4 && v != 20) tp.paint(canvas, Offset(2, yAt(v) - tp.height / 2));
@@ -1062,13 +1124,13 @@ class _CumulativeScorePainter extends CustomPainter {
       path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
     }
     canvas.drawPath(path, Paint()
-      ..color = Colors.purpleAccent..strokeWidth = 2.2
+      ..color = kViolet..strokeWidth = 2.2
       ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
 
     // Dots, coloured by zone
     for (int i = 0; i < n; i++) {
       final v = totals[i];
-      final c = v <= 8 ? kAccent : v <= 13 ? Colors.orangeAccent : Colors.redAccent;
+      final c = v <= 8 ? kAccent : v <= 13 ? kWarn : kDanger;
       canvas.drawCircle(pts[i], i == n - 1 ? 4.0 : 2.6, Paint()..color = c);
     }
 
@@ -1077,7 +1139,7 @@ class _CumulativeScorePainter extends CustomPainter {
     for (int i = 0; i < n; i += step) {
       final lbl = dates[i].split('/')[0];
       final tp = TextPainter(
-        text: TextSpan(text: lbl, style: const TextStyle(color: Color(0xFF5C6280), fontSize: 7.5)),
+        text: TextSpan(text: lbl, style: TextStyle(color: kGrid, fontSize: 7.5)),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(xAt(i) - tp.width / 2, size.height - bPad + 4));

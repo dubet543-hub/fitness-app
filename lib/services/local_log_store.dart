@@ -107,6 +107,14 @@ class LocalLogStore {
     await prefs.setString(_kBcaHistory, jsonEncode(history));
   }
 
+  /// Wipes the locally-cached body-composition history and sync bookkeeping.
+  /// Paired with a server-side data deletion so nothing lingers on-device.
+  static Future<void> clearBcaHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kBcaHistory);
+    await prefs.remove(_kBcaSyncedDates);
+  }
+
   // ── Backend sync tracking ──────────────────────────────────────────────────
   // Records the ISO dates of BCA entries already pushed to the server so the
   // backfill sync never uploads the same reading twice.

@@ -47,10 +47,10 @@ CombinedLoadTarget tomorrowLoadTargets([int athlete = 0]) {
   final skill = athlete == 1 ? _a2Skill : _a1Skill;
   final total = athlete == 1 ? _a2Total : _a1Total;
   return CombinedLoadTarget(
-    LoadTarget(label: 'Total', chronic: total.last.chronic, color: Colors.purpleAccent),
+    LoadTarget(label: 'Total', chronic: total.last.chronic, color: kViolet),
     [
-      LoadTarget(label: 'Training', chronic: train.last.chronic, color: Colors.lightBlueAccent),
-      LoadTarget(label: 'Skill',    chronic: skill.last.chronic, color: Colors.greenAccent),
+      LoadTarget(label: 'Training', chronic: train.last.chronic, color: kSky),
+      LoadTarget(label: 'Skill',    chronic: skill.last.chronic, color: kSuccess),
     ],
   );
 }
@@ -492,21 +492,21 @@ class _WMState extends State<WorkloadMonitorScreen>
               children: [
                 _SectionView(
                   data:         _train,
-                  accentColor:  Colors.lightBlueAccent,
+                  accentColor:  kSky,
                   sectionTitle: 'Training Session Exertion',
-                  barColor:     Colors.lightBlueAccent,
+                  barColor:     kSky,
                 ),
                 _SectionView(
                   data:         _skill,
-                  accentColor:  Colors.greenAccent,
+                  accentColor:  kSuccess,
                   sectionTitle: 'Skill Session Exertion',
-                  barColor:     Colors.greenAccent,
+                  barColor:     kSuccess,
                 ),
                 _SectionView(
                   data:         _total,
-                  accentColor:  Colors.purpleAccent,
+                  accentColor:  kViolet,
                   sectionTitle: 'Daily Total Load & Exertion',
-                  barColor:     Colors.purpleAccent,
+                  barColor:     kViolet,
                 ),
               ],
             ),
@@ -591,11 +591,11 @@ class _SectionView extends StatelessWidget {
   int get _targetHigh => (_last.chronic * 1.3).round();
 
   Color _acwrColor(double v) {
-    if (v <= 0)   return Colors.grey;
-    if (v < 0.8)  return Colors.blueAccent;
-    if (v <= 1.3) return Colors.greenAccent;
-    if (v <= 1.5) return Colors.orangeAccent;
-    return Colors.redAccent;
+    if (v <= 0)   return kTextSecondary;
+    if (v < 0.8)  return kInfo;
+    if (v <= 1.3) return kSuccess;
+    if (v <= 1.5) return kWarn;
+    return kDanger;
   }
 
   String _acwrLabel(double v) {
@@ -607,10 +607,10 @@ class _SectionView extends StatelessWidget {
   }
 
   Color _loadGuidanceColor(double load, int low, int high) {
-    if (load <= 0) return Colors.grey;
-    if (load < low) return Colors.blueAccent;
-    if (load <= high) return Colors.greenAccent;
-    return Colors.orangeAccent;
+    if (load <= 0) return kTextSecondary;
+    if (load < low) return kInfo;
+    if (load <= high) return kSuccess;
+    return kWarn;
   }
 
   @override
@@ -659,7 +659,7 @@ class _SectionView extends StatelessWidget {
             Expanded(child: _MetricCard(
               label: '7-day Acute',
               value: _last.acute.toStringAsFixed(0),
-              color: Colors.lightBlueAccent,
+              color: kSky,
             )),
           ]),
           const SizedBox(height: 10),
@@ -683,7 +683,7 @@ class _SectionView extends StatelessWidget {
               label: 'Z-Score',
               value: _last.z.toStringAsFixed(2),
               sub: _last.z.abs() > 2 ? 'Flagged' : 'Normal',
-              color: _last.z.abs() > 2 ? Colors.redAccent : Colors.tealAccent,
+              color: _last.z.abs() > 2 ? kDanger : kSuccess,
             )),
           ]),
           const SizedBox(height: 12),
@@ -983,11 +983,11 @@ class _AcwrGauge extends StatelessWidget {
     // Clamp to 0-2.0 for display; proportions match the 0-2.0 scale exactly
     final clamped = acwr.clamp(0.0, 2.0);
     Color zoneColor(double v) {
-      if (v <= 0)   return Colors.grey;
-      if (v < 0.8)  return Colors.blueAccent;
-      if (v <= 1.3) return Colors.greenAccent;
-      if (v <= 1.5) return Colors.orangeAccent;
-      return Colors.redAccent;
+      if (v <= 0)   return kTextSecondary;
+      if (v < 0.8)  return kInfo;
+      if (v <= 1.3) return kSuccess;
+      if (v <= 1.5) return kWarn;
+      return kDanger;
     }
     final col = zoneColor(acwr);
 
@@ -1012,14 +1012,14 @@ class _AcwrGauge extends StatelessWidget {
             )),
             // 1.3–1.5 = 10%
             Expanded(flex: 10, child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFE65100), Color(0xFFFFA726)]),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xFFE65100), kWarn]),
               ),
             )),
             // 1.5–2.0 = 25%
             Expanded(flex: 25, child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFB71C1C), Color(0xFFEF5350)]),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xFFB71C1C), kDanger]),
               ),
             )),
           ]),
@@ -1044,7 +1044,7 @@ class _AcwrGauge extends StatelessWidget {
           Positioned(
             left: x,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.arrow_drop_down, color: acwr <= 0 ? Colors.grey : Colors.white, size: 20),
+              Icon(Icons.arrow_drop_down, color: acwr <= 0 ? kTextSecondary : kTextPrimary, size: 20),
             ]),
           ),
         ]);
@@ -1068,10 +1068,10 @@ class _AcwrGauge extends StatelessWidget {
       const SizedBox(height: 10),
       // Zone labels — same flex proportions as gauge bar
       Row(children: [
-        Expanded(flex: 40, child: const _ZL('Under\nTraining', Colors.blueAccent)),
-        Expanded(flex: 25, child: const _ZL('Sweet\nSpot ✓', Colors.greenAccent)),
-        Expanded(flex: 10, child: const _ZL('Caution', Colors.orangeAccent)),
-        Expanded(flex: 25, child: const _ZL('Danger\nZone', Colors.redAccent)),
+        Expanded(flex: 40, child: _ZL('Under\nTraining', kInfo)),
+        Expanded(flex: 25, child: _ZL('Sweet\nSpot ✓', kSuccess)),
+        Expanded(flex: 10, child: _ZL('Caution', kWarn)),
+        Expanded(flex: 25, child: _ZL('Danger\nZone', kDanger)),
       ]),
     ]);
   }
@@ -1173,11 +1173,11 @@ class _LoadChartPainter extends CustomPainter {
     for (final frac in [0.25, 0.5, 0.75, 1.0]) {
       final y = tPad + chartH * (1 - frac);
       canvas.drawLine(Offset(lp, y), Offset(size.width, y),
-          Paint()..color = Colors.white.withValues(alpha: 0.09)..strokeWidth = 0.5);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.09)..strokeWidth = 0.5);
       final tp = TextPainter(
         text: TextSpan(
             text: (vMax * frac).toStringAsFixed(0),
-            style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8)),
+            style: TextStyle(color: kGrid, fontSize: 8)),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(lp - 4 - tp.width, y - tp.height / 2));
@@ -1194,7 +1194,7 @@ class _LoadChartPainter extends CustomPainter {
         canvas.drawRRect(
           RRect.fromRectAndCorners(rect.inflate(1.5),
               topLeft: const Radius.circular(4), topRight: const Radius.circular(4)),
-          Paint()..color = Colors.white.withValues(alpha: 0.08),
+          Paint()..color = kTextPrimary.withValues(alpha: 0.08),
         );
       }
       canvas.drawRRect(
@@ -1237,7 +1237,7 @@ class _LoadChartPainter extends CustomPainter {
       for (final p in exertPts) {
         canvas.drawCircle(p, 2.5, Paint()..color = Colors.pinkAccent);
         canvas.drawCircle(p, 2.5, Paint()
-          ..color = Colors.white.withValues(alpha: 0.25)
+          ..color = kTextPrimary.withValues(alpha: 0.25)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 0.8);
       }
@@ -1248,7 +1248,7 @@ class _LoadChartPainter extends CustomPainter {
       final si = selectedIdx!;
       final x = xAt(si);
       canvas.drawLine(Offset(x, tPad), Offset(x, tPad + chartH),
-          Paint()..color = Colors.white.withValues(alpha: 0.13)..strokeWidth = 1);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.13)..strokeWidth = 1);
       final exert = data[si].load > 0
           ? (min(10.0, 2.087 * log(data[si].load / 50.0 + 1.0) + 2.0)).toStringAsFixed(1)
           : '—';
@@ -1291,7 +1291,7 @@ class _LoadChartPainter extends CustomPainter {
         text: TextSpan(
           text: lines[i],
           style: TextStyle(
-            color: i == 0 ? Colors.white : const Color(0xFF878CA8),
+            color: i == 0 ? kTextPrimary : const Color(0xFF878CA8),
             fontSize: fs,
             fontWeight: i == 0 ? FontWeight.w700 : FontWeight.normal,
           ),
@@ -1305,7 +1305,7 @@ class _LoadChartPainter extends CustomPainter {
 
   void _lbl(Canvas c, String s, double cx, double cy) {
     final tp = TextPainter(
-      text: TextSpan(text: s, style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8.5)),
+      text: TextSpan(text: s, style: TextStyle(color: kGrid, fontSize: 8.5)),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(c, Offset(cx - tp.width / 2, cy));
@@ -1389,10 +1389,10 @@ class _AcwrPainter extends CustomPainter {
       canvas.drawRect(Rect.fromLTRB(lp, yAt(hi), size.width, yAt(lo)),
           Paint()..color = c.withValues(alpha: 0.09));
     }
-    band(0.0, 0.8, Colors.blueAccent);
-    band(0.8, 1.3, Colors.greenAccent);
-    band(1.3, 1.5, Colors.orangeAccent);
-    band(1.5, 2.5, Colors.redAccent);
+    band(0.0, 0.8, kInfo);
+    band(0.8, 1.3, kSuccess);
+    band(1.3, 1.5, kWarn);
+    band(1.5, 2.5, kDanger);
 
     // Y-axis line
     canvas.drawLine(Offset(lp, tPad - 4), Offset(lp, tPad + chartH),
@@ -1403,11 +1403,11 @@ class _AcwrPainter extends CustomPainter {
       final y = yAt(v);
       if (y < tPad || y > tPad + chartH) continue;
       canvas.drawLine(Offset(lp, y), Offset(size.width, y),
-          Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeWidth = 0.5);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.08)..strokeWidth = 0.5);
       final tp = TextPainter(
         text: TextSpan(
             text: v.toStringAsFixed(1),
-            style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8)),
+            style: TextStyle(color: kGrid, fontSize: 8)),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(lp - 4 - tp.width, y - tp.height / 2));
@@ -1422,10 +1422,10 @@ class _AcwrPainter extends CustomPainter {
     final pts  = List.generate(n, (i) => Offset(xAt(i), yAt(vals[i])));
 
     Color segColor(double v) {
-      if (v < 0.8)  return Colors.blueAccent;
-      if (v <= 1.3) return Colors.greenAccent;
-      if (v <= 1.5) return Colors.orangeAccent;
-      return Colors.redAccent;
+      if (v < 0.8)  return kInfo;
+      if (v <= 1.3) return kSuccess;
+      if (v <= 1.5) return kWarn;
+      return kDanger;
     }
 
     // Gradient area fill under the line
@@ -1472,7 +1472,7 @@ class _AcwrPainter extends CustomPainter {
       final isSelected = selectedIdx == i;
       if (isSelected) {
         canvas.drawCircle(pts[i], 6.0, Paint()..color = segColor(vals[i]).withValues(alpha: 0.25));
-        canvas.drawCircle(pts[i], 4.5, Paint()..color = Colors.white);
+        canvas.drawCircle(pts[i], 4.5, Paint()..color = kTextPrimary);
         canvas.drawCircle(pts[i], 4.5, Paint()
           ..color = segColor(vals[i])
           ..style = PaintingStyle.stroke
@@ -1487,7 +1487,7 @@ class _AcwrPainter extends CustomPainter {
       final si = selectedIdx!;
       final x = xAt(si);
       canvas.drawLine(Offset(x, tPad), Offset(x, tPad + chartH),
-          Paint()..color = Colors.white.withValues(alpha: 0.13)..strokeWidth = 1);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.13)..strokeWidth = 1);
       final col = segColor(vals[si]);
       _drawTooltip(canvas, size, x, tPad, lp, data[si].d, vals[si], col);
     }
@@ -1519,7 +1519,7 @@ class _AcwrPainter extends CustomPainter {
     // Date line
     final tp0 = TextPainter(
       text: TextSpan(text: date,
-          style: const TextStyle(color: Colors.white, fontSize: fs, fontWeight: FontWeight.w700)),
+          style: TextStyle(color: kTextPrimary, fontSize: fs, fontWeight: FontWeight.w700)),
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: tw - pad * 2);
     tp0.paint(canvas, Offset(tx + pad, ty + pad));
@@ -1543,7 +1543,7 @@ class _AcwrPainter extends CustomPainter {
 
   void _lbl(Canvas c, String s, double cx, double cy) {
     final tp = TextPainter(
-      text: TextSpan(text: s, style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8.5)),
+      text: TextSpan(text: s, style: TextStyle(color: kGrid, fontSize: 8.5)),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(c, Offset(cx - tp.width / 2, cy));
@@ -1625,12 +1625,12 @@ class _ZScorePainter extends CustomPainter {
 
     // Flagged zone bands (|z| > 2)
     canvas.drawRect(Rect.fromLTRB(lp, yAt(vMax), size.width, yAt(2.0)),
-        Paint()..color = Colors.redAccent.withValues(alpha: 0.08));
+        Paint()..color = kDanger.withValues(alpha: 0.08));
     canvas.drawRect(Rect.fromLTRB(lp, yAt(-2.0), size.width, yAt(vMin)),
-        Paint()..color = Colors.redAccent.withValues(alpha: 0.08));
+        Paint()..color = kDanger.withValues(alpha: 0.08));
     // Normal band
     canvas.drawRect(Rect.fromLTRB(lp, yAt(2.0), size.width, yAt(-2.0)),
-        Paint()..color = Colors.tealAccent.withValues(alpha: 0.05));
+        Paint()..color = kSuccess.withValues(alpha: 0.05));
 
     // Y-axis line
     canvas.drawLine(Offset(lp, tPad - 4), Offset(lp, tPad + chartH),
@@ -1644,15 +1644,15 @@ class _ZScorePainter extends CustomPainter {
       canvas.drawLine(Offset(lp, y), Offset(size.width, y),
           Paint()
             ..color = isThreshold
-                ? Colors.redAccent.withValues(alpha: 0.35)
-                : Colors.white.withValues(alpha: 0.08)
+                ? kDanger.withValues(alpha: 0.35)
+                : kTextPrimary.withValues(alpha: 0.08)
             ..strokeWidth = isThreshold ? 0.8 : 0.5
             ..strokeJoin = StrokeJoin.round);
       final tp = TextPainter(
         text: TextSpan(
             text: v == 0.0 ? '0' : v.toStringAsFixed(0),
             style: TextStyle(
-              color: isThreshold ? Colors.redAccent.withValues(alpha: 0.7) : const Color(0xFF5C6280),
+              color: isThreshold ? kDanger.withValues(alpha: 0.7) : kGrid,
               fontSize: 8,
               fontWeight: isThreshold ? FontWeight.w700 : FontWeight.normal,
             )),
@@ -1663,12 +1663,12 @@ class _ZScorePainter extends CustomPainter {
 
     // Zero line
     canvas.drawLine(Offset(lp, yAt(0)), Offset(size.width, yAt(0)),
-        Paint()..color = Colors.white.withValues(alpha: 0.2)..strokeWidth = 0.8);
+        Paint()..color = kTextPrimary.withValues(alpha: 0.2)..strokeWidth = 0.8);
 
     final vals = data.map((d) => d.z.clamp(vMin, vMax)).toList();
     final pts  = List.generate(n, (i) => Offset(xAt(i), yAt(vals[i])));
 
-    Color ptColor(double z) => z.abs() > 2 ? Colors.redAccent : Colors.tealAccent;
+    Color ptColor(double z) => z.abs() > 2 ? kDanger : kSuccess;
 
     // Build Catmull-Rom spline path
     final linePath = Path()..moveTo(pts[0].dx, pts[0].dy);
@@ -1705,7 +1705,7 @@ class _ZScorePainter extends CustomPainter {
     canvas.drawPath(fillBelow, Paint()
       ..shader = LinearGradient(
         begin: Alignment.bottomCenter, end: Alignment.topCenter,
-        colors: [Colors.redAccent.withValues(alpha: 0.20), Colors.redAccent.withValues(alpha: 0.0)],
+        colors: [kDanger.withValues(alpha: 0.20), kDanger.withValues(alpha: 0.0)],
       ).createShader(Rect.fromLTWH(lp, zeroY, contentW, tPad + chartH - zeroY)));
     canvas.restore();
 
@@ -1732,12 +1732,12 @@ class _ZScorePainter extends CustomPainter {
       final col = ptColor(vals[i]);
       if (isSelected) {
         canvas.drawCircle(pts[i], 6.0, Paint()..color = col.withValues(alpha: 0.2));
-        canvas.drawCircle(pts[i], 4.0, Paint()..color = Colors.white);
+        canvas.drawCircle(pts[i], 4.0, Paint()..color = kTextPrimary);
         canvas.drawCircle(pts[i], 4.0, Paint()..color = col..style = PaintingStyle.stroke..strokeWidth = 1.5);
       } else {
         canvas.drawCircle(pts[i], 2.5, Paint()..color = col);
         canvas.drawCircle(pts[i], 2.5, Paint()
-          ..color = Colors.white.withValues(alpha: 0.2)
+          ..color = kTextPrimary.withValues(alpha: 0.2)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 0.8);
       }
@@ -1748,7 +1748,7 @@ class _ZScorePainter extends CustomPainter {
       final si = selectedIdx!;
       final x = xAt(si);
       canvas.drawLine(Offset(x, tPad), Offset(x, tPad + chartH),
-          Paint()..color = Colors.white.withValues(alpha: 0.13)..strokeWidth = 1);
+          Paint()..color = kTextPrimary.withValues(alpha: 0.13)..strokeWidth = 1);
       final col = ptColor(vals[si]);
       _drawTooltip(canvas, size, x, tPad, lp, data[si].d, data[si].z, col);
     }
@@ -1786,7 +1786,7 @@ class _ZScorePainter extends CustomPainter {
         text: TextSpan(
           text: text,
           style: TextStyle(
-            color: bold ? Colors.white : (i == 2 ? col : const Color(0xFF878CA8)),
+            color: bold ? kTextPrimary : (i == 2 ? col : const Color(0xFF878CA8)),
             fontSize: fs,
             fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
           ),
@@ -1799,7 +1799,7 @@ class _ZScorePainter extends CustomPainter {
 
   void _lbl(Canvas c, String s, double cx, double cy) {
     final tp = TextPainter(
-      text: TextSpan(text: s, style: const TextStyle(color: Color(0xFF5C6280), fontSize: 8.5)),
+      text: TextSpan(text: s, style: TextStyle(color: kGrid, fontSize: 8.5)),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(c, Offset(cx - tp.width / 2, cy));
@@ -1820,11 +1820,11 @@ class _SessionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color acwrCol(double v) {
-      if (v <= 0)   return Colors.grey;
-      if (v < 0.8)  return Colors.blueAccent;
-      if (v <= 1.3) return Colors.greenAccent;
-      if (v <= 1.5) return Colors.orangeAccent;
-      return Colors.redAccent;
+      if (v <= 0)   return kTextSecondary;
+      if (v < 0.8)  return kInfo;
+      if (v <= 1.3) return kSuccess;
+      if (v <= 1.5) return kWarn;
+      return kDanger;
     }
     final acCol = acwrCol(pt.acwr);
 
@@ -1854,11 +1854,11 @@ class _SessionRow extends StatelessWidget {
                         ? (min(10.0, 2.087 * log(pt.load / 50.0 + 1.0) + 2.0)).toStringAsFixed(1)
                         : '—',
                     Colors.pinkAccent),
-                _stat('Acute', pt.acute.toStringAsFixed(0), Colors.lightBlueAccent),
+                _stat('Acute', pt.acute.toStringAsFixed(0), kSky),
                 _stat('Chronic', pt.chronic.toStringAsFixed(0), Colors.amberAccent),
                 _stat('ACWR', pt.acwr <= 0 ? '—' : pt.acwr.toStringAsFixed(2), acCol),
                 _stat('Z', pt.z.toStringAsFixed(2),
-                    pt.z.abs() > 2 ? Colors.redAccent : Colors.tealAccent),
+                    pt.z.abs() > 2 ? kDanger : kSuccess),
               ]),
             ),
           ],

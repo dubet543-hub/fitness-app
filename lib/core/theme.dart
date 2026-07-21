@@ -21,9 +21,57 @@ Color kTextMuted     = _darkTextMuted;
 Color kExertion        = _darkExertion;
 Color kSleep         = _darkSleep;
 
+// ── Semantic status colours ───────────────────────────────────────────────────
+// Every screen used to hardcode these (Colors.redAccent, Color(0xFFEF4444), …),
+// which is why light mode looked wrong: the dark-tuned neons have far too little
+// contrast against a near-white background. The light variants below are
+// darker//more saturated so they stay legible on kBg.
+
+/// Bad / at-risk / over-threshold.
+Color kDanger  = _darkDanger;
+/// Caution / monitor / moderate.
+Color kWarn    = _darkWarn;
+/// Informational series (heart rate, exertion, secondary metrics).
+Color kInfo    = _darkInfo;
+/// Good / optimal / on-target.
+Color kSuccess = _darkSuccess;
+/// Skill / secondary-load series.
+Color kViolet  = _darkViolet;
+/// Running / intensity series.
+Color kOrange  = _darkOrange;
+/// Posture / technique series.
+Color kSky     = _darkSky;
+/// Chart gridlines and axis labels.
+Color kGrid    = _darkGrid;
+/// Foreground for text/icons sitting on top of [kAccent].
+Color kOnAccent = Colors.black;
+
+/// Foreground for controls painted over the live camera preview (record ring,
+/// status pills, capture labels). Deliberately NOT theme-dependent: these sit on
+/// video, not on [kBg], so following the light palette would turn them near-black
+/// over a bright viewfinder. Always light.
+const Color kOnCamera     = Colors.white;
+const Color kOnCameraSoft = Colors.white70;
+/// Scrim behind camera-overlay pills, so light text stays legible on any frame.
+const Color kCameraScrim  = Colors.black54;
+
 /// True when the light palette is active. Useful for brightness-dependent bits
 /// (status bar style, etc.).
 bool kIsLight = false;
+
+// ── Typography ────────────────────────────────────────────────────────────────
+/// Display font for headlines/titles/large stats (Conthrax-style techno face).
+const String kHeadlineFont = 'ChakraPetch';
+/// Default font across the entire app.
+const String kBodyFont = 'ChakraPetch';
+
+/// The "bold slanted" headline treatment: bold weight + italic slant.
+/// Apply on top of a base style, e.g. `TextStyle(fontSize: 24).merge(kHeadline)`.
+const TextStyle kHeadline = TextStyle(
+  fontFamily: kHeadlineFont,
+  fontWeight: FontWeight.w700,
+  fontStyle: FontStyle.italic,
+);
 
 // ── Dark palette ──────────────────────────────────────────────────────────────
 const Color _darkBg            = Color(0xFF191C22);
@@ -39,6 +87,14 @@ const Color _darkTextSecondary = Color(0xFF878CA8);
 const Color _darkTextMuted     = Color(0xFF424866);
 const Color _darkExertion        = Color(0xFF4AADFF);
 const Color _darkSleep         = Color(0xFF9D8AFF);
+const Color _darkDanger        = Color(0xFFEF4444);
+const Color _darkWarn          = Color(0xFFF59E0B);
+const Color _darkInfo          = Color(0xFF4AADFF);
+const Color _darkSuccess       = Color(0xFF00CF74);
+const Color _darkViolet        = Color(0xFF9D8AFF);
+const Color _darkOrange        = Color(0xFFFF6B35);
+const Color _darkSky           = Color(0xFF38BDF8);
+const Color _darkGrid          = Color(0xFF5C6280);
 
 // ── Light palette ─────────────────────────────────────────────────────────────
 const Color _lightBg            = Color(0xFFF4F5F8);
@@ -54,6 +110,16 @@ const Color _lightTextSecondary = Color(0xFF5B6173);
 const Color _lightTextMuted     = Color(0xFF9CA2B2);
 const Color _lightExertion        = Color(0xFF2F8FE0);
 const Color _lightSleep         = Color(0xFF7A63E0);
+// Darker, more saturated than their dark-mode counterparts so they clear ~4.5:1
+// against the near-white kBg. The dark neons sit near 1.5:1 there.
+const Color _lightDanger        = Color(0xFFC62828);
+const Color _lightWarn          = Color(0xFFB45309);
+const Color _lightInfo          = Color(0xFF1D6FC0);
+const Color _lightSuccess       = Color(0xFF00804A);
+const Color _lightViolet        = Color(0xFF6247C7);
+const Color _lightOrange        = Color(0xFFC2410C);
+const Color _lightSky           = Color(0xFF0B6E9E);
+const Color _lightGrid          = Color(0xFFB6BCCA);
 
 /// Swap the live palette to match [b]. Call before building the app theme.
 void applyBrightness(Brightness b) {
@@ -72,6 +138,17 @@ void applyBrightness(Brightness b) {
   kTextMuted      = light ? _lightTextMuted      : _darkTextMuted;
   kExertion         = light ? _lightExertion         : _darkExertion;
   kSleep          = light ? _lightSleep          : _darkSleep;
+  kDanger         = light ? _lightDanger         : _darkDanger;
+  kWarn           = light ? _lightWarn           : _darkWarn;
+  kInfo           = light ? _lightInfo           : _darkInfo;
+  kSuccess        = light ? _lightSuccess        : _darkSuccess;
+  kViolet         = light ? _lightViolet         : _darkViolet;
+  kOrange         = light ? _lightOrange         : _darkOrange;
+  kSky            = light ? _lightSky            : _darkSky;
+  kGrid           = light ? _lightGrid           : _darkGrid;
+  // On the dark accent black reads best; the light accent is dark enough that
+  // white is the legible foreground.
+  kOnAccent       = light ? Colors.white         : Colors.black;
 }
 
 // ── Theme-mode controller (persisted) ─────────────────────────────────────────
@@ -125,7 +202,7 @@ Brightness effectiveBrightness(ThemeMode mode) {
 ThemeData buildAppTheme() => ThemeData(
   brightness: kIsLight ? Brightness.light : Brightness.dark,
   scaffoldBackgroundColor: kBg,
-  fontFamily: 'SF Pro Display',
+  fontFamily: kBodyFont,
   colorScheme: ColorScheme(
     brightness: kIsLight ? Brightness.light : Brightness.dark,
     primary: kAccent,
@@ -143,10 +220,12 @@ ThemeData buildAppTheme() => ThemeData(
     centerTitle: false,
     iconTheme: IconThemeData(color: kTextPrimary),
     titleTextStyle: TextStyle(
+      fontFamily: kHeadlineFont,
+      fontStyle: FontStyle.italic,
       color: kTextPrimary,
       fontSize: 17,
       fontWeight: FontWeight.w700,
-      letterSpacing: -0.3,
+      letterSpacing: 0.2,
     ),
     systemOverlayStyle: kIsLight ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light,
   ),
@@ -186,5 +265,32 @@ ThemeData buildAppTheme() => ThemeData(
     behavior: SnackBarBehavior.floating,
   ),
   dividerTheme: DividerThemeData(color: kBorder, thickness: 1),
+  // Chakra Petch is the default throughout the app. Display styles additionally
+  // receive the bold italic headline treatment.
+  textTheme: _themedTextTheme(),
   useMaterial3: false,
 );
+
+/// Base text theme for the active brightness, used to derive [buildAppTheme]'s
+/// mixed body/headline typography.
+///
+/// A function, not a `final` — a top-level final is initialised once on first
+/// access and would pin the text colours to whichever brightness happened to be
+/// active at app start, so text stayed dark-theme coloured after switching.
+TextTheme _baseTextTheme() =>
+    (kIsLight ? ThemeData.light() : ThemeData.dark()).textTheme;
+
+/// Chakra Petch throughout, with the bold-italic headline treatment applied to
+/// display/headline/title styles.
+TextTheme _themedTextTheme() {
+  final base = _baseTextTheme();
+  return base.copyWith(
+    displayLarge:   base.displayLarge?.merge(kHeadline),
+    displayMedium:  base.displayMedium?.merge(kHeadline),
+    displaySmall:   base.displaySmall?.merge(kHeadline),
+    headlineLarge:  base.headlineLarge?.merge(kHeadline),
+    headlineMedium: base.headlineMedium?.merge(kHeadline),
+    headlineSmall:  base.headlineSmall?.merge(kHeadline),
+    titleLarge:     base.titleLarge?.merge(kHeadline),
+  );
+}

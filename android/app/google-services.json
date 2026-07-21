@@ -49,6 +49,35 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:914527293028:android:cd26c29d3cbc7f58f91971",
+        "android_client_info": {
+          "package_name": "com.solidcore.ams"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "914527293028-etrijhbno16i334gfhh497e1fph2hhg3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAban9NEfTmIUBj8fEhmAv_-hmMHIE01LA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "914527293028-etrijhbno16i334gfhh497e1fph2hhg3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

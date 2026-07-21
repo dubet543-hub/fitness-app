@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import 'legal_pages.dart';
 
-const _supportEmail = 'support@solidcore.app';
+const _supportEmail = 'support@solidcoreats.com';
 
 Future<void> _openEmail(BuildContext context, {String subject = '', String body = ''}) async {
   final uri = Uri(
@@ -54,7 +54,7 @@ class HelpCenterPage extends StatelessWidget {
           _Group(children: [
             _ContactRow(
               icon: Icons.email_outlined,
-              iconColor: const Color(0xFF38BDF8),
+              iconColor: kSky,
               label: 'Email support',
               onTap: () => _openEmail(context, subject: 'SolidCore support request'),
             ),

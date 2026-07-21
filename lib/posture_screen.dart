@@ -7,6 +7,7 @@ import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import 'services/local_log_store.dart';
+import 'core/theme.dart';
 
 enum PostureMode { frontal, sagittal }
 
@@ -14,7 +15,7 @@ enum PostureMode { frontal, sagittal }
 // PostureGuideScreen — mode selector + instructions
 // ─────────────────────────────────────────────────────────────────────────────
 class PostureGuideScreen extends StatefulWidget {
-  const PostureGuideScreen({super.key});
+  PostureGuideScreen({super.key});
 
   @override
   State<PostureGuideScreen> createState() => _PostureGuideScreenState();
@@ -23,34 +24,34 @@ class PostureGuideScreen extends StatefulWidget {
 class _PostureGuideScreenState extends State<PostureGuideScreen> {
   PostureMode _mode = PostureMode.frontal;
 
-  static const List<_GuideItem> _frontalInstructions = [
+  static List<_GuideItem> _frontalInstructions = [
     _GuideItem(
       icon: Icons.accessibility_new,
-      color: Colors.greenAccent,
+      color: kSuccess,
       title: "Face the Camera",
       subtitle: "Stand directly facing the phone",
     ),
     _GuideItem(
       icon: Icons.straighten,
-      color: Colors.lightBlueAccent,
+      color: kSky,
       title: "2–3 Metres Away",
       subtitle: "Full body from head to feet in frame",
     ),
     _GuideItem(
       icon: Icons.crop_free,
-      color: Colors.yellowAccent,
+      color: kWarn,
       title: "Arms at Sides",
       subtitle: "Relax arms naturally at your sides",
     ),
     _GuideItem(
       icon: Icons.wb_sunny_outlined,
-      color: Colors.orangeAccent,
+      color: kWarn,
       title: "Good Lighting",
       subtitle: "Bright, even lighting — no shadows",
     ),
     _GuideItem(
       icon: Icons.checkroom,
-      color: Colors.purpleAccent,
+      color: kViolet,
       title: "Fitted Clothing",
       subtitle: "Shorts and vest/t-shirt recommended",
     ),
@@ -62,34 +63,34 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
     ),
   ];
 
-  static const List<_GuideItem> _sagittalInstructions = [
+  static List<_GuideItem> _sagittalInstructions = [
     _GuideItem(
       icon: Icons.switch_left,
-      color: Colors.greenAccent,
+      color: kSuccess,
       title: "Stand Sideways",
       subtitle: "LEFT side of body faces camera",
     ),
     _GuideItem(
       icon: Icons.straighten,
-      color: Colors.lightBlueAccent,
+      color: kSky,
       title: "2–3 Metres Away",
       subtitle: "Full body from head to feet in frame",
     ),
     _GuideItem(
       icon: Icons.crop_free,
-      color: Colors.yellowAccent,
+      color: kWarn,
       title: "Look Straight Ahead",
       subtitle: "Eyes level, chin neutral — no looking at phone",
     ),
     _GuideItem(
       icon: Icons.wb_sunny_outlined,
-      color: Colors.orangeAccent,
+      color: kWarn,
       title: "Good Lighting",
       subtitle: "Bright, even lighting — no shadows",
     ),
     _GuideItem(
       icon: Icons.checkroom,
-      color: Colors.purpleAccent,
+      color: kViolet,
       title: "Fitted Clothing",
       subtitle: "Shorts and vest/t-shirt for best results",
     ),
@@ -101,7 +102,7 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
     ),
     _GuideItem(
       icon: Icons.front_hand_outlined,
-      color: Colors.tealAccent,
+      color: kSuccess,
       title: "Arms at Sides",
       subtitle: "Relax arms — do not swing forward",
     ),
@@ -150,7 +151,7 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
               itemBuilder: (_, i) {
                 final item = instructions[i];
                 return Card(
-                  color: Colors.grey[850],
+                  color: kCard,
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: item.color.withValues(alpha: 0.15),
@@ -163,7 +164,7 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
                     ),
                     subtitle: Text(
                       item.subtitle,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: 12, color: kTextSecondary),
                     ),
                   ),
                 );
@@ -194,9 +195,9 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _mode == PostureMode.frontal
-                      ? Colors.greenAccent
-                      : Colors.lightBlueAccent,
-                  foregroundColor: Colors.black,
+                      ? kSuccess
+                      : kSky,
+                  foregroundColor: kOnAccent,
                 ),
               ),
             ),
@@ -230,10 +231,10 @@ class _ModeCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: selected ? Colors.blueGrey[700] : Colors.grey[850],
+            color: selected ? kInfo : kCard,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? Colors.lightBlueAccent : Colors.grey[700]!,
+              color: selected ? kSky : kTextMuted,
               width: selected ? 2 : 1,
             ),
           ),
@@ -241,7 +242,7 @@ class _ModeCard extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: selected ? Colors.lightBlueAccent : Colors.grey,
+                color: selected ? kSky : kTextSecondary,
                 size: 28,
               ),
               const SizedBox(height: 6),
@@ -250,13 +251,13 @@ class _ModeCard extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
-                  color: selected ? Colors.white : Colors.grey,
+                  color: selected ? kTextPrimary : kTextSecondary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                style: TextStyle(fontSize: 10, color: kTextSecondary),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -471,7 +472,7 @@ class _PostureScreenState extends State<PostureScreen> {
                               height: 56,
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                    color: Colors.yellowAccent, width: 1.5),
+                                    color: kWarn, width: 1.5),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -500,14 +501,14 @@ class _PostureScreenState extends State<PostureScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 12, vertical: 5),
                                       decoration: BoxDecoration(
-                                        color: Colors.black54,
+                                        color: kCameraScrim,
                                         borderRadius:
                                             BorderRadius.circular(20),
                                       ),
                                       child: Text(
                                         hintText,
-                                        style: const TextStyle(
-                                            color: Colors.white,
+                                        style: TextStyle(
+                                            color: kOnCamera,
                                             fontSize: 12),
                                         textAlign: TextAlign.center,
                                         overflow: TextOverflow.ellipsis,
@@ -557,25 +558,25 @@ class _PostureScreenState extends State<PostureScreen> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                      color: Colors.white, width: 3),
+                                      color: kOnCamera, width: 3),
                                 ),
                                 padding: const EdgeInsets.all(5),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: _isCapturing
-                                        ? Colors.grey
-                                        : Colors.white,
+                                        ? kOnCameraSoft
+                                        : kOnCamera,
                                     shape: BoxShape.circle,
                                   ),
                                   child: _isCapturing
-                                      ? const Padding(
+                                      ? Padding(
                                           padding: EdgeInsets.all(16),
                                           child: CircularProgressIndicator(
-                                              color: Colors.black,
+                                              color: kOnAccent,
                                               strokeWidth: 2.5),
                                         )
-                                      : const Icon(Icons.camera_alt,
-                                          color: Colors.black, size: 26),
+                                      : Icon(Icons.camera_alt,
+                                          color: kOnAccent, size: 26),
                                 ),
                               ),
                             ),
@@ -657,11 +658,11 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
 
         if (detected.isEmpty) {
           results = [
-            const PostureResult(
+            PostureResult(
               label: "No Body Detected",
               value: "—",
               detail: "Make sure your full body is visible and well-lit",
-              color: Colors.orangeAccent,
+              color: kWarn,
             ),
           ];
         } else {
@@ -679,7 +680,7 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
             label: "Detection Error",
             value: "Failed",
             detail: e.toString(),
-            color: Colors.redAccent,
+            color: kDanger,
           ),
         ];
       });
@@ -709,15 +710,15 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
   Color _color(String severity) {
     switch (severity) {
       case 'good':
-        return Colors.greenAccent;
+        return kSuccess;
       case 'mild':
-        return Colors.yellowAccent;
+        return kWarn;
       case 'moderate':
-        return Colors.orange;
+        return kWarn;
       case 'severe':
-        return Colors.redAccent;
+        return kDanger;
       default:
-        return Colors.white;
+        return kTextPrimary;
     }
   }
 
@@ -740,11 +741,11 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
 
     if (lShoulder == null || rShoulder == null || lHip == null || rHip == null) {
       return [
-        const PostureResult(
+        PostureResult(
           label: "Visibility",
           value: "—",
           detail: "Shoulders and hips not visible — step further back",
-          color: Colors.orangeAccent,
+          color: kWarn,
         ),
       ];
     }
@@ -980,11 +981,11 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
 
     if (shoulder == null || hip == null) {
       return [
-        const PostureResult(
+        PostureResult(
           label: "Visibility",
           value: "—",
           detail: "Key landmarks not visible — stand sideways with full body in frame",
-          color: Colors.orangeAccent,
+          color: kWarn,
         ),
       ];
     }
@@ -1225,7 +1226,7 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
                     itemBuilder: (_, i) {
                       final r = results[i];
                       return Card(
-                        color: Colors.grey[900],
+                        color: kSurface,
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         child: ListTile(
                           dense: true,
@@ -1253,7 +1254,7 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
                           subtitle: Text(
                             r.detail,
                             style: TextStyle(
-                                color: Colors.grey[400], fontSize: 11),
+                                color: kTextSecondary, fontSize: 11),
                           ),
                         ),
                       );
@@ -1288,16 +1289,16 @@ class _ConsultBanner extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.lightBlueAccent.withValues(alpha: 0.10),
+          color: kSky.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.lightBlueAccent.withValues(alpha: 0.4)),
+          border: Border.all(color: kSky.withValues(alpha: 0.4)),
         ),
         child: Row(children: [
-          const Icon(Icons.medical_services_outlined, color: Colors.lightBlueAccent, size: 20),
+          Icon(Icons.medical_services_outlined, color: kSky, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(message,
-                style: const TextStyle(fontSize: 11.5, color: Colors.white, height: 1.35)),
+                style: TextStyle(fontSize: 11.5, color: kTextPrimary, height: 1.35)),
           ),
         ]),
       ),
@@ -1390,12 +1391,12 @@ class _CamIconButton extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: active
-              ? Colors.white.withValues(alpha: 0.9)
-              : Colors.black.withValues(alpha: 0.45),
+              ? kTextPrimary.withValues(alpha: 0.9)
+              : kOnAccent.withValues(alpha: 0.45),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 22,
-            color: active ? Colors.black : Colors.white),
+            color: active ? kOnAccent : kTextPrimary),
       ),
     );
   }
@@ -1426,13 +1427,13 @@ class _ZoomControls extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: kOnAccent.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             "${zoom.toStringAsFixed(1)}x",
-            style: const TextStyle(
-                color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                color: kTextPrimary, fontSize: 11, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(height: 6),
@@ -1454,11 +1455,11 @@ class _ZoomBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.45),
+          color: kOnAccent.withValues(alpha: 0.45),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 18,
-            color: onTap != null ? Colors.white : Colors.white30),
+            color: onTap != null ? kTextPrimary : kTextMuted),
       ),
     );
   }

@@ -10,6 +10,7 @@ class NotificationService {
   static const _channelName = 'Wellness Reminders';
   static const int _morningId = 101;
   static const int _eveningId = 102;
+  static const int _wakeAlarmId = 103;
 
   static Future<void> init() async {
     tz.initializeTimeZones();
@@ -67,6 +68,30 @@ class NotificationService {
       'Evening Load Reminder',
       "Don't forget to log today's training & skill Load before the day ends.",
       _nextInstanceOf(20, 0),
+      _details(),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  /// Daily wake alarm set from the home screen's Tonight's Sleep card.
+  /// Repeats at the same clock time each day, like the other reminders.
+  static Future<void> scheduleWakeAlarm({
+    required bool enabled,
+    int hour = 8,
+    int minute = 30,
+  }) async {
+    if (!enabled) {
+      await _plugin.cancel(_wakeAlarmId);
+      return;
+    }
+    await _plugin.zonedSchedule(
+      _wakeAlarmId,
+      'Wake up',
+      'Time to get up — log last night’s sleep while it is fresh.',
+      _nextInstanceOf(hour, minute),
       _details(),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:

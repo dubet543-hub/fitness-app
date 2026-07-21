@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../services/sleep_metrics.dart';
+
+/// Which clock a time picker is editing.
+enum _Clock { bed, wake, outOfBed }
 
 class SleepMonitorScreen extends StatefulWidget {
   const SleepMonitorScreen({super.key});
@@ -15,8 +19,11 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
   // Q2 – Minutes to fall asleep
   int _fallAsleepMins = 15;
 
-  // Q3 – Wake-up time
-  TimeOfDay _wakeUpTime = const TimeOfDay(hour: 6, minute: 30);
+  // Q3 – Wake-up time, and the time actually got out of bed. The two differ by
+  // however long was spent lying in bed awake, which is what separates sleep
+  // time from time in bed in the efficiency formula.
+  TimeOfDay _wakeUpTime  = const TimeOfDay(hour: 6, minute: 30);
+  TimeOfDay _outOfBedTime = const TimeOfDay(hour: 6, minute: 40);
 
   // Q5 – Disturbances
   bool _hadDisturbance = false;
@@ -35,26 +42,29 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
   String _fmtTime(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-  // Total time in bed (Q4) — bed → wake, accounting for midnight crossover
-  double get _timeInBed {
-    final bedMins  = _timeToBed.hour  * 60 + _timeToBed.minute;
-    final wakeMins = _wakeUpTime.hour * 60 + _wakeUpTime.minute;
-    double diff = (wakeMins - bedMins).toDouble();
-    if (diff < 0) diff += 1440;
-    return (diff / 60 * 100).roundToDouble() / 100;
-  }
+  int _mins(TimeOfDay t) => t.hour * 60 + t.minute;
 
-  // Effective sleep = time in bed – minutes to fall asleep – awake after disturbance
-  double get _effectiveSleep {
-    double deduct = _fallAsleepMins / 60.0;
-    if (_hadDisturbance) deduct += _awakeAfterMins / 60.0;
-    return (_timeInBed - deduct).clamp(0.0, 24.0);
-  }
+  /// Tonight's log expressed as a [SleepNight], so sleep time, time in bed and
+  /// efficiency all come from the shared sheet formulae rather than being
+  /// recomputed here.
+  SleepNight get _night => nightFromLog(
+        d: 'tonight',
+        timeToBed: _mins(_timeToBed),
+        latencyMinutes: _fallAsleepMins,
+        wokeUp: _mins(_wakeUpTime),
+        outOfBed: _mins(_outOfBedTime),
+        awakeMinutes: _hadDisturbance ? _awakeAfterMins : 0,
+      );
 
-  Future<void> _pickTime(bool isBed) async {
+  Future<void> _pickTime(_Clock which) async {
+    final current = switch (which) {
+      _Clock.bed      => _timeToBed,
+      _Clock.wake     => _wakeUpTime,
+      _Clock.outOfBed => _outOfBedTime,
+    };
     final picked = await showTimePicker(
       context: context,
-      initialTime: isBed ? _timeToBed : _wakeUpTime,
+      initialTime: current,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: ColorScheme.dark(
@@ -67,7 +77,13 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
       ),
     );
     if (picked == null) return;
-    setState(() => isBed ? _timeToBed = picked : _wakeUpTime = picked);
+    setState(() {
+      switch (which) {
+        case _Clock.bed:      _timeToBed = picked;
+        case _Clock.wake:     _wakeUpTime = picked;
+        case _Clock.outOfBed: _outOfBedTime = picked;
+      }
+    });
   }
 
   void _save() {
@@ -127,8 +143,7 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
 
           // ── Sleep Quality Summary ──────────────────────────────────────────
           _SleepSummaryCard(
-            timeInBed: _timeInBed,
-            effectiveSleep: _effectiveSleep,
+            night: _night,
             bedTime: _fmtTime(_timeToBed),
             wakeTime: _fmtTime(_wakeUpTime),
           ),
@@ -141,7 +156,7 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
             label: 'Bedtime',
             value: _fmtTime(_timeToBed),
             icon: Icons.bedtime_rounded,
-            onTap: () => _pickTime(true),
+            onTap: () => _pickTime(_Clock.bed),
           ),
           const SizedBox(height: 16),
 
@@ -159,13 +174,20 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
           const SizedBox(height: 16),
 
           // ── Q3: Wake-up Time ──────────────────────────────────────────────
-          _SectionLabel('3. Wake-up Time'),
+          _SectionLabel('3. Wake-up & Out of Bed'),
           const SizedBox(height: 8),
           _TimePickerTile(
             label: 'Wake-up',
             value: _fmtTime(_wakeUpTime),
             icon: Icons.wb_sunny_outlined,
-            onTap: () => _pickTime(false),
+            onTap: () => _pickTime(_Clock.wake),
+          ),
+          const SizedBox(height: 8),
+          _TimePickerTile(
+            label: 'Got out of bed',
+            value: _fmtTime(_outOfBedTime),
+            icon: Icons.king_bed_outlined,
+            onTap: () => _pickTime(_Clock.outOfBed),
           ),
           const SizedBox(height: 16),
 
@@ -174,8 +196,8 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
           const SizedBox(height: 8),
           _InfoTile(
             icon: Icons.schedule_rounded,
-            label: 'Calculated from bedtime & wake-up',
-            value: '${_timeInBed.toStringAsFixed(1)} hrs',
+            label: 'Bedtime → out of bed',
+            value: formatHhMm(_night.timeInBedMinutes),
             color: kSleep,
           ),
           const SizedBox(height: 16),
@@ -229,7 +251,7 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: kSleep,
-                foregroundColor: Colors.black,
+                foregroundColor: kOnAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
               ),
@@ -249,36 +271,34 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
 // ── Sleep Summary Card ────────────────────────────────────────────────────────
 
 class _SleepSummaryCard extends StatelessWidget {
-  final double timeInBed;
-  final double effectiveSleep;
+  final SleepNight night;
   final String bedTime;
   final String wakeTime;
   const _SleepSummaryCard({
-    required this.timeInBed,
-    required this.effectiveSleep,
+    required this.night,
     required this.bedTime,
     required this.wakeTime,
   });
 
+  double get _sleepHours => night.sleepHours;
+
   Color get _qualityColor {
-    if (effectiveSleep >= 8.0) return kAccent;
-    if (effectiveSleep >= 7.0) return const Color(0xFF38BDF8);
-    if (effectiveSleep >= 6.0) return const Color(0xFFFBBF24);
-    return const Color(0xFFF87171);
+    if (_sleepHours >= 8.0) return kAccent;
+    if (_sleepHours >= 7.0) return kSky;
+    if (_sleepHours >= 6.0) return kWarn;
+    return kDanger;
   }
 
   String get _qualityLabel {
-    if (effectiveSleep >= 8.0) return 'Excellent';
-    if (effectiveSleep >= 7.0) return 'Good';
-    if (effectiveSleep >= 6.0) return 'Fair';
+    if (_sleepHours >= 8.0) return 'Excellent';
+    if (_sleepHours >= 7.0) return 'Good';
+    if (_sleepHours >= 6.0) return 'Fair';
     return 'Poor';
   }
 
   @override
   Widget build(BuildContext context) {
-    final efficiency = timeInBed > 0
-        ? ((effectiveSleep / timeInBed) * 100).clamp(0.0, 100.0)
-        : 0.0;
+    final efficiency = (night.efficiency * 100).clamp(0.0, 100.0);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -328,13 +348,13 @@ class _SleepSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      effectiveSleep.toStringAsFixed(1),
+                      formatHhMm(night.sleepMinutes),
                       style: TextStyle(
                         fontSize: 42, fontWeight: FontWeight.w800,
                         color: _qualityColor, letterSpacing: -1.5, height: 1.0,
                       ),
                     ),
-                    Text('hrs effective sleep',
+                    Text('sleep time (hh:mm)',
                         style: TextStyle(fontSize: 11, color: kTextSecondary)),
                   ],
                 ),
@@ -591,7 +611,7 @@ class _YesNoTile extends StatelessWidget {
     children: [
       Expanded(child: _ChoiceChip(label: 'No', selected: !value,  color: kAccent,  onTap: () => onChanged(false))),
       const SizedBox(width: 10),
-      Expanded(child: _ChoiceChip(label: 'Yes', selected: value, color: const Color(0xFFF87171), onTap: () => onChanged(true))),
+      Expanded(child: _ChoiceChip(label: 'Yes', selected: value, color: kDanger, onTap: () => onChanged(true))),
     ],
   );
 }
@@ -668,7 +688,7 @@ class _RoomConditionRow extends StatelessWidget {
         label: 'Temperature',
         hint: 'e.g. 20°C, Cold, Warm',
         controller: tempCtrl,
-        color: const Color(0xFFFF6B35),
+        color: kOrange,
       ),
       const SizedBox(height: 8),
       _RoomTile(
@@ -676,7 +696,7 @@ class _RoomConditionRow extends StatelessWidget {
         label: 'Noise',
         hint: 'e.g. Silent, Fan, Traffic',
         controller: noiseCtrl,
-        color: const Color(0xFF38BDF8),
+        color: kSky,
       ),
       const SizedBox(height: 8),
       _RoomTile(
@@ -684,7 +704,7 @@ class _RoomConditionRow extends StatelessWidget {
         label: 'Light',
         hint: 'e.g. Pitch Black, Dim, Bright',
         controller: lightCtrl,
-        color: const Color(0xFFFBBF24),
+        color: kWarn,
       ),
     ],
   );
