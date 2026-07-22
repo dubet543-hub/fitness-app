@@ -148,7 +148,7 @@ router.get('/athletes/:id/summary', async (req, res) => {
   try {
     const sessions = await TrainingSession.find({ athlete: req.params.id })
       .sort({ date: 1 })
-      .select('date totalLoad trainingLoad skillLoad readinessPercent scaledGrade');
+      .select('date totalLoad primaryLoad secondaryLoad skillLoad readinessPercent scaledGrade');
 
     const summary = M.loadSummary(sessions);
     const lastReadiness = sessions.length

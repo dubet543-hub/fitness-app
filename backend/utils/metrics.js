@@ -49,42 +49,70 @@ function round(n, dp = 1) {
   return Math.round((n || 0) * f) / f;
 }
 
+/** UTC day ordinal (days since epoch) — DST-immune calendar-day key. */
+function dayOrdinal(dt) {
+  const d = new Date(dt);
+  return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86400000);
+}
+
 /**
- * ACWR / load summary from a session history (ascending by date, each with
- * `date` and `totalLoad`). Mirrors the logic previously inlined in the summary
- * endpoint so the dashboard's flagging uses the identical ACWR.
+ * ACWR / load summary from a session history (each with `date` and `totalLoad`,
+ * any order). Bucketed onto a contiguous per-CALENDAR-DAY grid — one point per
+ * day from the first session through `now`, zero-load rest days included and
+ * multiple same-day sessions summed — then the acute/chronic/z rolling metrics
+ * are stepped once per day. This mirrors the app's day-grid in
+ * lib/services/dashboard_metrics.dart exactly, so a coach's dashboard and the
+ * athlete's app report the identical ACWR even for athletes with rest days or
+ * more than one session per day. (Grid days are keyed in UTC; the app keys in
+ * device-local time, so results agree up to the athlete/server timezone offset
+ * at a day boundary — full alignment would require storing each athlete's tz.)
+ *
+ * @param {Array}  sessions  session docs (needs `date`, `totalLoad`)
+ * @param {Date}   [now]     grid end (defaults to current server time)
  */
-function loadSummary(sessions) {
+function loadSummary(sessions, now = new Date()) {
   if (!sessions || !sessions.length) {
     return { acuteLoad: 0, chronicLoad: 0, acwr: 0, stdDev: 0, zScore: 0,
              targetLow: 0, targetHigh: 0, totalSessions: 0 };
   }
 
-  const loads  = sessions.map(s => s.totalLoad || 0);
-  const lambda = 2 / 29;
+  // Contiguous day grid: first session day → today (inclusive).
+  const firstOrd = Math.min(...sessions.map(s => dayOrdinal(s.date)));
+  const lastOrd  = Math.max(firstOrd, dayOrdinal(now));
+  const dayCount = lastOrd - firstOrd + 1;
 
-  // Per-session 7-day acute averages
-  const acuteByIdx = sessions.map((s, i) => {
-    const dayCutoff = new Date(s.date); dayCutoff.setDate(dayCutoff.getDate() - 7);
-    const sum7 = sessions.slice(0, i + 1)
-      .filter(r => new Date(r.date) > dayCutoff)
-      .reduce((acc, r) => acc + (r.totalLoad || 0), 0);
-    return sum7 / 7;
-  });
-
-  // Chronic = EWMA of the acute values (not raw loads)
-  let chronic = 0;
-  for (let i = 0; i < acuteByIdx.length; i++) {
-    chronic = i === 0 ? acuteByIdx[i] : acuteByIdx[i] * lambda + chronic * (1 - lambda);
+  const loads = new Array(dayCount).fill(0);
+  for (const s of sessions) {
+    const i = dayOrdinal(s.date) - firstOrd;
+    if (i >= 0 && i < dayCount) loads[i] += s.totalLoad || 0;
   }
-  const acuteLoad   = acuteByIdx[acuteByIdx.length - 1];
-  const chronicLoad = chronic;
-  const acwr        = chronicLoad > 0 ? acuteLoad / chronicLoad : 0;
 
-  const mean     = loads.reduce((a, b) => a + b, 0) / loads.length;
-  const sigma    = Math.sqrt(loads.map(l => (l - mean) ** 2).reduce((a, b) => a + b, 0) / loads.length);
-  const lastLoad = loads[loads.length - 1];
-  const zScore   = sigma === 0 ? 0 : (lastLoad - chronicLoad) / sigma;
+  const lambda = 2 / 29;
+  let chronic = 0;
+  let acuteLoad = 0, chronicLoad = 0, acwr = 0, sigma = 0, zScore = 0;
+  let sum = 0, sumSq = 0; // running population variance of day loads
+
+  for (let i = 0; i < dayCount; i++) {
+    const load = loads[i];
+
+    let acuteSum = 0;
+    for (let j = Math.max(0, i - 6); j <= i; j++) acuteSum += loads[j];
+    const acute = acuteSum / 7; // trailing 7-calendar-day average
+
+    chronic = i === 0 ? acute : acute * lambda + chronic * (1 - lambda);
+
+    sum += load;
+    sumSq += load * load;
+    const n = i + 1;
+    const mean = sum / n;
+    const variance = Math.max(0, sumSq / n - mean * mean);
+    sigma = Math.sqrt(variance);
+
+    acuteLoad   = acute;
+    chronicLoad = chronic;
+    acwr        = chronicLoad > 0 ? acuteLoad / chronicLoad : 0;
+    zScore      = sigma === 0 ? 0 : (load - chronicLoad) / sigma;
+  }
 
   return {
     acuteLoad:    round(acuteLoad),
