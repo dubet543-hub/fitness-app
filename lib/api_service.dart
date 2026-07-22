@@ -69,6 +69,21 @@ class ApiService {
   static Future<void> loadConfig() => _ConfigLoader.load();
   static const _tokenKey = 'sc_token';
   static const _userKey  = 'sc_user';
+  static const _requestTimeout = Duration(seconds: 15);
+  // Bulk history fetches (e.g. "All time" export) can legitimately take
+  // longer than the standard timeout, especially on a cold-started backend.
+  static const _bulkRequestTimeout = Duration(seconds: 60);
+
+  /// Bounds every network call so a dead/unreachable backend fails fast with
+  /// a clear message instead of hanging on the OS-level TCP timeout (which
+  /// can be 60s+ and otherwise stalls the splash/login screen).
+  static Future<http.Response> _send(Future<http.Response> request, {Duration? timeout}) {
+    return request.timeout(
+      timeout ?? _requestTimeout,
+      onTimeout: () => throw Exception(
+          'Could not reach the server. Check your connection and try again.'),
+    );
+  }
 
   // ── Token storage ──────────────────────────────────────────────────────
 
@@ -127,11 +142,11 @@ class ApiService {
     String? name,
     String? photoUrl,
   }) async {
-    final res = await http.post(
+    final res = await _send(http.post(
       Uri.parse('$_baseUrl/auth/google'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'name': name, 'photoUrl': photoUrl}),
-    );
+    ));
     if (res.statusCode == 403) return null; // not registered
     if (res.statusCode != 200) throw Exception(_body(res)['error'] ?? 'Auth failed');
     final data = _body(res);
@@ -149,7 +164,7 @@ class ApiService {
     required String password,
     String? sport,
   }) async {
-    final res = await http.post(
+    final res = await _send(http.post(
       Uri.parse('$_baseUrl/auth/register'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -158,7 +173,7 @@ class ApiService {
         'password': password,
         if (sport != null && sport.isNotEmpty) 'sport': sport,
       }),
-    );
+    ));
     if (res.statusCode != 201)
       throw Exception(_body(res)['error'] ?? 'Sign up failed');
     final data = _body(res);
@@ -174,11 +189,11 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final res = await http.post(
+    final res = await _send(http.post(
       Uri.parse('$_baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
-    );
+    ));
     if (!res.statusCode.toString().startsWith('2'))
       throw Exception(_body(res)['error'] ?? 'Login failed');
     final data = _body(res);
@@ -194,11 +209,11 @@ class ApiService {
   /// POST /api/sessions — log a new training session.
   static Future<Map<String, dynamic>> submitSession(
       Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _send(http.post(
       Uri.parse('$_baseUrl/sessions'),
       headers: await _authHeaders(),
       body: jsonEncode(payload),
-    );
+    ));
     if (res.statusCode != 201)
       throw Exception(_body(res)['error'] ?? 'Failed to save session');
     return _body(res);
@@ -220,7 +235,7 @@ class ApiService {
       if (to != null)   'to':   to.toIso8601String(),
     };
     final uri = Uri.parse('$_baseUrl/sessions').replace(queryParameters: params);
-    final res = await http.get(uri, headers: await _authHeaders());
+    final res = await _send(http.get(uri, headers: await _authHeaders()), timeout: _bulkRequestTimeout);
     if (res.statusCode != 200)
       throw Exception(_body(res)['error'] ?? 'Failed to fetch sessions');
     final list = jsonDecode(res.body) as List<dynamic>;
@@ -237,11 +252,11 @@ class ApiService {
     try {
       final token = await getToken();
       if (token == null) return null; // not signed in to backend — skip sync
-      final res = await http.post(
+      final res = await _send(http.post(
         Uri.parse('$_baseUrl/body-composition'),
         headers: await _authHeaders(),
         body: jsonEncode(payload),
-      );
+      ));
       if (res.statusCode != 201) return null;
       return _body(res);
     } catch (_) {
@@ -251,10 +266,10 @@ class ApiService {
 
   /// GET /api/body-composition — own body-composition history (newest first).
   static Future<List<Map<String, dynamic>>> fetchBodyComposition() async {
-    final res = await http.get(
+    final res = await _send(http.get(
       Uri.parse('$_baseUrl/body-composition'),
       headers: await _authHeaders(),
-    );
+    ), timeout: _bulkRequestTimeout);
     if (res.statusCode != 200) return [];
     final list = jsonDecode(res.body) as List<dynamic>;
     return list.cast<Map<String, dynamic>>();
@@ -264,14 +279,14 @@ class ApiService {
 
   /// PATCH /api/auth/me — update own profile; refreshes the cached user.
   static Future<ApiUser> updateProfile({String? name, String? sport}) async {
-    final res = await http.patch(
+    final res = await _send(http.patch(
       Uri.parse('$_baseUrl/auth/me'),
       headers: await _authHeaders(),
       body: jsonEncode({
         if (name != null)  'name': name,
         if (sport != null) 'sport': sport,
       }),
-    );
+    ));
     if (res.statusCode != 200)
       throw Exception(_body(res)['error'] ?? 'Failed to update profile');
     final user = ApiUser.fromJson(_body(res));
@@ -284,11 +299,11 @@ class ApiService {
     required String currentPassword,
     required String newPassword,
   }) async {
-    final res = await http.post(
+    final res = await _send(http.post(
       Uri.parse('$_baseUrl/auth/change-password'),
       headers: await _authHeaders(),
       body: jsonEncode({'currentPassword': currentPassword, 'newPassword': newPassword}),
-    );
+    ));
     if (res.statusCode != 200)
       throw Exception(_body(res)['error'] ?? 'Failed to change password');
   }
@@ -296,20 +311,20 @@ class ApiService {
   /// DELETE /api/auth/me/data — erase recorded training data, keep the account
   /// and session intact.
   static Future<void> deleteMyData() async {
-    final res = await http.delete(
+    final res = await _send(http.delete(
       Uri.parse('$_baseUrl/auth/me/data'),
       headers: await _authHeaders(),
-    );
+    ));
     if (res.statusCode != 200)
       throw Exception(_body(res)['error'] ?? 'Failed to delete your data');
   }
 
   /// DELETE /api/auth/me — permanently delete the account, then clear the session.
   static Future<void> deleteAccount() async {
-    final res = await http.delete(
+    final res = await _send(http.delete(
       Uri.parse('$_baseUrl/auth/me'),
       headers: await _authHeaders(),
-    );
+    ));
     if (res.statusCode != 200)
       throw Exception(_body(res)['error'] ?? 'Failed to delete account');
     await clearSession();
@@ -318,10 +333,10 @@ class ApiService {
   /// GET /api/auth/me — verify token is still valid; returns null on 401/error.
   static Future<ApiUser?> verifyToken() async {
     try {
-      final res = await http.get(
+      final res = await _send(http.get(
         Uri.parse('$_baseUrl/auth/me'),
         headers: await _authHeaders(),
-      );
+      ));
       if (res.statusCode == 200) {
         return ApiUser.fromJson(_body(res));
       }
@@ -333,10 +348,10 @@ class ApiService {
 
   /// DELETE /api/sessions/:id
   static Future<void> deleteSession(String id) async {
-    final res = await http.delete(
+    final res = await _send(http.delete(
       Uri.parse('$_baseUrl/sessions/$id'),
       headers: await _authHeaders(),
-    );
+    ));
     if (res.statusCode != 200)
       throw Exception(_body(res)['error'] ?? 'Failed to delete');
   }

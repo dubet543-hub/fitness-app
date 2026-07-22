@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
+import '../services/dashboard_metrics.dart';
 import '../services/local_log_store.dart';
 
 class WellnessLogScreen extends StatefulWidget {
@@ -117,6 +118,7 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
         },
       };
       await ApiService.submitSession(payload);
+      AthleteMetricsService.invalidate(); // dashboard recomputes with this log
       await LocalLogStore.markRecoveryLogged();
       if (mounted) {
         setState(() => _alreadyLogged = true);

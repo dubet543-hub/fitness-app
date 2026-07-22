@@ -9,6 +9,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import 'services/local_log_store.dart';
 import 'core/theme.dart';
+import 'widgets/common_widgets.dart';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,8 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   bool _isStreaming = false;
   bool _isBusy = false;
   int _frameCount = 0;
+  String? _cameraError;
+  bool _permissionDenied = false;
 
   // Camera controls
   double _currentZoom = 1.0;
@@ -99,31 +102,51 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   Future<void> _initCamera() async {
     if (!await LocalLogStore.cameraConsent()) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              "Camera-based features are off. Enable them in Privacy & Security settings."),
-          duration: Duration(seconds: 4),
-        ));
+        setState(() {
+          _cameraError = "Camera-based features are off.\nEnable them in Privacy & Security settings.";
+          _permissionDenied = false;
+        });
       }
       return;
     }
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
-    final back = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.back,
-      orElse: () => cameras.first,
-    );
-    _ctrl = CameraController(
-      back,
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup:
-          Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
-    );
-    await _ctrl!.initialize();
-    _minZoom = await _ctrl!.getMinZoomLevel();
-    _maxZoom = await _ctrl!.getMaxZoomLevel();
-    if (mounted) setState(() => _camReady = true);
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        if (mounted) setState(() => _cameraError = "No camera found on this device");
+        return;
+      }
+      final back = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+      _ctrl = CameraController(
+        back,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup:
+            Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+      );
+      await _ctrl!.initialize();
+      _minZoom = await _ctrl!.getMinZoomLevel();
+      _maxZoom = await _ctrl!.getMaxZoomLevel();
+      if (mounted) setState(() { _camReady = true; _cameraError = null; _permissionDenied = false; });
+    } on CameraException catch (e) {
+      if (!mounted) return;
+      const deniedCodes = {'CameraAccessDenied', 'CameraAccessDeniedWithoutPrompt', 'CameraAccessRestricted'};
+      setState(() {
+        _permissionDenied = deniedCodes.contains(e.code);
+        _cameraError = _permissionDenied
+            ? "Camera access is turned off for SolidCore.\nEnable it in your device Settings to continue."
+            : "Camera error: ${e.description ?? e.code}";
+      });
+    } catch (e) {
+      if (mounted) setState(() => _cameraError = "Camera error: $e");
+    }
+  }
+
+  Future<void> _retryCamera() async {
+    setState(() { _cameraError = null; _permissionDenied = false; });
+    await _initCamera();
   }
 
   Future<void> _switchCamera() async {
@@ -372,6 +395,15 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       bodyTilt: _avg(_bodyTilts),
       framesAnalyzed: _frameCount,
     );
+    unawaited(LocalLogStore.addBowlingEntry({
+      'date': DateTime.now().toIso8601String(),
+      'type': _bowlingType == BowlingType.fast ? 'fast' : 'spin',
+      'trunkLean': _results!.trunkLean,
+      'armArc': _results!.armArc,
+      'frontKnee': _results!.frontKnee,
+      'headPosition': _results!.headPosition,
+      'bodyTilt': _results!.bodyTilt,
+    }));
     setState(() => _phase = _Phase.results);
   }
 
@@ -465,6 +497,13 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   // ── Setup ─────────────────────────────────────────────────────────────────
 
   Widget _buildSetup() {
+    if (_cameraError != null) {
+      return CameraErrorView(
+        message: _cameraError!,
+        showSettingsButton: _permissionDenied,
+        onRetry: _retryCamera,
+      );
+    }
     final isFast = _bowlingType == BowlingType.fast;
     final color = isFast ? kWarn : kViolet;
 
@@ -571,7 +610,10 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CameraPreview(_ctrl!),
+            FullBleedCameraPreview(
+              controller: _ctrl!,
+              screenSize: constraints.biggest,
+            ),
 
             // Tap-to-focus ring
             if (_focusPoint != null)

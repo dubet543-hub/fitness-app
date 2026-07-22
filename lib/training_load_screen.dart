@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'api_service.dart';
 import 'core/theme.dart';
+import 'services/dashboard_metrics.dart';
 import 'screens/workload_monitor_screen.dart';
 
 // Aliases so the rest of the file compiles without change.
@@ -625,6 +626,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
         'maxHR': int.tryParse(_tMaxHRCtrl.text.trim()),
         'avgHR': int.tryParse(_tAvgHRCtrl.text.trim()),
       });
+      AthleteMetricsService.invalidate(); // dashboard recomputes with this session
       _clearTrainingForm();
       setState(() => _showTrainingForm = false);
       await _loadSessions();
@@ -671,6 +673,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
         'skillMaxHR': int.tryParse(_sMaxHRCtrl.text.trim()),
         'skillAvgHR': int.tryParse(_sAvgHRCtrl.text.trim()),
       });
+      AthleteMetricsService.invalidate(); // dashboard recomputes with this session
       _clearSkillForm();
       setState(() => _showSkillForm = false);
       await _loadSessions();
@@ -807,7 +810,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
               onDelete: () async {
                 final id = today[i].id;
                 if (id != null) {
-                  try { await ApiService.deleteSession(id); } catch (_) {}
+                  try { await ApiService.deleteSession(id); AthleteMetricsService.invalidate(); } catch (_) {}
                 }
                 await _loadSessions();
               },
@@ -1001,7 +1004,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
               onDelete: () async {
                 final id = today[i].id;
                 if (id != null) {
-                  try { await ApiService.deleteSession(id); } catch (_) {}
+                  try { await ApiService.deleteSession(id); AthleteMetricsService.invalidate(); } catch (_) {}
                 }
                 await _loadSessions();
               },
@@ -1331,13 +1334,13 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
                   record: r,
                   onDeleteTraining: (t) async {
                     if (t.id != null) {
-                      try { await ApiService.deleteSession(t.id!); } catch (_) {}
+                      try { await ApiService.deleteSession(t.id!); AthleteMetricsService.invalidate(); } catch (_) {}
                     }
                     await _loadSessions();
                   },
                   onDeleteSkill: (s) async {
                     if (s.id != null) {
-                      try { await ApiService.deleteSession(s.id!); } catch (_) {}
+                      try { await ApiService.deleteSession(s.id!); AthleteMetricsService.invalidate(); } catch (_) {}
                     }
                     await _loadSessions();
                   },

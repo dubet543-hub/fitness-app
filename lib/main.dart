@@ -12,7 +12,6 @@ void main() async {
     await dotenv.load(fileName: '.env');
   } catch (_) {}
   await ApiService.loadConfig();
-  await loadAppThemeMode();
   try {
     await NotificationService.init();
   } catch (_) {}
@@ -24,28 +23,21 @@ class FitnessApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: appThemeMode,
-      builder: (context, mode, _) {
-        // Resolve the chosen mode to a concrete brightness, swap the live
-        // palette to match, then build the theme from it.
-        final brightness = effectiveBrightness(mode);
-        applyBrightness(brightness);
-        SystemChrome.setSystemUIOverlayStyle(
-          SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: kIsLight ? Brightness.dark : Brightness.light,
-            systemNavigationBarColor: kBg,
-            systemNavigationBarIconBrightness: kIsLight ? Brightness.dark : Brightness.light,
-          ),
-        );
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'SolidCore AMS',
-          theme: buildAppTheme(),
-          home: const AuthScreen(),
-        );
-      },
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: kBg,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'SolidCore AMS',
+      theme: buildAppTheme(),
+      darkTheme: buildAppTheme(),
+      themeMode: ThemeMode.dark,
+      home: const AuthScreen(),
     );
   }
 }

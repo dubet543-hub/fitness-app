@@ -9,6 +9,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import 'services/local_log_store.dart';
 import 'core/theme.dart';
+import 'widgets/common_widgets.dart';
 
 // ── Running Metrics Data Model ────────────────────────────────────────────────
 
@@ -68,6 +69,8 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   bool _isStreaming = false;
   bool _isBusy = false;
   int _frameCount = 0;
+  String? _cameraError;
+  bool _permissionDenied = false;
 
   // Camera controls
   double _currentZoom = 1.0;
@@ -101,12 +104,11 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   Future<void> _initializeCamera() async {
     if (!await LocalLogStore.cameraConsent()) {
       if (mounted) {
-        setState(() => _phase = _AnalysisPhase.setup);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              "Camera-based features are off. Enable them in Privacy & Security settings."),
-          duration: Duration(seconds: 4),
-        ));
+        setState(() {
+          _phase = _AnalysisPhase.setup;
+          _cameraError = "Camera-based features are off.\nEnable them in Privacy & Security settings.";
+          _permissionDenied = false;
+        });
       }
       return;
     }
@@ -119,7 +121,10 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
             )
           : null;
       if (camera == null) {
-        setState(() => _phase = _AnalysisPhase.setup);
+        setState(() {
+          _phase = _AnalysisPhase.setup;
+          _cameraError = "No camera found on this device";
+        });
         return;
       }
       _controller = CameraController(
@@ -133,14 +138,24 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
       await _initializeControllerFuture;
       _minZoom = await _controller!.getMinZoomLevel();
       _maxZoom = await _controller!.getMaxZoomLevel();
-      if (mounted) setState(() {});
+      if (mounted) setState(() { _cameraError = null; _permissionDenied = false; });
+    } on CameraException catch (e) {
+      if (!mounted) return;
+      const deniedCodes = {'CameraAccessDenied', 'CameraAccessDeniedWithoutPrompt', 'CameraAccessRestricted'};
+      setState(() {
+        _permissionDenied = deniedCodes.contains(e.code);
+        _cameraError = _permissionDenied
+            ? "Camera access is turned off for SolidCore.\nEnable it in your device Settings to continue."
+            : "Camera error: ${e.description ?? e.code}";
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Camera error: $e")),
-        );
-      }
+      if (mounted) setState(() => _cameraError = "Camera error: $e");
     }
+  }
+
+  Future<void> _retryCamera() async {
+    setState(() { _cameraError = null; _permissionDenied = false; });
+    await _initializeCamera();
   }
 
   Future<void> _switchCamera() async {
@@ -419,6 +434,18 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
       overallScore: overallScore,
     );
 
+    unawaited(LocalLogStore.addRunningEntry({
+      'date': DateTime.now().toIso8601String(),
+      'trunkLean': trunkLean,
+      'kneeDrive': kneeDrive,
+      'hipDrop': hipDrop,
+      'armSwing': armSwing,
+      'headPosition': headPosition,
+      'footStrike': dominantStrike,
+      'cadence': cadence,
+      'overallScore': overallScore,
+    }));
+
     if (mounted) setState(() => _phase = _AnalysisPhase.results);
   }
 
@@ -568,6 +595,13 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   // ── Setup Phase ───────────────────────────────────────────────────────────
 
   Widget _buildSetupPhase() {
+    if (_cameraError != null) {
+      return CameraErrorView(
+        message: _cameraError!,
+        showSettingsButton: _permissionDenied,
+        onRetry: _retryCamera,
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -688,7 +722,10 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CameraPreview(_controller!),
+            FullBleedCameraPreview(
+              controller: _controller!,
+              screenSize: constraints.biggest,
+            ),
 
             // Tap-to-focus ring
             if (_focusPoint != null)

@@ -13,11 +13,9 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   bool _morningReminder = true;
   bool _eveningReminder = true;
+  bool _alarmSound = true;
   bool sessionReminders = true;
-  bool goalAchieved     = true;
   bool weeklySummary    = false;
-  bool coachMessages    = true;
-  bool teamUpdates      = false;
   bool pushNotifications = true;
   bool emailDigest      = false;
 
@@ -32,21 +30,37 @@ class _NotificationsPageState extends State<NotificationsPage> {
     setState(() {
       _morningReminder = prefs.getBool('notif_morning') ?? true;
       _eveningReminder = prefs.getBool('notif_evening') ?? true;
+      _alarmSound      = prefs.getBool(NotificationService.soundPrefKey) ?? true;
     });
   }
 
   Future<void> _setMorning(bool v) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notif_morning', v);
-    await NotificationService.scheduleMorning(enabled: v);
+    await NotificationService.scheduleMorning(enabled: v, sound: _alarmSound);
     setState(() => _morningReminder = v);
   }
 
   Future<void> _setEvening(bool v) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notif_evening', v);
-    await NotificationService.scheduleEvening(enabled: v);
+    await NotificationService.scheduleEvening(enabled: v, sound: _alarmSound);
     setState(() => _eveningReminder = v);
+  }
+
+  /// Applies to the wellness reminders above and the home tab's wake alarm.
+  Future<void> _setAlarmSound(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(NotificationService.soundPrefKey, v);
+    await NotificationService.scheduleMorning(enabled: _morningReminder, sound: v);
+    await NotificationService.scheduleEvening(enabled: _eveningReminder, sound: v);
+    await NotificationService.scheduleWakeAlarm(
+      enabled: prefs.getBool('wake_alarm_on') ?? true,
+      hour:    prefs.getInt('wake_alarm_hour') ?? 8,
+      minute:  prefs.getInt('wake_alarm_minute') ?? 30,
+      sound:   v,
+    );
+    setState(() => _alarmSound = v);
   }
 
   @override
@@ -78,6 +92,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
               value: _eveningReminder,
               onChanged: _setEvening,
             ),
+            _ToggleItem(
+              title: 'Alarm sound',
+              subtitle: 'Play a sound with the wake alarm & wellness reminders',
+              value: _alarmSound,
+              onChanged: _setAlarmSound,
+            ),
           ]),
           const SizedBox(height: 20),
 
@@ -86,20 +106,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           _ToggleGroup(items: [
             _ToggleItem(title: 'Session reminders', subtitle: 'Daily workout reminders',
               value: sessionReminders, onChanged: (v) => setState(() => sessionReminders = v)),
-            _ToggleItem(title: 'Goal achieved', subtitle: 'When you hit a milestone',
-              value: goalAchieved, onChanged: (v) => setState(() => goalAchieved = v)),
             _ToggleItem(title: 'Weekly summary', subtitle: 'Performance recap every Monday',
               value: weeklySummary, onChanged: (v) => setState(() => weeklySummary = v)),
-          ]),
-          const SizedBox(height: 20),
-
-          _SectionLabel('SOCIAL'),
-          const SizedBox(height: 8),
-          _ToggleGroup(items: [
-            _ToggleItem(title: 'Coach messages', subtitle: 'Direct messages from coaches',
-              value: coachMessages, onChanged: (v) => setState(() => coachMessages = v)),
-            _ToggleItem(title: 'Team updates', subtitle: 'Activity from your team',
-              value: teamUpdates, onChanged: (v) => setState(() => teamUpdates = v)),
           ]),
           const SizedBox(height: 20),
 

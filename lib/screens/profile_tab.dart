@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../services/dashboard_metrics.dart';
 import 'personal_info_page.dart';
 import 'notifications_page.dart';
 import 'privacy_security_page.dart';
-import 'appearance_page.dart';
 import 'units_language_page.dart';
 import 'support_pages.dart';
 import 'legal_pages.dart';
@@ -30,11 +30,53 @@ class _ProfileTabState extends State<ProfileTab> {
   late String _name;
   late String _email;
 
+  // Null until the athlete's real metrics load; the stat row shows em-dashes
+  // in the meantime rather than any placeholder number.
+  AthleteMetrics? _metrics;
+
   @override
   void initState() {
     super.initState();
     _name  = widget.name;
     _email = widget.email;
+    _loadMetrics();
+  }
+
+  Future<void> _loadMetrics() async {
+    AthleteMetrics m;
+    try {
+      m = await AthleteMetricsService.load();
+    } catch (_) {
+      m = AthleteMetrics.empty;
+    }
+    if (mounted) setState(() => _metrics = m);
+  }
+
+  /// Training days logged in the last 90 days (the metrics window).
+  String get _sessionsStat {
+    final m = _metrics;
+    if (m == null) return '—';
+    return m.total.where((p) => p.load > 0).length.toString();
+  }
+
+  /// Training days logged this calendar month.
+  String get _thisMonthStat {
+    final m = _metrics;
+    if (m == null) return '—';
+    final now = DateTime.now();
+    return m.total
+        .where((p) => p.load > 0 && p.date.year == now.year && p.date.month == now.month)
+        .length
+        .toString();
+  }
+
+  /// Average readiness across logged check-ins, as a 0–100 score.
+  String get _avgScoreStat {
+    final m = _metrics;
+    if (m == null || m.recovery.isEmpty) return '—';
+    final avg = m.recovery.map((r) => r.readinessPct).reduce((a, b) => a + b) /
+        m.recovery.length;
+    return (avg * 100).round().toString();
   }
 
   String get _initials {
@@ -146,11 +188,11 @@ class _ProfileTabState extends State<ProfileTab> {
               ),
               child: Row(
                 children: [
-                  _StatCell(value: '47',  label: 'Sessions'),
+                  _StatCell(value: _sessionsStat,  label: 'Sessions'),
                   Container(width: 1, height: 36, color: kBorder),
-                  _StatCell(value: '12',  label: 'This month'),
+                  _StatCell(value: _thisMonthStat, label: 'This month'),
                   Container(width: 1, height: 36, color: kBorder),
-                  _StatCell(value: '89',  label: 'Avg score'),
+                  _StatCell(value: _avgScoreStat,  label: 'Avg score'),
                 ],
               ),
             ),
@@ -172,8 +214,7 @@ class _ProfileTabState extends State<ProfileTab> {
             _SectionLabel('PREFERENCES'),
             const SizedBox(height: 8),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.dark_mode_outlined,  iconColor: kTextSecondary, label: 'Appearance',      onTap: () => _go((_) => AppearancePage())),
-              _MenuItem(icon: Icons.straighten_rounded,  iconColor: kTextSecondary, label: 'Units & language', onTap: () => _go((_) => UnitsLanguagePage())),
+              _MenuItem(icon: Icons.language_rounded,  iconColor: kTextSecondary, label: 'Language', onTap: () => _go((_) => UnitsLanguagePage())),
             ]),
 
             const SizedBox(height: 20),
@@ -228,7 +269,7 @@ class _ProfileTabState extends State<ProfileTab> {
             const SizedBox(height: 16),
             Center(
               child: Text(
-                'v1.0.0 · SolidCore Performance',
+                'v1.0.0 · SolidCore AMS',
                 style: TextStyle(fontSize: 11, color: kTextMuted),
               ),
             ),

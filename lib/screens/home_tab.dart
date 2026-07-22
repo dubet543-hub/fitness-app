@@ -7,9 +7,11 @@ import '../services/dashboard_metrics.dart';
 import '../services/notification_service.dart';
 import 'notifications_page.dart';
 import 'player_stats_screen.dart';
-import 'workload_monitor_screen.dart';
+// Navigation target only — LoadTarget/CombinedLoadTarget come from the
+// dashboard_metrics service.
+import 'workload_monitor_screen.dart' show WorkloadMonitorScreen;
 
-class HomeTab extends StatelessWidget {
+class HomeTab extends StatefulWidget {
   final String  name;
   final String  email;
   final String? photoUrl;
@@ -29,13 +31,47 @@ class HomeTab extends StatelessWidget {
   });
 
   @override
+  State<HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<HomeTab> {
+  // Null while AthleteMetricsService.load() is in flight; the rings row shows a
+  // progress indicator until both are populated together in one setState.
+  AthleteMetrics? _metrics;
+  HomeMetrics?    _home;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMetrics();
+  }
+
+  Future<void> _loadMetrics() async {
+    AthleteMetrics m;
+    try {
+      // The signed-in athlete's real sessions (JWT-authenticated, cached).
+      m = await AthleteMetricsService.load();
+    } catch (_) {
+      // Network/auth failure — render the empty-state layout rather than spin
+      // forever; a tab revisit or pull elsewhere will retry via the cache.
+      m = AthleteMetrics.empty;
+    }
+    if (!mounted) return;
+    setState(() {
+      _metrics = m;
+      _home    = m.homeMetrics();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final dateStr = _fmtDate(now);
 
     // Headline metrics for the three rings — computed from the same source the
     // stats/history screens use, so the numbers always agree.
-    final metrics = homeMetricsFor(name);
+    final metrics = _metrics;
+    final home    = _home;
 
     return Scaffold(
       backgroundColor: kBg,
@@ -61,14 +97,15 @@ class HomeTab extends StatelessWidget {
             leading: Padding(
               padding: const EdgeInsets.only(left: 12),
               child: GestureDetector(
-                onTap: onOpenProfile,
+                onTap: widget.onOpenProfile,
                 // Without this the transparent padding around the circle would
                 // not register a tap.
                 behavior: HitTestBehavior.opaque,
                 child: Semantics(
                   button: true,
                   label: 'Profile',
-                  child: AvatarWidget(name: name, photoUrl: photoUrl, radius: 18),
+                  child: AvatarWidget(
+                      name: widget.name, photoUrl: widget.photoUrl, radius: 18),
                 ),
               ),
             ),
@@ -96,9 +133,11 @@ class HomeTab extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.only(top: 24, bottom: 2),
                   child: Text(
-                    'SOLIDCORE',
+                    'SOLIDCORE AMS',
                     textAlign: TextAlign.center,
                     style: TextStyle(
+                      fontFamily: kHeadlineFont,
+                      fontStyle: FontStyle.italic,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: kTextSecondary,
@@ -108,58 +147,80 @@ class HomeTab extends StatelessWidget {
                 ),
 
                 // ── Three-Ring Row ───────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Expanded(
-                        child: _SpeedometerGauge(
-                          value: (metrics.performancePct * 100).round().toString(),
-                          suffix: '%',
-                          label: 'PERFORMANCE',
-                          progress: metrics.performancePct,
-                          color: kSleep,
-                          icon: Icons.bar_chart_rounded,
-                          trend: metrics.performanceTrend,
-                          onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 0))),
+                if (home == null || metrics == null)
+                  SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: CircularProgressIndicator(color: kAccent),
+                    ),
+                  )
+                else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(
+                          child: _SpeedometerGauge(
+                            value: (home.performancePct * 100).round().toString(),
+                            suffix: '%',
+                            label: 'PERFORMANCE',
+                            progress: home.performancePct,
+                            color: kSleep,
+                            icon: Icons.bar_chart_rounded,
+                            trend: home.performanceTrend,
+                            onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 0))),
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: _SpeedometerGauge(
-                          value: (metrics.recoveryPct * 100).round().toString(),
-                          suffix: '%',
-                          label: 'RECOVERY',
-                          progress: metrics.recoveryPct,
-                          color: kAccent,
-                          icon: Icons.favorite_rounded,
-                          onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 1))),
+                        Expanded(
+                          child: _SpeedometerGauge(
+                            value: (home.recoveryPct * 100).round().toString(),
+                            suffix: '%',
+                            label: 'RECOVERY',
+                            progress: home.recoveryPct,
+                            color: kAccent,
+                            icon: Icons.favorite_rounded,
+                            onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 1))),
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: _SpeedometerGauge(
-                          value: metrics.todayExertion.toStringAsFixed(1),
-                          suffix: '',
-                          label: 'TODAY',
-                          progress: (metrics.todayExertion / 10).clamp(0.0, 1.0),
-                          color: kExertion,
-                          icon: Icons.local_fire_department_rounded,
-                          maxLabel: '10',
-                          onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 2))),
+                        Expanded(
+                          child: _SpeedometerGauge(
+                            value: home.todayExertion.toStringAsFixed(1),
+                            suffix: '',
+                            label: 'TODAY',
+                            progress: (home.todayExertion / 10).clamp(0.0, 1.0),
+                            color: kExertion,
+                            icon: Icons.local_fire_department_rounded,
+                            maxLabel: '10',
+                            onTap: () => Navigator.push(context, _route(const PlayerStatsScreen(initialTab: 2))),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                // ── Tomorrow's Load Target (combined) ────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  child: _LoadTargetCard(
-                    onTap: () => Navigator.push(
-                        context, _route(const WorkloadMonitorScreen())),
-                  ),
-                ),
+                  if (!metrics.hasData)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        'Log training sessions to see your metrics',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: kTextSecondary),
+                      ),
+                    ),
+
+                  // ── Tomorrow's Load Target (combined) ──────────────────────
+                  // Only meaningful once real load exists — hidden otherwise.
+                  if (metrics.hasLoadData)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      child: _LoadTargetCard(
+                        target: metrics.loadTargets(),
+                        onTap: () => Navigator.push(
+                            context, _route(const WorkloadMonitorScreen())),
+                      ),
+                    ),
+                ],
 
                 // ── Tonight's Sleep ───────────────────────────────────────────
                 Padding(
@@ -254,7 +315,7 @@ class _SpeedometerGaugeState extends State<_SpeedometerGauge>
             aspectRatio: 1.0,
             child: AnimatedBuilder(
               animation: Listenable.merge([_sweepAnim, _pulseAnim]),
-              builder: (_, __) {
+              builder: (_, _) {
                 final p = _pulseAnim.value;
                 return Stack(
                   alignment: Alignment.center,
@@ -639,6 +700,7 @@ class _SleepCardState extends State<_SleepCard> {
       enabled: _alarmOn,
       hour: _alarm.hour,
       minute: _alarm.minute,
+      sound: prefs.getBool(NotificationService.soundPrefKey) ?? true,
     );
   }
 
@@ -658,7 +720,7 @@ class _SleepCardState extends State<_SleepCard> {
         child: child!,
       ),
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
       _alarm = picked;
       _alarmOn = true;
@@ -675,6 +737,17 @@ class _SleepCardState extends State<_SleepCard> {
   String get _alarmLabel =>
       '${_alarm.hourOfPeriod == 0 ? 12 : _alarm.hourOfPeriod}:'
       '${_alarm.minute.toString().padLeft(2, '0')}';
+
+  /// Recommended bedtime = wake alarm − 8h, so the athlete targets a full
+  /// night's sleep. Derived from the real alarm rather than a fixed string.
+  String get _bedtimeLabel {
+    final wakeMins = _alarm.hour * 60 + _alarm.minute;
+    final bedMins = (wakeMins - 8 * 60 + 24 * 60) % (24 * 60);
+    final h24 = bedMins ~/ 60;
+    final m = bedMins % 60;
+    final h12 = h24 % 12 == 0 ? 12 : h24 % 12;
+    return '$h12:${m.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -712,7 +785,7 @@ class _SleepCardState extends State<_SleepCard> {
                         Icon(Icons.bedtime_rounded, size: 16, color: kTextSecondary),
                         SizedBox(width: 6),
                         Text(
-                          '9:21',
+                          _bedtimeLabel,
                           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
                         ),
                       ],
@@ -784,12 +857,13 @@ class _SleepCardState extends State<_SleepCard> {
 // ── Tomorrow's Load Target (combined card) ────────────────────────────────────
 
 class _LoadTargetCard extends StatelessWidget {
+  final CombinedLoadTarget target;
   final VoidCallback onTap;
-  const _LoadTargetCard({required this.onTap});
+  const _LoadTargetCard({required this.target, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final t    = tomorrowLoadTargets(1); // ATS-2025-002
+    final t    = target;
     final hero = t.total;
     return GestureDetector(
       onTap: onTap,
@@ -834,7 +908,7 @@ class _LoadTargetCard extends StatelessWidget {
 
             // Hero range — the total target
             Text(
-              '${hero.low} – ${hero.high}',
+              '${hero.low.round()} – ${hero.high.round()}',
               style: TextStyle(
                 fontSize: 32, fontWeight: FontWeight.w800,
                 letterSpacing: -1, color: hero.color, height: 1.0,
@@ -850,9 +924,9 @@ class _LoadTargetCard extends StatelessWidget {
             // Breakdown — the streams that make up the total
             Row(
               children: [
-                for (int i = 0; i < t.components.length; i++) ...[
+                for (int i = 0; i < t.parts.length; i++) ...[
                   if (i > 0) const SizedBox(width: 10),
-                  Expanded(child: _LoadTargetChip(target: t.components[i])),
+                  Expanded(child: _LoadTargetChip(target: t.parts[i])),
                 ],
               ],
             ),
@@ -893,7 +967,7 @@ class _LoadTargetChip extends StatelessWidget {
           ]),
           const SizedBox(height: 4),
           Text(
-            '${target.low} – ${target.high}',
+            '${target.low.round()} – ${target.high.round()}',
             style: TextStyle(
               fontSize: 15, fontWeight: FontWeight.w800,
               letterSpacing: -0.5, color: target.color,

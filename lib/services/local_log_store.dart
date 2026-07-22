@@ -12,6 +12,9 @@ class LocalLogStore {
 
   static const _kRecoveryDate   = 'recovery_last_logged_date'; // yyyy-MM-dd
   static const _kBcaHistory     = 'bca_history_json';          // List<Map>
+  static const _kPostureHistory = 'posture_history_json';      // List<Map>
+  static const _kRunningHistory = 'running_history_json';      // List<Map>
+  static const _kBowlingHistory = 'bowling_history_json';      // List<Map>
   static const _kSavedEmail     = 'saved_login_email';
   static const _kSavedPassword  = 'saved_login_password';
   static const _kRememberLogin  = 'remember_login';
@@ -82,13 +85,13 @@ class LocalLogStore {
     await prefs.setString(_kRecoveryDate, _dayKey(DateTime.now()));
   }
 
-  // ── Body composition history & gate ────────────────────────────────────────
+  // ── Generic on-device history (JSON list-of-maps, oldest first) ───────────
+  // Shared by every Bio Lab feature's saved results (body composition,
+  // posture, running, bowling) — same shape, different storage key.
 
-  /// All stored body-composition measurements, oldest first. Each entry:
-  /// { date: ISO8601, isMale, weight, height, neck, abdomen, hip }
-  static Future<List<Map<String, dynamic>>> bcaHistory() async {
+  static Future<List<Map<String, dynamic>>> _history(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_kBcaHistory);
+    final raw = prefs.getString(key);
     if (raw == null || raw.isEmpty) return [];
     try {
       final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
@@ -100,12 +103,26 @@ class LocalLogStore {
     }
   }
 
-  static Future<void> addBcaEntry(Map<String, dynamic> entry) async {
+  static Future<void> _addHistoryEntry(String key, Map<String, dynamic> entry) async {
     final prefs = await SharedPreferences.getInstance();
-    final history = await bcaHistory();
+    final history = await _history(key);
     history.add(entry);
-    await prefs.setString(_kBcaHistory, jsonEncode(history));
+    await prefs.setString(key, jsonEncode(history));
   }
+
+  static Future<void> _clearHistory(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+  }
+
+  // ── Body composition history & gate ────────────────────────────────────────
+
+  /// All stored body-composition measurements, oldest first. Each entry:
+  /// { date: ISO8601, isMale, weight, height, neck, abdomen, hip }
+  static Future<List<Map<String, dynamic>>> bcaHistory() => _history(_kBcaHistory);
+
+  static Future<void> addBcaEntry(Map<String, dynamic> entry) =>
+      _addHistoryEntry(_kBcaHistory, entry);
 
   /// Wipes the locally-cached body-composition history and sync bookkeeping.
   /// Paired with a server-side data deletion so nothing lingers on-device.
@@ -114,6 +131,40 @@ class LocalLogStore {
     await prefs.remove(_kBcaHistory);
     await prefs.remove(_kBcaSyncedDates);
   }
+
+  // ── Posture analysis history ───────────────────────────────────────────────
+
+  /// All stored posture-screening results, oldest first. Each entry:
+  /// { date: ISO8601, mode: 'frontal'|'sagittal', results: [{label, value, detail}] }
+  static Future<List<Map<String, dynamic>>> postureHistory() => _history(_kPostureHistory);
+
+  static Future<void> addPostureEntry(Map<String, dynamic> entry) =>
+      _addHistoryEntry(_kPostureHistory, entry);
+
+  static Future<void> clearPostureHistory() => _clearHistory(_kPostureHistory);
+
+  // ── Running analysis history ────────────────────────────────────────────────
+
+  /// All stored running-form results, oldest first. Each entry:
+  /// { date, trunkLean, kneeDrive, hipDrop, armSwing, headPosition,
+  ///   footStrike, cadence, overallScore }
+  static Future<List<Map<String, dynamic>>> runningHistory() => _history(_kRunningHistory);
+
+  static Future<void> addRunningEntry(Map<String, dynamic> entry) =>
+      _addHistoryEntry(_kRunningHistory, entry);
+
+  static Future<void> clearRunningHistory() => _clearHistory(_kRunningHistory);
+
+  // ── Bowling analysis history ────────────────────────────────────────────────
+
+  /// All stored bowling-action results, oldest first. Each entry:
+  /// { date, type: 'fast'|'spin', trunkLean, armArc, frontKnee, headPosition, bodyTilt }
+  static Future<List<Map<String, dynamic>>> bowlingHistory() => _history(_kBowlingHistory);
+
+  static Future<void> addBowlingEntry(Map<String, dynamic> entry) =>
+      _addHistoryEntry(_kBowlingHistory, entry);
+
+  static Future<void> clearBowlingHistory() => _clearHistory(_kBowlingHistory);
 
   // ── Backend sync tracking ──────────────────────────────────────────────────
   // Records the ISO dates of BCA entries already pushed to the server so the

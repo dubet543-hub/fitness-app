@@ -6,7 +6,15 @@ import 'package:timezone/timezone.dart' as tz;
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 
-  static const _channelId = 'wellness_reminders';
+  /// SharedPreferences key for the global alarm-sound on/off toggle, shared
+  /// by the wellness reminders and the home tab's wake alarm.
+  static const soundPrefKey = 'notif_sound';
+
+  // Android ties a channel's sound to the channel forever once it's first
+  // created, so "sound on/off" needs two distinct channels to actually
+  // change behavior rather than one channel with a mutable `sound` field.
+  static const _channelIdSound = 'wellness_reminders';
+  static const _channelIdSilent = 'wellness_reminders_silent';
   static const _channelName = 'Wellness Reminders';
   static const int _morningId = 101;
   static const int _eveningId = 102;
@@ -40,7 +48,7 @@ class NotificationService {
     await scheduleEvening();
   }
 
-  static Future<void> scheduleMorning({bool enabled = true}) async {
+  static Future<void> scheduleMorning({bool enabled = true, bool sound = true}) async {
     if (!enabled) {
       await _plugin.cancel(_morningId);
       return;
@@ -50,7 +58,7 @@ class NotificationService {
       'Morning Wellness Check-in',
       'Log your Sleep data & Overall Recovery Metrics to stay on top of recovery.',
       _nextInstanceOf(7, 30),
-      _details(),
+      _details(sound: sound),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
@@ -58,7 +66,7 @@ class NotificationService {
     );
   }
 
-  static Future<void> scheduleEvening({bool enabled = true}) async {
+  static Future<void> scheduleEvening({bool enabled = true, bool sound = true}) async {
     if (!enabled) {
       await _plugin.cancel(_eveningId);
       return;
@@ -68,7 +76,7 @@ class NotificationService {
       'Evening Load Reminder',
       "Don't forget to log today's training & skill Load before the day ends.",
       _nextInstanceOf(20, 0),
-      _details(),
+      _details(sound: sound),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
@@ -82,6 +90,7 @@ class NotificationService {
     required bool enabled,
     int hour = 8,
     int minute = 30,
+    bool sound = true,
   }) async {
     if (!enabled) {
       await _plugin.cancel(_wakeAlarmId);
@@ -92,7 +101,7 @@ class NotificationService {
       'Wake up',
       'Time to get up — log last night’s sleep while it is fresh.',
       _nextInstanceOf(hour, minute),
-      _details(),
+      _details(sound: sound),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
@@ -100,15 +109,20 @@ class NotificationService {
     );
   }
 
-  static NotificationDetails _details() => const NotificationDetails(
+  static NotificationDetails _details({bool sound = true}) => NotificationDetails(
         android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
+          sound ? _channelIdSound : _channelIdSilent,
+          sound ? _channelName : '$_channelName (Silent)',
           channelDescription: 'Daily reminders to log your wellness metrics',
           importance: Importance.high,
           priority: Priority.high,
+          playSound: sound,
+          sound: sound ? const RawResourceAndroidNotificationSound('alarm_sound') : null,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          presentSound: sound,
+          sound: sound ? 'alarm_sound.wav' : null,
+        ),
       );
 
   static tz.TZDateTime _nextInstanceOf(int hour, int minute) {

@@ -2,365 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../api_service.dart';
-
-// Aliases so the rest of the file compiles without change.
-
-// ── Data Point ────────────────────────────────────────────────────────────────
-
-class _LP {
-  final String d;       // label "dd/MM"
-  final double load;    // session load that day
-  final double acute;   // 7-day rolling avg (sum/7)
-  final double chronic; // EWMA of acute values (alpha=2/29)
-  final double acwr;
-  final double z;
-  const _LP(this.d, this.load, this.acute, this.chronic, this.acwr, this.z);
-}
-
-// ── Public: tomorrow's load target ─────────────────────────────────────────────
-// Surfaced so the home screen can show ONE combined target card instead of three
-// near-identical per-stream cards. The target is the evidence-based 80–130%
-// "sweet spot" band around each stream's current chronic (EWMA) baseline.
-
-class LoadTarget {
-  final String label;
-  final double chronic;
-  final Color  color;
-  const LoadTarget({required this.label, required this.chronic, required this.color});
-
-  int get low  => (chronic * 0.8).round();
-  int get high => (chronic * 1.3).round();
-}
-
-/// Total target as the headline, with Training + Skill as its components — the
-/// natural hierarchy that makes the three streams legible in a single card.
-class CombinedLoadTarget {
-  final LoadTarget total;
-  final List<LoadTarget> components;
-  const CombinedLoadTarget(this.total, this.components);
-}
-
-/// [athlete] 0 = ATS-2025-001, 1 = ATS-2025-002 — matches the Workload Monitor's
-/// athlete binding so the home card shows the same numbers as the full screen.
-CombinedLoadTarget tomorrowLoadTargets([int athlete = 0]) {
-  final train = athlete == 1 ? _a2Train : _a1Train;
-  final skill = athlete == 1 ? _a2Skill : _a1Skill;
-  final total = athlete == 1 ? _a2Total : _a1Total;
-  return CombinedLoadTarget(
-    LoadTarget(label: 'Total', chronic: total.last.chronic, color: kViolet),
-    [
-      LoadTarget(label: 'Training', chronic: train.last.chronic, color: kSky),
-      LoadTarget(label: 'Skill',    chronic: skill.last.chronic, color: kSuccess),
-    ],
-  );
-}
-
-// ── Static Dataset (PDF: Workload Monitoring – Cleaned Daily Data) ─────────────
-
-// ─── Athlete 1 (ATS-2025-001) ─────────────────────────────────────────────────
-
-const _a1Train = <_LP>[
-  _LP('19/03', 0, 0.0, 0.0, 0.00, 0.00),
-  _LP('21/03', 135, 19.3, 1.3, 14.50, 1.98),
-  _LP('22/03', 0, 19.3, 2.6, 7.51, -0.04),
-  _LP('23/03', 0, 19.3, 3.7, 5.18, -0.06),
-  _LP('24/03', 0, 19.3, 4.8, 4.02, -0.09),
-  _LP('25/03', 0, 19.3, 5.8, 3.33, -0.12),
-  _LP('26/03', 0, 19.3, 6.7, 2.87, -0.14),
-  _LP('27/03', 141, 39.4, 9.0, 4.39, 2.21),
-  _LP('29/03', 0, 20.1, 9.7, 2.07, -0.17),
-  _LP('31/03', 624, 109.3, 16.6, 6.58, 3.26),
-  _LP('01/04', 0, 109.3, 23.0, 4.75, -0.13),
-  _LP('02/04', 0, 109.3, 29.0, 3.77, -0.17),
-  _LP('03/04', 0, 89.1, 33.1, 2.69, -0.20),
-  _LP('04/04', 0, 89.1, 37.0, 2.41, -0.23),
-  _LP('05/04', 0, 89.1, 40.6, 2.20, -0.26),
-  _LP('06/04', 0, 89.1, 43.9, 2.03, -0.29),
-  _LP('07/04', 205, 29.3, 42.9, 0.68, 1.06),
-  _LP('08/04', 215, 60.0, 44.1, 1.36, 1.12),
-  _LP('09/04', 116, 76.6, 46.3, 1.65, 0.47),
-  _LP('10/04', 0, 76.6, 48.4, 1.58, -0.33),
-  _LP('11/04', 747, 183.3, 57.7, 3.18, 3.41),
-  _LP('12/04', 155, 205.4, 67.9, 3.03, 0.44),
-  _LP('13/04', 236, 239.1, 79.7, 3.00, 0.80),
-  _LP('14/04', 0, 209.9, 88.7, 2.37, -0.46),
-  _LP('15/04', 0, 179.1, 94.9, 1.89, -0.50),
-  _LP('16/04', 392, 218.6, 103.5, 2.11, 1.48),
-  _LP('17/04', 0, 218.6, 111.4, 1.96, -0.58),
-  _LP('18/04', 0, 111.9, 111.4, 1.00, -0.59),
-  _LP('19/04', 0, 89.7, 109.9, 0.82, -0.59),
-  _LP('20/04', 0, 56.0, 106.2, 0.53, -0.57),
-  _LP('21/04', 0, 56.0, 102.7, 0.55, -0.56),
-  _LP('22/04', 270, 94.6, 102.2, 0.93, 0.92),
-  _LP('23/04', 192, 66.0, 99.7, 0.66, 0.51),
-  _LP('24/04', 172, 90.6, 99.1, 0.91, 0.41),
-  _LP('25/04', 135, 109.9, 99.8, 1.10, 0.20),
-  _LP('26/04', 329, 156.9, 103.7, 1.51, 1.27),
-  _LP('27/04', 0, 156.9, 107.4, 1.46, -0.61),
-  _LP('28/04', 0, 156.9, 110.8, 1.42, -0.64),
-  _LP('29/04', 0, 118.3, 111.3, 1.06, -0.64),
-  _LP('30/04', 0, 90.9, 109.9, 0.83, -0.64),
-  _LP('01/05', 178, 91.7, 108.7, 0.84, 0.41),
-  _LP('02/05', 603, 158.6, 112.1, 1.41, 2.67),
-  _LP('03/05', 0, 111.6, 112.1, 1.00, -0.61),
-  _LP('04/05', 0, 111.6, 112.0, 1.00, -0.62),
-  _LP('05/05', 135, 130.9, 113.3, 1.15, 0.12),
-  _LP('06/05', 90, 143.7, 115.4, 1.25, -0.14),
-  _LP('07/05', 192, 171.1, 119.3, 1.43, 0.41),
-];
-
-const _a1Skill = <_LP>[
-  _LP('19/03', 560, 80.0, 80.0, 1.00, 0.00),
-  _LP('21/03', 0, 80.0, 80.0, 1.00, -0.29),
-  _LP('22/03', 0, 80.0, 80.0, 1.00, -0.30),
-  _LP('23/03', 0, 80.0, 80.0, 1.00, -0.33),
-  _LP('24/03', 54, 87.7, 80.5, 1.09, -0.12),
-  _LP('25/03', 288, 128.9, 83.9, 1.54, 0.97),
-  _LP('26/03', 72, 59.1, 82.2, 0.72, -0.05),
-  _LP('27/03', 0, 59.1, 80.6, 0.73, -0.43),
-  _LP('29/03', 288, 100.3, 81.9, 1.22, 1.11),
-  _LP('31/03', 0, 92.6, 82.7, 1.12, -0.46),
-  _LP('01/04', 294, 93.4, 83.4, 1.12, 1.17),
-  _LP('02/04', 0, 83.1, 83.4, 1.00, -0.47),
-  _LP('03/04', 450, 147.4, 87.8, 1.68, 1.91),
-  _LP('04/04', 0, 147.4, 91.9, 1.60, -0.49),
-  _LP('05/04', 0, 106.3, 92.9, 1.14, -0.50),
-  _LP('06/04', 135, 125.6, 95.2, 1.32, 0.22),
-  _LP('07/04', 228, 158.1, 99.5, 1.59, 0.74),
-  _LP('08/04', 36, 121.3, 101.0, 1.20, -0.38),
-  _LP('09/04', 36, 126.4, 102.8, 1.23, -0.40),
-  _LP('10/04', 180, 87.9, 101.7, 0.86, 0.48),
-  _LP('11/04', 0, 87.9, 100.8, 0.87, -0.62),
-  _LP('12/04', 84, 99.9, 100.7, 0.99, -0.11),
-  _LP('13/04', 112, 96.6, 100.4, 0.96, 0.07),
-  _LP('14/04', 270, 102.6, 100.6, 1.02, 1.09),
-  _LP('15/04', 96, 111.1, 101.3, 1.10, -0.03),
-  _LP('16/04', 310, 150.3, 104.7, 1.44, 1.34),
-  _LP('17/04', 160, 147.4, 107.6, 1.37, 0.35),
-  _LP('18/04', 160, 170.3, 112.0, 1.52, 0.33),
-  _LP('19/04', 90, 171.1, 116.0, 1.47, -0.18),
-  _LP('20/04', 36, 160.3, 119.1, 1.35, -0.58),
-  _LP('21/04', 0, 121.7, 119.3, 1.02, -0.83),
-  _LP('22/04', 0, 108.0, 118.5, 0.91, -0.83),
-  _LP('23/04', 0, 63.7, 114.7, 0.56, -0.81),
-  _LP('24/04', 0, 40.9, 109.6, 0.37, -0.77),
-  _LP('25/04', 120, 35.1, 104.5, 0.34, 0.11),
-  _LP('26/04', 0, 22.3, 98.8, 0.23, -0.71),
-  _LP('27/04', 72, 27.4, 93.9, 0.29, -0.16),
-  _LP('28/04', 126, 45.4, 90.5, 0.50, 0.26),
-  _LP('29/04', 80, 56.9, 88.2, 0.64, -0.06),
-  _LP('30/04', 135, 76.1, 87.4, 0.87, 0.36),
-  _LP('01/05', 0, 76.1, 86.6, 0.88, -0.66),
-  _LP('02/05', 72, 69.3, 85.4, 0.81, -0.10),
-  _LP('03/05', 0, 69.3, 84.3, 0.82, -0.65),
-  _LP('04/05', 0, 59.0, 82.6, 0.71, -0.64),
-  _LP('05/05', 124, 58.7, 80.9, 0.73, 0.34),
-  _LP('06/05', 480, 115.9, 83.3, 1.39, 2.88),
-  _LP('07/05', 420, 156.6, 88.4, 1.77, 2.31),
-];
-
-const _a1Total = <_LP>[
-  _LP('19/03', 560, 80.0, 80.0, 1.00, 0.00),
-  _LP('21/03', 135, 99.3, 81.3, 1.22, 0.25),
-  _LP('22/03', 0, 99.3, 82.6, 1.20, -0.35),
-  _LP('23/03', 0, 99.3, 83.7, 1.19, -0.36),
-  _LP('24/03', 54, 107.0, 85.3, 1.25, -0.15),
-  _LP('25/03', 288, 148.1, 89.7, 1.65, 0.99),
-  _LP('26/03', 72, 78.4, 88.9, 0.88, -0.09),
-  _LP('27/03', 141, 98.6, 89.6, 1.10, 0.29),
-  _LP('29/03', 288, 120.4, 91.7, 1.31, 1.15),
-  _LP('31/03', 624, 201.9, 99.3, 2.03, 2.48),
-  _LP('01/04', 294, 202.7, 106.4, 1.90, 0.92),
-  _LP('02/04', 0, 192.4, 112.3, 1.71, -0.55),
-  _LP('03/04', 450, 236.6, 120.9, 1.96, 1.59),
-  _LP('04/04', 0, 236.6, 128.9, 1.84, -0.62),
-  _LP('05/04', 0, 195.4, 133.5, 1.46, -0.65),
-  _LP('06/04', 135, 214.7, 139.1, 1.54, -0.02),
-  _LP('07/04', 433, 187.4, 142.4, 1.32, 1.43),
-  _LP('08/04', 251, 181.3, 145.1, 1.25, 0.54),
-  _LP('09/04', 152, 203.0, 149.1, 1.36, 0.02),
-  _LP('10/04', 180, 164.4, 150.1, 1.10, 0.16),
-  _LP('11/04', 747, 271.1, 158.5, 1.71, 2.71),
-  _LP('12/04', 239, 305.3, 168.6, 1.81, 0.33),
-  _LP('13/04', 348, 335.7, 180.1, 1.86, 0.80),
-  _LP('14/04', 270, 312.4, 189.3, 1.65, 0.40),
-  _LP('15/04', 96, 290.3, 196.2, 1.48, -0.50),
-  _LP('16/04', 702, 368.9, 208.1, 1.77, 2.27),
-  _LP('17/04', 160, 366.0, 219.0, 1.67, -0.28),
-  _LP('18/04', 160, 282.1, 223.4, 1.26, -0.30),
-  _LP('19/04', 90, 260.9, 226.0, 1.15, -0.65),
-  _LP('20/04', 36, 216.3, 225.3, 0.96, -0.91),
-  _LP('21/04', 0, 177.7, 222.0, 0.80, -1.06),
-  _LP('22/04', 270, 202.6, 220.7, 0.92, 0.24),
-  _LP('23/04', 192, 129.7, 214.4, 0.61, -0.11),
-  _LP('24/04', 172, 131.4, 208.7, 0.63, -0.18),
-  _LP('25/04', 255, 145.0, 204.3, 0.71, 0.26),
-  _LP('26/04', 329, 179.1, 202.6, 0.88, 0.65),
-  _LP('27/04', 72, 184.3, 201.3, 0.92, -0.66),
-  _LP('28/04', 126, 202.3, 201.4, 1.00, -0.39),
-  _LP('29/04', 80, 175.1, 199.6, 0.88, -0.62),
-  _LP('30/04', 135, 167.0, 197.3, 0.85, -0.33),
-  _LP('01/05', 178, 167.9, 195.3, 0.86, -0.09),
-  _LP('02/05', 675, 227.9, 197.5, 1.15, 2.41),
-  _LP('03/05', 0, 180.9, 196.4, 0.92, -0.99),
-  _LP('04/05', 0, 170.6, 194.6, 0.88, -0.98),
-  _LP('05/05', 259, 189.6, 194.2, 0.98, 0.33),
-  _LP('06/05', 570, 259.6, 198.8, 1.31, 1.84),
-  _LP('07/05', 612, 327.7, 207.6, 1.58, 1.95),
-];
-
-// ─── Athlete 2 (ATS-2025-002) ─────────────────────────────────────────────────
-
-const _a2Train = <_LP>[
-  _LP('21/03', 990, 141.4, 141.4, 1.00, 0.00),
-  _LP('22/03', 0, 141.4, 141.4, 1.00, -0.29),
-  _LP('23/03', 100, 155.7, 142.4, 1.09, -0.10),
-  _LP('24/03', 96, 169.4, 144.3, 1.17, -0.12),
-  _LP('25/03', 0, 169.4, 146.0, 1.16, -0.39),
-  _LP('26/03', 390, 225.1, 151.5, 1.49, 0.68),
-  _LP('27/03', 448, 289.1, 161.0, 1.80, 0.87),
-  _LP('28/03', 150, 169.1, 161.5, 1.05, -0.04),
-  _LP('29/03', 0, 169.1, 162.1, 1.04, -0.53),
-  _LP('30/03', 540, 232.0, 166.9, 1.39, 1.22),
-  _LP('31/03', 170, 242.6, 172.1, 1.41, -0.01),
-  _LP('01/04', 96, 256.3, 177.9, 1.44, -0.29),
-  _LP('02/04', 0, 200.6, 179.5, 1.12, -0.64),
-  _LP('03/04', 0, 136.6, 176.5, 0.77, -0.64),
-  _LP('04/04', 0, 115.1, 172.3, 0.67, -0.63),
-  _LP('05/04', 0, 115.1, 168.3, 0.68, -0.63),
-  _LP('06/04', 458, 103.4, 163.9, 0.63, 1.10),
-  _LP('07/04', 588, 163.1, 163.8, 1.00, 1.54),
-  _LP('08/04', 385, 204.4, 166.6, 1.23, 0.81),
-  _LP('09/04', 510, 277.3, 174.2, 1.59, 1.24),
-  _LP('10/04', 80, 288.7, 182.1, 1.59, -0.38),
-  _LP('11/04', 480, 357.3, 194.2, 1.84, 1.08),
-  _LP('12/04', 0, 357.3, 205.5, 1.74, -0.78),
-  _LP('13/04', 540, 369.0, 216.7, 1.70, 1.22),
-  _LP('14/04', 445, 348.6, 225.8, 1.54, 0.84),
-  _LP('15/04', 600, 379.3, 236.4, 1.60, 1.37),
-  _LP('16/04', 335, 354.3, 244.5, 1.45, 0.35),
-  _LP('17/04', 105, 357.9, 252.4, 1.42, -0.57),
-  _LP('18/04', 390, 345.0, 258.7, 1.33, 0.52),
-  _LP('20/04', 371, 320.9, 263.0, 1.22, 0.43),
-  _LP('21/04', 186, 283.9, 264.5, 1.07, -0.32),
-  _LP('22/04', 240, 232.4, 262.3, 0.89, -0.09),
-  _LP('23/04', 301, 227.6, 259.9, 0.88, 0.17),
-  _LP('24/04', 320, 258.3, 259.8, 0.99, 0.25),
-  _LP('25/04', 0, 202.6, 255.8, 0.79, -1.08),
-  _LP('26/04', 0, 202.6, 252.1, 0.80, -1.06),
-  _LP('27/04', 178, 175.0, 246.8, 0.71, -0.29),
-  _LP('28/04', 0, 148.4, 240.0, 0.62, -1.02),
-  _LP('29/04', 245, 149.1, 233.8, 0.64, 0.05),
-  _LP('30/04', 258, 143.0, 227.5, 0.63, 0.13),
-  _LP('01/05', 300, 140.1, 221.5, 0.63, 0.35),
-  _LP('02/05', 229, 172.9, 218.1, 0.79, 0.05),
-  _LP('03/05', 0, 172.9, 215.0, 0.80, -0.96),
-  _LP('04/05', 270, 186.0, 213.0, 0.87, 0.26),
-  _LP('05/05', 236, 219.7, 213.5, 1.03, 0.10),
-  _LP('06/05', 270, 223.3, 214.1, 1.04, 0.26),
-  _LP('07/05', 258, 223.3, 214.8, 1.04, 0.20),
-];
-
-const _a2Skill = <_LP>[
-  _LP('19/03', 560, 80.0, 80.0, 1.00, 0.00),
-  _LP('21/03', 0, 80.0, 80.0, 1.00, -0.29),
-  _LP('22/03', 0, 80.0, 80.0, 1.00, -0.30),
-  _LP('24/03', 216, 110.9, 82.1, 1.35, 0.58),
-  _LP('25/03', 525, 185.9, 89.3, 2.08, 1.79),
-  _LP('26/03', 0, 105.9, 90.4, 1.17, -0.37),
-  _LP('27/03', 0, 105.9, 91.5, 1.16, -0.39),
-  _LP('28/03', 144, 126.4, 93.9, 1.35, 0.23),
-  _LP('29/03', 504, 198.4, 101.1, 1.96, 1.73),
-  _LP('30/03', 0, 198.4, 107.8, 1.84, -0.47),
-  _LP('31/03', 0, 167.6, 111.9, 1.50, -0.49),
-  _LP('01/04', 0, 92.6, 110.6, 0.84, -0.50),
-  _LP('02/04', 0, 92.6, 109.4, 0.85, -0.50),
-  _LP('03/04', 0, 92.6, 108.2, 0.86, -0.51),
-  _LP('04/04', 0, 72.0, 105.7, 0.68, -0.50),
-  _LP('05/04', 0, 0.0, 98.4, 0.00, -0.48),
-  _LP('06/04', 0, 0.0, 91.6, 0.00, -0.46),
-  _LP('07/04', 300, 42.9, 88.3, 0.49, 1.06),
-  _LP('08/04', 280, 82.9, 87.9, 0.94, 0.97),
-  _LP('09/04', 100, 97.1, 88.5, 1.10, 0.06),
-  _LP('10/04', 270, 135.7, 91.8, 1.48, 0.94),
-  _LP('11/04', 0, 135.7, 94.8, 1.43, -0.50),
-  _LP('12/04', 0, 135.7, 97.6, 1.39, -0.52),
-  _LP('13/04', 300, 178.6, 103.2, 1.73, 1.06),
-  _LP('14/04', 360, 187.1, 109.0, 1.72, 1.34),
-  _LP('15/04', 360, 198.6, 115.2, 1.72, 1.30),
-  _LP('16/04', 280, 224.3, 122.7, 1.83, 0.84),
-  _LP('17/04', 240, 220.0, 129.4, 1.70, 0.60),
-  _LP('18/04', 0, 220.0, 135.7, 1.62, -0.74),
-  _LP('20/04', 150, 198.6, 140.0, 1.42, 0.06),
-  _LP('21/04', 30, 151.4, 140.8, 1.08, -0.62),
-  _LP('22/04', 45, 106.4, 138.4, 0.77, -0.53),
-  _LP('23/04', 80, 77.9, 134.2, 0.58, -0.31),
-  _LP('24/04', 150, 65.0, 129.5, 0.50, 0.12),
-  _LP('25/04', 120, 82.1, 126.2, 0.65, -0.04),
-  _LP('26/04', 180, 107.9, 124.9, 0.86, 0.33),
-  _LP('27/04', 12, 88.1, 122.4, 0.72, -0.67),
-  _LP('28/04', 0, 83.9, 119.7, 0.70, -0.73),
-  _LP('29/04', 0, 77.4, 116.8, 0.66, -0.71),
-  _LP('30/04', 180, 91.7, 115.1, 0.80, 0.40),
-  _LP('01/05', 175, 95.3, 113.7, 0.84, 0.38),
-  _LP('02/05', 100, 92.4, 112.3, 0.82, -0.08),
-  _LP('03/05', 0, 66.7, 109.1, 0.61, -0.69),
-  _LP('04/05', 0, 65.0, 106.1, 0.61, -0.67),
-  _LP('05/05', 180, 90.7, 105.0, 0.86, 0.48),
-  _LP('06/05', 90, 103.6, 104.9, 0.99, -0.10),
-  _LP('07/05', 150, 99.3, 104.5, 0.95, 0.30),
-];
-
-const _a2Total = <_LP>[
-  _LP('19/03', 560, 80.0, 80.0, 1.00, 0.00),
-  _LP('21/03', 990, 221.4, 89.8, 2.47, 4.19),
-  _LP('22/03', 0, 221.4, 98.8, 2.24, -0.24),
-  _LP('23/03', 100, 235.7, 108.3, 2.18, -0.02),
-  _LP('24/03', 312, 280.3, 120.1, 2.33, 0.54),
-  _LP('25/03', 525, 355.3, 136.4, 2.61, 1.18),
-  _LP('26/03', 390, 331.0, 149.8, 2.21, 0.79),
-  _LP('27/03', 448, 395.0, 166.7, 2.37, 0.99),
-  _LP('28/03', 294, 295.6, 175.6, 1.68, 0.44),
-  _LP('29/03', 504, 367.6, 188.8, 1.95, 1.22),
-  _LP('30/03', 540, 430.4, 205.5, 2.09, 1.34),
-  _LP('31/03', 170, 410.1, 219.6, 1.87, -0.20),
-  _LP('01/04', 96, 348.9, 228.5, 1.53, -0.52),
-  _LP('02/04', 0, 293.1, 233.0, 1.26, -0.89),
-  _LP('03/04', 0, 229.1, 232.7, 0.98, -0.87),
-  _LP('04/04', 0, 187.1, 229.6, 0.82, -0.84),
-  _LP('05/04', 0, 115.1, 221.7, 0.52, -0.81),
-  _LP('06/04', 458, 103.4, 213.5, 0.48, 0.91),
-  _LP('07/04', 888, 206.0, 213.0, 0.97, 2.31),
-  _LP('08/04', 665, 287.3, 218.1, 1.32, 1.52),
-  _LP('09/04', 610, 374.4, 228.9, 1.64, 1.30),
-  _LP('10/04', 350, 424.4, 242.4, 1.75, 0.38),
-  _LP('11/04', 480, 493.0, 259.7, 1.90, 0.78),
-  _LP('12/04', 0, 493.0, 275.8, 1.79, -0.97),
-  _LP('13/04', 840, 547.6, 294.5, 1.86, 1.85),
-  _LP('14/04', 805, 535.7, 311.1, 1.72, 1.64),
-  _LP('15/04', 960, 577.9, 329.5, 1.75, 2.00),
-  _LP('16/04', 615, 578.6, 346.7, 1.67, 0.86),
-  _LP('17/04', 345, 577.9, 362.7, 1.59, -0.06),
-  _LP('18/04', 390, 565.0, 376.6, 1.50, 0.04),
-  _LP('20/04', 521, 519.4, 386.5, 1.34, 0.45),
-  _LP('21/04', 216, 435.3, 389.8, 1.12, -0.59),
-  _LP('22/04', 285, 338.9, 386.3, 0.88, -0.35),
-  _LP('23/04', 381, 305.4, 380.7, 0.80, 0.00),
-  _LP('24/04', 470, 323.3, 376.8, 0.86, 0.33),
-  _LP('25/04', 120, 284.7, 370.4, 0.77, -0.89),
-  _LP('26/04', 180, 310.4, 366.3, 0.85, -0.66),
-  _LP('27/04', 190, 263.1, 359.2, 0.73, -0.61),
-  _LP('28/04', 0, 232.3, 350.4, 0.66, -1.24),
-  _LP('29/04', 245, 226.6, 341.9, 0.66, -0.35),
-  _LP('30/04', 438, 234.7, 334.5, 0.70, 0.38),
-  _LP('01/05', 475, 235.4, 327.7, 0.72, 0.54),
-  _LP('02/05', 329, 265.3, 323.4, 0.82, 0.02),
-  _LP('03/05', 0, 239.6, 317.6, 0.75, -1.16),
-  _LP('04/05', 270, 251.0, 313.0, 0.80, -0.16),
-  _LP('05/05', 416, 310.4, 312.8, 0.99, 0.39),
-  _LP('06/05', 360, 326.9, 313.8, 1.04, 0.17),
-  _LP('07/05', 408, 322.6, 314.4, 1.03, 0.36),
-];
+import '../services/dashboard_metrics.dart';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
@@ -375,50 +17,64 @@ class WorkloadMonitorScreen extends StatefulWidget {
 class _WMState extends State<WorkloadMonitorScreen>
     with SingleTickerProviderStateMixin {
 
-  int _athlete = 0; // 0 = ATS-2025-001, 1 = ATS-2025-002
-  String _athleteLabel = 'ATS-2025-001';
+  String _athleteLabel = '';
   late String _range;
   late final TabController _tabs;
 
-  static DateTime _parseLP(String d) {
-    final parts = d.split('/');
-    return DateTime(2025, int.parse(parts[1]), int.parse(parts[0]));
-  }
+  AthleteMetrics? _metrics;
+  bool _loading = true;
 
-  List<_LP> _applyRange(List<_LP> all) {
-    if (all.isEmpty || _range == '28d') return all;
-    final last = _parseLP(all.last.d);
+  List<WorkPoint> _applyRange(List<WorkPoint> all) {
+    if (all.isEmpty) return all;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     bool sameDay(DateTime a, DateTime b) =>
         a.year == b.year && a.month == b.month && a.day == b.day;
     if (_range == 'today') {
-      return all.where((p) => sameDay(_parseLP(p.d), last)).toList();
+      return all.where((p) => sameDay(p.date, today)).toList();
     }
     if (_range == 'yesterday') {
-      final yest = last.subtract(const Duration(days: 1));
-      return all.where((p) => sameDay(_parseLP(p.d), yest)).toList();
+      final yest = today.subtract(const Duration(days: 1));
+      return all.where((p) => sameDay(p.date, yest)).toList();
     }
-    final days = _range == '1w' ? 6 : 13;
-    final cutoff = last.subtract(Duration(days: days));
-    return all.where((p) => !_parseLP(p.d).isBefore(cutoff)).toList();
+    final days = _range == '1w' ? 6 : (_range == '2w' ? 13 : 27);
+    final cutoff = today.subtract(Duration(days: days));
+    return all
+        .where((p) =>
+            !DateTime(p.date.year, p.date.month, p.date.day).isBefore(cutoff))
+        .toList();
   }
 
-  List<_LP> get _train  => _applyRange(_athlete == 0 ? _a1Train  : _a2Train);
-  List<_LP> get _skill  => _applyRange(_athlete == 0 ? _a1Skill  : _a2Skill);
-  List<_LP> get _total  => _applyRange(_athlete == 0 ? _a1Total  : _a2Total);
+  List<WorkPoint> get _train => _applyRange(_metrics?.train ?? const []);
+  List<WorkPoint> get _skill => _applyRange(_metrics?.skill ?? const []);
+  List<WorkPoint> get _total => _applyRange(_metrics?.total ?? const []);
 
   @override
   void initState() {
     super.initState();
     _range = widget.initialRange;
     _tabs = TabController(length: 3, vsync: this);
-    // Bind to the logged-in athlete — players only see their own workload.
+    // The signed-in athlete's data comes from the JWT-authenticated API; the
+    // cached user is only used for the name badge in the app bar.
     ApiService.getCachedUser().then((u) {
       if (u == null || !mounted) return;
-      setState(() {
-        _athlete      = u.name.contains('002') ? 1 : 0;
-        _athleteLabel = u.name;
-      });
+      setState(() => _athleteLabel = u.name);
     });
+    _loadMetrics();
+  }
+
+  Future<void> _loadMetrics() async {
+    try {
+      final m = await AthleteMetricsService.load();
+      if (!mounted) return;
+      setState(() {
+        _metrics = m;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
   }
 
   @override
@@ -438,6 +94,7 @@ class _WMState extends State<WorkloadMonitorScreen>
         centerTitle: false,
         iconTheme: IconThemeData(color: kTextPrimary),
         actions: [
+          if (_athleteLabel.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(right: 14),
             child: Container(
@@ -477,7 +134,11 @@ class _WMState extends State<WorkloadMonitorScreen>
           ]),
         ),
       ),
-      body: Column(
+      body: _loading
+          ? Center(child: CircularProgressIndicator(color: kAccent))
+          : (_metrics == null || !_metrics!.hasLoadData)
+              ? const _WorkloadEmpty()
+              : Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -568,7 +229,7 @@ class _FilterBar extends StatelessWidget {
 // ── Section View ──────────────────────────────────────────────────────────────
 
 class _SectionView extends StatelessWidget {
-  final List<_LP> data;
+  final List<WorkPoint> data;
   final Color accentColor, barColor;
   final String sectionTitle;
 
@@ -579,7 +240,7 @@ class _SectionView extends StatelessWidget {
     required this.barColor,
   });
 
-  _LP get _last => data.last;
+  WorkPoint get _last => data.last;
 
   double get _exertion {
     final l = _last.load;
@@ -616,7 +277,19 @@ class _SectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return Center(child: Text('No data', style: TextStyle(color: kTextSecondary)));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_busy_rounded, size: 30, color: kTextSecondary),
+            const SizedBox(height: 10),
+            Text('No load recorded for this period',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 12.5, color: kTextSecondary, height: 1.4)),
+          ],
+        ),
+      );
     }
     final acwr  = _last.acwr;
     final acCol = _acwrColor(acwr);
@@ -1098,7 +771,7 @@ class _ZL extends StatelessWidget {
 // ── Interactive Load Chart ────────────────────────────────────────────────────
 
 class _InteractiveLoadChart extends StatefulWidget {
-  final List<_LP> data;
+  final List<WorkPoint> data;
   final Color barColor, accentColor;
   const _InteractiveLoadChart({required this.data, required this.barColor, required this.accentColor});
 
@@ -1143,7 +816,7 @@ class _InteractiveLoadChartState extends State<_InteractiveLoadChart> {
 }
 
 class _LoadChartPainter extends CustomPainter {
-  final List<_LP> data;
+  final List<WorkPoint> data;
   final Color barColor;
   final int? selectedIdx;
   final double contentW;
@@ -1319,7 +992,7 @@ class _LoadChartPainter extends CustomPainter {
 // ── Interactive ACWR Trend Chart ──────────────────────────────────────────────
 
 class _InteractiveAcwrChart extends StatefulWidget {
-  final List<_LP> data;
+  final List<WorkPoint> data;
   final Color lineColor;
   const _InteractiveAcwrChart({required this.data, required this.lineColor});
 
@@ -1364,7 +1037,7 @@ class _InteractiveAcwrChartState extends State<_InteractiveAcwrChart> {
 }
 
 class _AcwrPainter extends CustomPainter {
-  final List<_LP> data;
+  final List<WorkPoint> data;
   final Color lineColor;
   final int? selectedIdx;
   final double contentW;
@@ -1557,7 +1230,7 @@ class _AcwrPainter extends CustomPainter {
 // ── Interactive Z-Score Chart ─────────────────────────────────────────────────
 
 class _InteractiveZChart extends StatefulWidget {
-  final List<_LP> data;
+  final List<WorkPoint> data;
   final Color lineColor;
   const _InteractiveZChart({required this.data, required this.lineColor});
 
@@ -1602,7 +1275,7 @@ class _InteractiveZChartState extends State<_InteractiveZChart> {
 }
 
 class _ZScorePainter extends CustomPainter {
-  final List<_LP> data;
+  final List<WorkPoint> data;
   final Color lineColor;
   final int? selectedIdx;
   final double contentW;
@@ -1813,7 +1486,7 @@ class _ZScorePainter extends CustomPainter {
 // ── Session Log Row ───────────────────────────────────────────────────────────
 
 class _SessionRow extends StatelessWidget {
-  final _LP pt;
+  final WorkPoint pt;
   final Color color;
   const _SessionRow({required this.pt, required this.color});
 
@@ -1877,4 +1550,40 @@ class _SessionRow extends StatelessWidget {
       ],
     ),
   );
+}
+
+// ── Screen-level empty state ──────────────────────────────────────────────────────
+
+class _WorkloadEmpty extends StatelessWidget {
+  const _WorkloadEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                color: kAccent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(Icons.monitor_heart_rounded, size: 30, color: kAccent),
+            ),
+            const SizedBox(height: 16),
+            Text('No training data yet',
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary)),
+            const SizedBox(height: 8),
+            Text('Log sessions to see your workload stats here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, color: kTextSecondary, height: 1.4)),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -30,25 +30,12 @@ class HelpCenterPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void snack(String msg) => ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
-
     return Scaffold(
       backgroundColor: kBg,
       appBar: _appBar('HELP CENTER'),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          const _SectionLabel('COMMON QUESTIONS'),
-          const SizedBox(height: 8),
-          _Group(children: [
-            _ArrowRow(label: 'How are scores calculated?',  onTap: () => snack('Opening article…')),
-            _ArrowRow(label: 'How do I connect a device?',  onTap: () => snack('Opening article…')),
-            _ArrowRow(label: 'Can I sync with Apple Health?', onTap: () => snack('Opening article…')),
-            _ArrowRow(label: 'How to cancel subscription?', onTap: () => snack('Opening article…')),
-          ]),
-          const SizedBox(height: 20),
-
           const _SectionLabel('CONTACT'),
           const SizedBox(height: 8),
           _Group(children: [

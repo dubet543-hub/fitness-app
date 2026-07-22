@@ -1,7 +1,10 @@
-import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:syncfusion_flutter_xlsio/xlsio.dart' hide Column, Row, Border;
+import 'package:syncfusion_officechart/officechart.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
 import '../services/local_log_store.dart';
@@ -16,12 +19,10 @@ class PrivacySecurityPage extends StatefulWidget {
 }
 
 class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
-  bool twoFactor      = false;
   bool analyticsShare = true;
   bool dailyLogsConsent = true;
   bool cameraConsent    = true;
 
-  static const _kTwoFactor = 'setting_two_factor';
   static const _kAnalytics = 'setting_analytics_share';
 
   @override
@@ -38,7 +39,6 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     setState(() {
       dailyLogsConsent = daily;
       cameraConsent    = camera;
-      twoFactor        = prefs.getBool(_kTwoFactor) ?? false;
       analyticsShare   = prefs.getBool(_kAnalytics) ?? true;
     });
   }
@@ -117,23 +117,259 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   );
 
   // ── Download my data ─────────────────────────────────────────────────────────
-  Future<void> _downloadData() async {
-    _snack('Preparing your data…');
+  static const _exportRanges = [
+    ('Last 24 hours', 1),
+    ('Last 7 days',   7),
+    ('Last 15 days',  15),
+    ('Last 30 days',  30),
+    ('All time',      -1), // sentinel, mapped to `null` (no date filter) below
+  ];
+
+  Future<void> _pickRangeAndDownload() async {
+    final days = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Export data', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700, fontSize: 17)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (label, days) in _exportRanges)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(label, style: TextStyle(color: kTextPrimary, fontSize: 14)),
+                onTap: () => Navigator.pop(ctx, days),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: kTextSecondary))),
+        ],
+      ),
+    );
+    if (days == null) return;
+    await _downloadData(days == -1 ? null : days);
+  }
+
+  Future<void> _downloadData(int? days) async {
+    // "All time" fetches can take a while, so keep the message up for the
+    // duration instead of the usual fixed 2s (which would vanish long before
+    // a big export finishes and make it look like nothing is happening).
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Preparing your data…'), duration: Duration(seconds: 60)),
+    );
     try {
-      final user     = await ApiService.getCachedUser();
-      final sessions = await ApiService.fetchSessions(limit: 1000);
-      final bca      = await ApiService.fetchBodyComposition();
-      final export = {
-        'exportedAt': DateTime.now().toIso8601String(),
-        'profile': user == null ? null : {'name': user.name, 'email': user.email, 'sport': user.sport},
-        'sessions': sessions,
-        'bodyComposition': bca,
-      };
-      final json = const JsonEncoder.withIndent('  ').convert(export);
-      await Share.share(json, subject: 'My SolidCore data export');
+      final from     = days == null ? null : DateTime.now().subtract(Duration(days: days));
+      final sessions = await ApiService.fetchSessions(from: from, limit: from == null ? 10000 : 1000);
+      final allBca   = await ApiService.fetchBodyComposition();
+      final bca      = from == null
+          ? allBca
+          : allBca.where((e) {
+              final d = DateTime.tryParse(e['date']?.toString() ?? '');
+              return d != null && !d.isBefore(from);
+            }).toList();
+
+      final excelBytes = _buildExcel(sessions: sessions, bodyComposition: bca);
+
+      final dir   = await getTemporaryDirectory();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final xlsxFile = File('${dir.path}/solidcore_export_$stamp.xlsx')..writeAsBytesSync(excelBytes);
+
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      // iOS (esp. iPad) requires an anchor rect for the share sheet popover,
+      // or it throws PlatformException("sharePositionOrigin ... must be set").
+      final box = context.findRenderObject() as RenderBox?;
+      await Share.shareXFiles(
+        [XFile(xlsxFile.path)],
+        subject: 'My SolidCore data export',
+        sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+      );
     } catch (e) {
+      messenger.hideCurrentSnackBar();
       if (mounted) _snack('Could not export your data: ${e.toString().replaceFirst('Exception: ', '')}');
     }
+  }
+
+  static double _numOrZero(dynamic v) => v is num ? v.toDouble() : 0.0;
+
+  static String _fmtDate(dynamic raw) {
+    final d = DateTime.tryParse(raw?.toString() ?? '');
+    if (d == null) return '';
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Performance sheet (workload/training-load fields, chart of Total Load),
+  /// Recovery sheet (sleep/wellness/soreness/fatigue inputs, chart of the
+  /// cumulative Recovery Score used on Player Stats), and a Body Composition
+  /// sheet — each with its own native Excel chart — for the selected range.
+  List<int> _buildExcel({
+    required List<Map<String, dynamic>> sessions,
+    required List<Map<String, dynamic>> bodyComposition,
+  }) {
+    // Both endpoints return newest-first; charts read left-to-right as a
+    // timeline, so put both in chronological order before writing rows.
+    int byDateAsc(Map<String, dynamic> a, Map<String, dynamic> b) {
+      final da = DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime(0);
+      final db = DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime(0);
+      return da.compareTo(db);
+    }
+
+    sessions = List.of(sessions)..sort(byDateAsc);
+    bodyComposition = List.of(bodyComposition)..sort(byDateAsc);
+
+    final workbook = Workbook();
+
+    // ── Performance ──────────────────────────────────────────────────────
+    final perfSheet = workbook.worksheets[0];
+    perfSheet.name = 'Performance';
+
+    const perfHeaders = [
+      'Date', 'Session Type',
+      'Primary Type(s)', 'Primary Duration (min)', 'Primary RPE',
+      'Secondary Type(s)', 'Secondary Duration (min)', 'Secondary RPE',
+      'Skill Type(s)', 'Skill Duration (min)', 'Skill RPE',
+      'Total Load', 'Scaled Load (0-10)',
+    ];
+    for (var c = 0; c < perfHeaders.length; c++) {
+      perfSheet.getRangeByIndex(1, c + 1)
+        ..setText(perfHeaders[c])
+        ..cellStyle.bold = true;
+    }
+    for (var r = 0; r < sessions.length; r++) {
+      final s = sessions[r];
+      final row = r + 2;
+      perfSheet.getRangeByIndex(row, 1).setText(_fmtDate(s['date']));
+      perfSheet.getRangeByIndex(row, 2).setText((s['sessionType'] ?? '').toString());
+      perfSheet.getRangeByIndex(row, 3).setText(((s['primaryTypes'] as List?) ?? const []).join(', '));
+      perfSheet.getRangeByIndex(row, 4).setNumber(_numOrZero(s['primaryDuration']));
+      perfSheet.getRangeByIndex(row, 5).setNumber(_numOrZero(s['primaryRpe']));
+      perfSheet.getRangeByIndex(row, 6).setText(((s['secondaryTypes'] as List?) ?? const []).join(', '));
+      perfSheet.getRangeByIndex(row, 7).setNumber(_numOrZero(s['secondaryDuration']));
+      perfSheet.getRangeByIndex(row, 8).setNumber(_numOrZero(s['secondaryRpe']));
+      perfSheet.getRangeByIndex(row, 9).setText(((s['skillTypes'] as List?) ?? const []).join(', '));
+      perfSheet.getRangeByIndex(row, 10).setNumber(_numOrZero(s['skillDuration']));
+      perfSheet.getRangeByIndex(row, 11).setNumber(_numOrZero(s['skillRpe']));
+      perfSheet.getRangeByIndex(row, 12).setNumber(_numOrZero(s['totalLoad']));
+      perfSheet.getRangeByIndex(row, 13).setNumber(_numOrZero(s['scaledGrade']));
+    }
+
+    // Native Excel chart bound to the Date/Total Load columns, positioned
+    // below the data — mirrors the training-load bar chart on Player Stats.
+    // Built manually (Date and Total Load aren't adjacent columns, so the
+    // `dataRange`/`isSeriesInRows` auto-series path doesn't fit) — the series
+    // added this way needs its `index` set explicitly, or the library's own
+    // serializer throws a LateInitializationError on the uninitialized field.
+    if (sessions.isNotEmpty) {
+      final charts = ChartCollection(perfSheet);
+      final chart = charts.add();
+      chart.chartType = ExcelChartType.column;
+      final loadSerie = chart.series.add();
+      loadSerie.index = 0;
+      loadSerie.categoryLabels = perfSheet.getRangeByIndex(2, 1, sessions.length + 1, 1);
+      loadSerie.values = perfSheet.getRangeByIndex(2, 12, sessions.length + 1, 12);
+      loadSerie.name = 'Total Load';
+      chart.chartTitle = 'Training Load';
+      chart.topRow = sessions.length + 3;
+      chart.leftColumn = 1;
+      chart.bottomRow = chart.topRow + 20;
+      chart.rightColumn = 10;
+      perfSheet.charts = charts;
+    }
+
+    // ── Recovery ─────────────────────────────────────────────────────────
+    final recSheet = workbook.worksheets.addWithName('Recovery');
+    const recHeaders = [
+      'Date', 'Sleep (1-5)', 'Wellness (1-5)', 'Soreness (1-5)', 'Fatigue (1-5)',
+      'Sleep Duration (hrs)', 'Readiness %', 'Recovery Score',
+    ];
+    for (var c = 0; c < recHeaders.length; c++) {
+      recSheet.getRangeByIndex(1, c + 1)
+        ..setText(recHeaders[c])
+        ..cellStyle.bold = true;
+    }
+    for (var r = 0; r < sessions.length; r++) {
+      final s = sessions[r];
+      final row = r + 2;
+      final sleep = _numOrZero(s['sleep']);
+      final wellness = _numOrZero(s['wellness']);
+      final soreness = _numOrZero(s['soreness']);
+      final fatigue = _numOrZero(s['fatigue']);
+      recSheet.getRangeByIndex(row, 1).setText(_fmtDate(s['date']));
+      recSheet.getRangeByIndex(row, 2).setNumber(sleep);
+      recSheet.getRangeByIndex(row, 3).setNumber(wellness);
+      recSheet.getRangeByIndex(row, 4).setNumber(soreness);
+      recSheet.getRangeByIndex(row, 5).setNumber(fatigue);
+      recSheet.getRangeByIndex(row, 6).setNumber(_numOrZero(s['sleepDuration']));
+      recSheet.getRangeByIndex(row, 7).setNumber(_numOrZero(s['readinessPercent']));
+      recSheet.getRangeByIndex(row, 8).setNumber(sleep + wellness + soreness + fatigue);
+    }
+
+    // Recovery Score chart — same cumulative-of-4 metric as the Player
+    // Stats "Cumulative Recovery Score" panel (optimal <= 8, monitor <= 13).
+    if (sessions.isNotEmpty) {
+      final recCharts = ChartCollection(recSheet);
+      final recChart = recCharts.add();
+      recChart.chartType = ExcelChartType.line;
+      final recSerie = recChart.series.add();
+      recSerie.index = 0;
+      recSerie.categoryLabels = recSheet.getRangeByIndex(2, 1, sessions.length + 1, 1);
+      recSerie.values = recSheet.getRangeByIndex(2, 8, sessions.length + 1, 8);
+      recSerie.name = 'Recovery Score';
+      recChart.chartTitle = 'Recovery Score';
+      recChart.topRow = sessions.length + 3;
+      recChart.leftColumn = 1;
+      recChart.bottomRow = recChart.topRow + 20;
+      recChart.rightColumn = 10;
+      recSheet.charts = recCharts;
+    }
+
+    final bcaSheet = workbook.worksheets.addWithName('Body Composition');
+    const bcaHeaders = ['Date', 'Weight (kg)', 'Body Fat %', 'Lean Body Mass (kg)', 'Skeletal Muscle %'];
+    for (var c = 0; c < bcaHeaders.length; c++) {
+      bcaSheet.getRangeByIndex(1, c + 1)
+        ..setText(bcaHeaders[c])
+        ..cellStyle.bold = true;
+    }
+    for (var r = 0; r < bodyComposition.length; r++) {
+      final b = bodyComposition[r];
+      final row = r + 2;
+      bcaSheet.getRangeByIndex(row, 1).setText(_fmtDate(b['date']));
+      bcaSheet.getRangeByIndex(row, 2).setNumber(_numOrZero(b['weightKg']));
+      bcaSheet.getRangeByIndex(row, 3).setNumber(_numOrZero(b['bfPercent']));
+      bcaSheet.getRangeByIndex(row, 4).setNumber(_numOrZero(b['lbm']));
+      bcaSheet.getRangeByIndex(row, 5).setNumber(_numOrZero(b['smmPercent']));
+    }
+
+    // Native Excel line chart trending all four body-composition metrics,
+    // matching the Metric Trends cards on the Body Composition screen —
+    // each metric its own series sharing the Date category axis.
+    if (bodyComposition.isNotEmpty) {
+      final bcaCharts = ChartCollection(bcaSheet);
+      final bcaChart = bcaCharts.add();
+      bcaChart.chartType = ExcelChartType.line;
+      const metricColumns = [2, 3, 4, 5]; // Weight, Body Fat %, LBM, Skeletal Muscle %
+      for (var i = 0; i < metricColumns.length; i++) {
+        final col = metricColumns[i];
+        final serie = bcaChart.series.add();
+        serie.index = i;
+        serie.categoryLabels = bcaSheet.getRangeByIndex(2, 1, bodyComposition.length + 1, 1);
+        serie.values = bcaSheet.getRangeByIndex(2, col, bodyComposition.length + 1, col);
+        serie.name = bcaHeaders[col - 1];
+      }
+      bcaChart.chartTitle = 'Body Composition Trends';
+      bcaChart.topRow = bodyComposition.length + 3;
+      bcaChart.leftColumn = 1;
+      bcaChart.bottomRow = bcaChart.topRow + 20;
+      bcaChart.rightColumn = 10;
+      bcaSheet.charts = bcaCharts;
+    }
+
+    final bytes = workbook.saveAsStream();
+    workbook.dispose();
+    return bytes;
   }
 
   // ── Delete my data ───────────────────────────────────────────────────────────
@@ -233,21 +469,6 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               label: 'Change password',
               onTap: _changePassword,
             ),
-            _ToggleItem(
-              icon: Icons.shield_outlined,
-              iconColor: kAccent,
-              label: 'Two-factor auth',
-              subtitle: 'Extra sign-in protection',
-              value: twoFactor,
-              onChanged: (v) { setState(() => twoFactor = v); _setPref(_kTwoFactor, v); },
-            ),
-            _RowItem(
-              icon: Icons.phone_android_rounded,
-              iconColor: kViolet,
-              label: 'Manage devices',
-              trailing: '2 active',
-              onTap: () => _snack('Active sessions listed'),
-            ),
           ]),
           const SizedBox(height: 20),
 
@@ -290,7 +511,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               icon: Icons.download_outlined,
               iconColor: kTextSecondary,
               label: 'Download my data',
-              onTap: _downloadData,
+              onTap: _pickRangeAndDownload,
             ),
           ]),
           const SizedBox(height: 20),
@@ -358,9 +579,8 @@ class _RowItem extends StatelessWidget {
   final IconData icon;
   final Color    iconColor;
   final String   label;
-  final String?  trailing;
   final VoidCallback? onTap;
-  const _RowItem({required this.icon, required this.iconColor, required this.label, this.trailing, this.onTap});
+  const _RowItem({required this.icon, required this.iconColor, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -377,10 +597,6 @@ class _RowItem extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
-            if (trailing != null) ...[
-              Text(trailing!, style: TextStyle(fontSize: 13, color: kTextSecondary)),
-              const SizedBox(width: 4),
-            ],
             Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
           ],
         ),

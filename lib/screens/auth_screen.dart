@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
 import '../navigation/main_shell.dart';
+import '../services/dashboard_metrics.dart';
 import '../widgets/common_widgets.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -42,17 +43,20 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _signInWithEmail(String email, String password) async {
     final result = await ApiService.login(email: email, password: password);
+    AthleteMetricsService.invalidate(); // drop any prior user's cached metrics
     if (mounted) setState(() => _user = result.user);
   }
 
   Future<void> _register(String name, String email, String password, String? sport) async {
     final result = await ApiService.register(
       name: name, email: email, password: password, sport: sport);
+    AthleteMetricsService.invalidate();
     if (mounted) setState(() { _user = result.user; _showRegister = false; });
   }
 
   Future<void> _signOut() async {
     await ApiService.clearSession();
+    AthleteMetricsService.invalidate();
     if (mounted) setState(() => _user = null);
   }
 

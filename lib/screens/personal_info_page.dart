@@ -144,8 +144,11 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               controller: _emailCtrl,
               hint: 'you@example.com',
               keyboardType: TextInputType.emailAddress,
-              validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+              enabled: false,
             ),
+            const SizedBox(height: 4),
+            Text('Email can\'t be changed here — contact support to update it.',
+                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
             const SizedBox(height: 14),
 
             const SizedBox(height: 28),
@@ -180,8 +183,9 @@ class _FormField extends StatelessWidget {
   final String hint;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final bool enabled;
 
-  const _FormField({required this.controller, required this.hint, this.keyboardType, this.validator});
+  const _FormField({required this.controller, required this.hint, this.keyboardType, this.validator, this.enabled = true});
 
   @override
   Widget build(BuildContext context) {
@@ -189,14 +193,16 @@ class _FormField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      style: TextStyle(fontSize: 14, color: kTextPrimary),
+      enabled: enabled,
+      style: TextStyle(fontSize: 14, color: enabled ? kTextPrimary : kTextMuted),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
         filled: true,
-        fillColor: kCard,
+        fillColor: enabled ? kCard : kCard.withValues(alpha: 0.5),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
+        disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kAccent, width: 1.5)),
         errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kDanger)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

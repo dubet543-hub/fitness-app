@@ -28,7 +28,11 @@ dependencies:
   flutter_timezone: ^5.0.2
 
   cupertino_icons: ^1.0.8
-
+  path_provider: ^2.1.6
+  syncfusion_flutter_xlsio: ^29.2.11
+  syncfusion_officechart: ^29.2.11
+  permission_handler: ^12.0.3
+  image: ^4.3.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

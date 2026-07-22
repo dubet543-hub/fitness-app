@@ -10,11 +10,48 @@ class UnitsLanguagePage extends StatefulWidget {
 }
 
 class _UnitsLanguagePageState extends State<UnitsLanguagePage> {
-  static const _kMetric   = 'setting_units_metric';
-  static const _kIs12Hour = 'setting_time_12h';
+  static const _kLanguage = 'setting_language';
 
-  bool _isMetric = true;
-  bool _is12Hour = true;
+  static const _languages = [
+    ('en', 'English'),
+    ('es', 'Español'),
+    ('fr', 'Français'),
+    ('de', 'Deutsch'),
+    ('it', 'Italiano'),
+    ('pt', 'Português'),
+    ('nl', 'Nederlands'),
+    ('sv', 'Svenska'),
+    ('no', 'Norsk'),
+    ('da', 'Dansk'),
+    ('fi', 'Suomi'),
+    ('pl', 'Polski'),
+    ('cs', 'Čeština'),
+    ('sk', 'Slovenčina'),
+    ('hu', 'Magyar'),
+    ('ro', 'Română'),
+    ('bg', 'Български'),
+    ('el', 'Ελληνικά'),
+    ('tr', 'Türkçe'),
+    ('ru', 'Русский'),
+    ('uk', 'Українська'),
+    ('ar', 'العربية'),
+    ('he', 'עברית'),
+    ('hi', 'हिन्दी'),
+    ('bn', 'বাংলা'),
+    ('ur', 'اردو'),
+    ('fa', 'فارسی'),
+    ('th', 'ไทย'),
+    ('vi', 'Tiếng Việt'),
+    ('id', 'Bahasa Indonesia'),
+    ('ms', 'Bahasa Melayu'),
+    ('tl', 'Filipino'),
+    ('sw', 'Kiswahili'),
+    ('zh', '中文'),
+    ('ja', '日本語'),
+    ('ko', '한국어'),
+  ];
+
+  String _language = 'en';
 
   @override
   void initState() {
@@ -26,19 +63,13 @@ class _UnitsLanguagePageState extends State<UnitsLanguagePage> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _isMetric = prefs.getBool(_kMetric) ?? true;
-      _is12Hour = prefs.getBool(_kIs12Hour) ?? true;
+      _language = prefs.getString(_kLanguage) ?? 'en';
     });
   }
 
-  Future<void> _setMetric(bool v) async {
-    setState(() => _isMetric = v);
-    (await SharedPreferences.getInstance()).setBool(_kMetric, v);
-  }
-
-  Future<void> _set12Hour(bool v) async {
-    setState(() => _is12Hour = v);
-    (await SharedPreferences.getInstance()).setBool(_kIs12Hour, v);
+  Future<void> _setLanguage(String code) async {
+    setState(() => _language = code);
+    (await SharedPreferences.getInstance()).setString(_kLanguage, code);
   }
 
   @override
@@ -48,48 +79,24 @@ class _UnitsLanguagePageState extends State<UnitsLanguagePage> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: Text('UNITS & LANGUAGE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
+        title: Text('LANGUAGE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
         iconTheme: IconThemeData(color: kTextPrimary),
         bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          // ── Measurement Units ────────────────────────────────────
-          const _SectionLabel('MEASUREMENT UNITS'),
+          // ── Language ─────────────────────────────────────────────
+          const _SectionLabel('LANGUAGE'),
           const SizedBox(height: 8),
           _Group(children: [
-            _RadioTile(
-              label: 'Metric',
-              subtitle: 'km · kg · °C',
-              selected: _isMetric,
-              onTap: () => _setMetric(true),
-            ),
-            _RadioTile(
-              label: 'Imperial',
-              subtitle: 'mi · lb · °F',
-              selected: !_isMetric,
-              onTap: () => _setMetric(false),
-            ),
-          ]),
-          const SizedBox(height: 20),
-
-          // ── Time Format ──────────────────────────────────────────
-          const _SectionLabel('TIME FORMAT'),
-          const SizedBox(height: 8),
-          _Group(children: [
-            _RadioTile(
-              label: '12-hour',
-              subtitle: '2:30 PM',
-              selected: _is12Hour,
-              onTap: () => _set12Hour(true),
-            ),
-            _RadioTile(
-              label: '24-hour',
-              subtitle: '14:30',
-              selected: !_is12Hour,
-              onTap: () => _set12Hour(false),
-            ),
+            for (final (code, label) in _languages)
+              _RadioTile(
+                label: label,
+                subtitle: code == 'en' ? 'Default' : '',
+                selected: _language == code,
+                onTap: () => _setLanguage(code),
+              ),
           ]),
         ],
       ),

@@ -101,12 +101,12 @@ class TermsPage extends StatelessWidget {
       (
         heading: '5. Intellectual Property',
         body: 'All content, trademarks, and software in the App are owned by or '
-            'licensed to SolidCore AMS and may not be copied or '
+            'licensed to SolidCoreATS and may not be copied or '
             'redistributed without permission.',
       ),
       (
         heading: '6. Limitation of Liability',
-        body: 'To the maximum extent permitted by law, SolidCore AMS '
+        body: 'To the maximum extent permitted by law, SolidCoreATS '
             'shall not be liable for any indirect, incidental, or consequential '
             'damages arising from your use of the App.',
       ),
@@ -136,7 +136,7 @@ class PrivacyPolicyPage extends StatelessWidget {
     sections: [
       (
         heading: '1. Overview',
-        body: 'This Privacy Policy explains how SolidCore AMS (operated '
+        body: 'This Privacy Policy explains how SolidCoreATS (operated '
             'by Tushar Dube) collects, uses, and protects your information when you use the App.',
       ),
       (

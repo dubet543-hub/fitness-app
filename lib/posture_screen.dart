@@ -5,9 +5,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'package:image/image.dart' as imglib;
 
 import 'services/local_log_store.dart';
 import 'core/theme.dart';
+import 'widgets/common_widgets.dart';
 
 enum PostureMode { frontal, sagittal }
 
@@ -298,6 +300,7 @@ class _PostureScreenState extends State<PostureScreen> {
   CameraController? controller;
   Future<void>? _initializeControllerFuture;
   String? errorMessage;
+  bool _permissionDenied = false;
   bool _isCapturing = false;
 
   // Camera controls
@@ -348,9 +351,23 @@ class _PostureScreenState extends State<PostureScreen> {
       _minZoom = await newController.getMinZoomLevel();
       _maxZoom = await newController.getMaxZoomLevel();
       if (mounted) setState(() { controller = newController; _currentZoom = 1.0; });
+    } on CameraException catch (e) {
+      if (!mounted) return;
+      const deniedCodes = {'CameraAccessDenied', 'CameraAccessDeniedWithoutPrompt', 'CameraAccessRestricted'};
+      setState(() {
+        _permissionDenied = deniedCodes.contains(e.code);
+        errorMessage = _permissionDenied
+            ? "Camera access is turned off for SolidCore.\nEnable it in your device Settings to continue."
+            : "Camera error: ${e.description ?? e.code}";
+      });
     } catch (e) {
       if (mounted) setState(() => errorMessage = "Camera error: $e");
     }
+  }
+
+  Future<void> _retryCamera() async {
+    setState(() { errorMessage = null; _permissionDenied = false; });
+    await _startWithConsent();
   }
 
   Future<void> _switchCamera() async {
@@ -430,7 +447,11 @@ class _PostureScreenState extends State<PostureScreen> {
     if (errorMessage != null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Posture Analysis")),
-        body: Center(child: Text(errorMessage!)),
+        body: CameraErrorView(
+          message: errorMessage!,
+          showSettingsButton: _permissionDenied,
+          onRetry: _retryCamera,
+        ),
       );
     }
 
@@ -460,7 +481,10 @@ class _PostureScreenState extends State<PostureScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        CameraPreview(controller!),
+                        FullBleedCameraPreview(
+                          controller: controller!,
+                          screenSize: constraints.biggest,
+                        ),
 
                         // Tap-to-focus ring
                         if (_focusPoint != null)
@@ -631,6 +655,8 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
   bool isLoading = true;
   List<PostureResult> results = [];
   ui.Image? decodedImage;
+  String? _displayImagePath;
+  bool _saved = false;
 
   @override
   void initState() {
@@ -640,19 +666,37 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
 
   Future<void> _detectPose() async {
     try {
-      final bytes = await File(widget.imagePath).readAsBytes();
-      final img = await decodeImageFromList(bytes);
+      // ML Kit's file-based pose detector doesn't reliably honor the photo's
+      // EXIF orientation on every platform, which silently rotates every
+      // landmark ~90° from how the photo is actually displayed — e.g. a
+      // level shoulder line reads as ~90° "tilt" instead of ~0°. Bake the
+      // orientation into the pixel data once, up front, and read display,
+      // sizing, and detection all from that same normalized file so they
+      // can never disagree.
+      String path = widget.imagePath;
+      final rawBytes = await File(widget.imagePath).readAsBytes();
+      final decodedForBaking = imglib.decodeImage(rawBytes);
+      if (decodedForBaking != null) {
+        final baked = imglib.bakeOrientation(decodedForBaking);
+        final normalizedPath = '${widget.imagePath}_normalized.jpg';
+        await imglib.encodeJpgFile(normalizedPath, baked, quality: 92);
+        path = normalizedPath;
+      }
+
+      final bytes = await File(path).readAsBytes();
+      final decoded = await decodeImageFromList(bytes);
       final detector = PoseDetector(
         options: PoseDetectorOptions(mode: PoseDetectionMode.single),
       );
-      final inputImage = InputImage.fromFilePath(widget.imagePath);
+      final inputImage = InputImage.fromFilePath(path);
       final detected = await detector.processImage(inputImage);
       await detector.close();
 
       if (!mounted) return;
 
       setState(() {
-        decodedImage = img;
+        decodedImage = decoded;
+        _displayImagePath = path;
         poses = detected;
         isLoading = false;
 
@@ -671,6 +715,19 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
               : _analyzeSagittal(detected.first);
         }
       });
+
+      // Save the measurements to local history — mirrors how body
+      // composition results are persisted immediately after analysis.
+      if (detected.isNotEmpty) {
+        await LocalLogStore.addPostureEntry({
+          'date': DateTime.now().toIso8601String(),
+          'mode': widget.mode == PostureMode.frontal ? 'frontal' : 'sagittal',
+          'results': results
+              .map((r) => {'label': r.label, 'value': r.value, 'detail': r.detail})
+              .toList(),
+        });
+        if (mounted) setState(() => _saved = true);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1187,7 +1244,7 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
                           children: [
                             Positioned.fill(
                               child: Image.file(
-                                File(widget.imagePath),
+                                File(_displayImagePath ?? widget.imagePath),
                                 fit: BoxFit.fill,
                               ),
                             ),
@@ -1261,6 +1318,17 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
                     },
                   ),
           ),
+          if (_saved)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, size: 14, color: kSuccess),
+                  const SizedBox(width: 6),
+                  Text('Saved to history', style: TextStyle(color: kSuccess, fontSize: 12)),
+                ],
+              ),
+            ),
           if (!isLoading)
             const _ConsultBanner(
               specialist: 'Physiotherapist',

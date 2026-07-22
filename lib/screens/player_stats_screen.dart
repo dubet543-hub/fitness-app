@@ -7,73 +7,13 @@ import '../services/sleep_metrics.dart';
 import 'workload_monitor_screen.dart';
 
 // ── Data Models & series ────────────────────────────────────────────────────────
-// The workload / recovery models and athlete series live in dashboard_metrics.dart
-// (single source of truth shared with the home dashboard rings). Aliased here so
-// this screen's existing references stay unchanged.
+// The workload / recovery models live in dashboard_metrics.dart (single source
+// of truth shared with the home dashboard rings). The series themselves are
+// computed there from the signed-in athlete's real synced sessions and loaded
+// via AthleteMetricsService. Aliased so this screen's references stay short.
 
 typedef _WP = WorkPoint;
 typedef _RP = RecoveryPoint;
-
-// Athlete series (single source of truth in dashboard_metrics.dart).
-const _a1Train = kA1Train;
-const _a1Skill = kA1Skill;
-const _a1Total = kA1Total;
-const _a2Train = kA2Train;
-const _a2Skill = kA2Skill;
-const _a2Total = kA2Total;
-const _well1   = kWell1;
-const _well2   = kWell2;
-
-// ── Sleep Detail History ──────────────────────────────────────────────────────
-// Logged clock times per night. Sleep time, efficiency, 7-day average and debt
-// are all derived from these by the sheet formulae in sleep_metrics.dart rather
-// than stored, so the dashboard can never disagree with the spreadsheet.
-// Columns: bed → fell asleep → woke → out of bed, plus minutes awake after a
-// disturbance.
-
-SleepNight _n(String d, int bedH, int bedM, int lat, int wakeH, int wakeM,
-        {int outH = -1, int outM = 0, int awake = 0}) =>
-    nightFromLog(
-      d: d,
-      timeToBed: hm(bedH, bedM),
-      latencyMinutes: lat,
-      wokeUp: hm(wakeH, wakeM),
-      outOfBed: outH < 0 ? null : hm(outH, outM),
-      awakeMinutes: awake,
-    );
-
-final _sleep1 = <SleepNight>[
-  _n('24/04', 22, 20, 20, 6, 32, awake: 28),
-  _n('25/04', 22, 50, 15, 6, 20, awake: 21),
-  _n('26/04', 22, 30, 25, 6, 30, awake: 35),
-  _n('27/04', 22,  5, 20, 6, 35, awake: 22),
-  _n('28/04', 23, 15, 20, 6, 27, awake: 34),
-  _n('29/04', 22, 15, 15, 6, 33, awake: 27),
-  _n('30/04', 22,  0, 15, 6, 36, awake: 21),
-  _n('01/05', 23, 30, 20, 6, 30, awake: 34),
-  _n('02/05', 22, 45, 25, 6, 33, awake: 35),
-  _n('03/05', 23, 10, 20, 6, 28, awake: 34),
-  _n('04/05', 22, 10, 15, 6, 34, awake: 15),
-  _n('05/05', 22,  0, 15, 6, 30, awake: 15),
-  _n('06/05', 23, 25, 20, 6, 31, awake: 34),
-  _n('07/05', 22, 20, 15, 6, 32, awake: 27),
-];
-final _sleep2 = <SleepNight>[
-  _n('24/04', 23, 10, 25, 6, 10, awake: 41),
-  _n('25/04', 22, 40, 20, 6, 28, awake: 34),
-  _n('26/04', 23, 50, 30, 6, 38, awake: 42),
-  _n('27/04', 22, 20, 20, 6, 26, awake: 22),
-  _n('28/04', 23, 20, 25, 6, 32, awake: 41),
-  _n('29/04', 22, 30, 20, 6, 30, awake: 28),
-  _n('30/04', 22, 15, 15, 6, 33, awake: 27),
-  _n('01/05', 23, 55, 30, 6, 49, awake: 42),
-  _n('02/05', 23,  5, 20, 6, 29, awake: 34),
-  _n('03/05', 22,  0, 15, 6, 30, awake: 15),
-  _n('04/05', 21, 55, 15, 6, 31, awake: 15),
-  _n('05/05', 22, 50, 20, 6, 26, awake: 34),
-  _n('06/05', 23, 15, 25, 6, 15, awake: 41),
-  _n('07/05', 22,  5, 15, 6, 29, awake: 21),
-];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -87,23 +27,27 @@ class PlayerStatsScreen extends StatefulWidget {
 }
 
 class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin {
-  int    _athlete = 0;
-  String _athleteLabel = 'ATS-2025-001';
+  String _athleteLabel = 'Athlete';
   String _range   = '28d';
+  AthleteMetrics? _metrics; // null while the initial load is in flight
   late final TabController _tabs;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2));
-    // Bind the dashboard to the logged-in athlete so a player only ever sees
-    // their own data — no cross-athlete switching.
+    // Identity chip only — the API is JWT-scoped, so every series below is
+    // already the signed-in athlete's own data. No client-side selection.
     ApiService.getCachedUser().then((u) {
       if (u == null || !mounted) return;
-      setState(() {
-        _athlete      = u.name.contains('002') ? 1 : 0;
-        _athleteLabel = u.name;
-      });
+      setState(() => _athleteLabel = u.name);
+    });
+    AthleteMetricsService.load().then((m) {
+      if (!mounted) return;
+      setState(() => _metrics = m);
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() => _metrics = AthleteMetrics.empty);
     });
   }
 
@@ -113,16 +57,18 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     super.dispose();
   }
 
+  AthleteMetrics get _m => _metrics ?? AthleteMetrics.empty;
+
   List<_WP> _filter(List<_WP> all) {
-    final n = _range == '7d' ? 7 : _range == '14d' ? 14 : all.length;
+    final n = _range == '7d' ? 7 : _range == '14d' ? 14 : 28;
     return all.sublist(max(0, all.length - n));
   }
 
-  List<_WP> get _trainData => _filter(_athlete == 0 ? _a1Train : _a2Train);
-  List<_WP> get _skillData => _filter(_athlete == 0 ? _a1Skill : _a2Skill);
-  List<_WP> get _totalData => _filter(_athlete == 0 ? _a1Total : _a2Total);
-  List<_RP> get _wellData  => _athlete == 0 ? _well1 : _well2;
-  List<SleepNight> get _sleepData => _athlete == 0 ? _sleep1 : _sleep2;
+  List<_WP> get _trainData => _filter(_m.train);
+  List<_WP> get _skillData => _filter(_m.skill);
+  List<_WP> get _totalData => _filter(_m.total);
+  List<_RP> get _wellData  => _m.recovery;
+  List<SleepNight> get _sleepData => _m.sleep;
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -156,16 +102,26 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
           ]),
         ),
       ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [_performanceTab(), _recoveryTab(), _todayTab()],
-      ),
+      body: _metrics == null
+          ? Center(child: CircularProgressIndicator(color: kAccent))
+          : TabBarView(
+              controller: _tabs,
+              children: [_performanceTab(), _recoveryTab(), _todayTab()],
+            ),
     );
   }
 
   // ── Performance Tab ────────────────────────────────────────────────────────
 
   Widget _performanceTab() {
+    if (!_m.hasLoadData || _totalData.isEmpty) {
+      return _emptyState(
+        icon: Icons.show_chart_rounded,
+        accent: kSky,
+        title: 'No training data yet',
+        hint: 'Log sessions to see your workload stats here.',
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
       child: Column(
@@ -288,6 +244,14 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   // ── Recovery Tab ──────────────────────────────────────────────────────────
 
   Widget _recoveryTab() {
+    if (!_m.hasRecoveryData) {
+      return _emptyState(
+        icon: Icons.favorite_rounded,
+        accent: kAccent,
+        title: 'No recovery data yet',
+        hint: 'Complete a wellness check-in to see your recovery stats here.',
+      );
+    }
     final well   = _wellData;
     final last7  = well.sublist(max(0, well.length - 7));
     final avgPct = last7.map((r) => r.readinessPct).reduce((a, b) => a + b) / last7.length;
@@ -338,11 +302,13 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         const SizedBox(height: 14),
 
         // Cumulative recovery score (PDF: total of 4 metrics, lines at 8 & 13)
-        _cumulativeScorePanel(well),
+        // Sliced to the last 14 check-ins so the chart keeps its density now
+        // that the real series can span up to ~90 days.
+        _cumulativeScorePanel(well.sublist(max(0, well.length - 14))),
         const SizedBox(height: 14),
 
         // Sleep summary (efficiency, debt, overall summary)
-        _sleepSummaryPanel(_sleepData),
+        _sleepData.isEmpty ? _noSleepNote() : _sleepSummaryPanel(_sleepData),
         const SizedBox(height: 14),
 
         _metricBars('Sleep Quality',    well.map((r) => r.sleep).toList(),    kSleep,              well.map((r) => r.d).toList()),
@@ -517,16 +483,31 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     ]),
   );
 
+  Widget _noSleepNote() => _panel(child: Row(children: [
+    Icon(Icons.bedtime_rounded, size: 14, color: kSleep),
+    const SizedBox(width: 8),
+    Expanded(child: Text(
+        'No sleep data logged yet — log bed and wake times to see sleep stats here.',
+        style: TextStyle(fontSize: 11.5, color: kTextSecondary, height: 1.4))),
+  ]));
+
   // ── Today Tab ─────────────────────────────────────────────────────────────
 
   Widget _todayTab() {
-    final trainAll = _athlete == 0 ? _a1Train : _a2Train;
-    final skillAll = _athlete == 0 ? _a1Skill : _a2Skill;
-    final totalAll = _athlete == 0 ? _a1Total : _a2Total;
-    final train = trainAll.last;
-    final skill = skillAll.last;
-    final total = totalAll.last;
-    final well  = _wellData.last;
+    // train/skill/total are built on the same day grid, so one emptiness check
+    // covers all three.
+    if (_m.total.isEmpty) {
+      return _emptyState(
+        icon: Icons.local_fire_department_rounded,
+        accent: kViolet,
+        title: 'No data for today yet',
+        hint: "Log a session or wellness check-in to see today's summary here.",
+      );
+    }
+    final train = _m.train.last;
+    final skill = _m.skill.last;
+    final total = _m.total.last;
+    final well  = _m.recovery.isEmpty ? null : _m.recovery.last;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
@@ -538,7 +519,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         _panel(child: Row(children: [
           Icon(Icons.calendar_today_rounded, size: 15, color: kTextSecondary),
           const SizedBox(width: 8),
-          Text('07 May 2025',
+          Text(_fmtLongDate(total.date),
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
           const Spacer(),
           Container(
@@ -570,29 +551,37 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         const SizedBox(height: 14),
 
         // Readiness today
-        _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(Icons.favorite_rounded, size: 14, color: kTextSecondary),
-            const SizedBox(width: 6),
-            Text("Today's Readiness",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
-            const Spacer(),
-            () {
-              final col = well.readinessPct >= 0.6 ? kAccent
-                  : well.readinessPct >= 0.35 ? kWarn
-                  : kDanger;
-              return Text('${(well.readinessPct * 100).round()}%',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: col));
-            }(),
-          ]),
-          const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _readyBadge('Sleep',    well.sleep),
-            _readyBadge('Wellness', well.wellness),
-            _readyBadge('Soreness', well.soreness),
-            _readyBadge('Fatigue',  well.fatigue),
-          ]),
-        ])),
+        well == null
+            ? _panel(child: Row(children: [
+                Icon(Icons.favorite_outline_rounded, size: 14, color: kTextSecondary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(
+                    'No wellness check-in yet — complete one to see readiness here.',
+                    style: TextStyle(fontSize: 11.5, color: kTextSecondary, height: 1.4))),
+              ]))
+            : _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.favorite_rounded, size: 14, color: kTextSecondary),
+                  const SizedBox(width: 6),
+                  Text("Today's Readiness",
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                  const Spacer(),
+                  () {
+                    final col = well.readinessPct >= 0.6 ? kAccent
+                        : well.readinessPct >= 0.35 ? kWarn
+                        : kDanger;
+                    return Text('${(well.readinessPct * 100).round()}%',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: col));
+                  }(),
+                ]),
+                const SizedBox(height: 12),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                  _readyBadge('Sleep',    well.sleep),
+                  _readyBadge('Wellness', well.wellness),
+                  _readyBadge('Soreness', well.soreness),
+                  _readyBadge('Fatigue',  well.fatigue),
+                ]),
+              ])),
       ]),
     );
   }
@@ -653,6 +642,39 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   }
 
   // ── Shared Widgets ─────────────────────────────────────────────────────────
+
+  // Tab-level empty state, styled to match _MotionLabEmpty on the dashboard.
+  Widget _emptyState({
+    required IconData icon,
+    required Color accent,
+    required String title,
+    required String hint,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(icon, size: 30, color: accent),
+            ),
+            const SizedBox(height: 16),
+            Text(title,
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary)),
+            const SizedBox(height: 8),
+            Text(hint, textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, color: kTextSecondary, height: 1.4)),
+          ],
+        ),
+      ),
+    );
+  }
 
   // Read-only identity chip — shows the signed-in athlete, not a switcher.
   Widget _athleteToggle() {
@@ -761,6 +783,14 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   );
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _fmtLongDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')} ${_months[d.month - 1]} ${d.year}';
 
   Color _acwrColor(double v) {
     if (v < 0.8)  return kInfo;

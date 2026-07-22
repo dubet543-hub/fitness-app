@@ -1,4 +1,6 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../core/theme.dart';
 
 class AvatarWidget extends StatelessWidget {
@@ -42,26 +44,115 @@ class AvatarWidget extends StatelessWidget {
   }
 }
 
-/// The SolidCore mark: chrome ribbon with a teal highlight, drawn for display
-/// on a dark surface (same treatment as the app icon). On the light palette's
-/// near-white backgrounds the pale highlights wash out to almost nothing, so
-/// this always seats the artwork on a fixed dark plate rather than the
-/// theme's (possibly light) page background.
+/// Shown in place of the camera preview when it couldn't start — most
+/// commonly because camera access was denied. When [showSettingsButton] is
+/// true (permission permanently denied, so the OS won't show its prompt
+/// again) an "Open Settings" button deep-links straight to the app's system
+/// settings page; [onRetry] re-attempts camera init, e.g. after the user
+/// grants access and returns to the app.
+class CameraErrorView extends StatelessWidget {
+  final String message;
+  final bool showSettingsButton;
+  final VoidCallback onRetry;
+
+  const CameraErrorView({
+    super.key,
+    required this.message,
+    required this.showSettingsButton,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_off_rounded, size: 48, color: kTextMuted),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kTextSecondary, fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            if (showSettingsButton)
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: openAppSettings,
+                  icon: const Icon(Icons.settings_rounded, size: 18),
+                  label: const Text('Open Settings'),
+                  style: ElevatedButton.styleFrom(backgroundColor: kAccent, foregroundColor: kOnAccent),
+                ),
+              ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton(
+                onPressed: onRetry,
+                style: OutlinedButton.styleFrom(foregroundColor: kTextPrimary, side: BorderSide(color: kBorder)),
+                child: const Text('Try Again'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders a camera preview that fills [screenSize] edge-to-edge, cropping
+/// the overflow rather than stretching (which distorts anyone in frame — the
+/// naive `SizedBox.expand`-style fix) or leaving it letterboxed (the default
+/// if you just center [CameraPreview] with no scaling) — matching how most
+/// camera apps display their live preview.
+///
+/// [CameraPreview] already sizes itself to the camera's true aspect ratio
+/// internally (correctly inverted for portrait vs landscape) — the only job
+/// here is to scale that correctly-proportioned box up until it covers
+/// [screenSize], then clip the overflow. [child], if provided, is passed
+/// through to [CameraPreview]'s own overlay slot so it scales identically
+/// with the feed (e.g. a pose/plumb-line overlay that must stay aligned).
+class FullBleedCameraPreview extends StatelessWidget {
+  final CameraController controller;
+  final Size screenSize;
+  final Widget? child;
+
+  const FullBleedCameraPreview({
+    super.key,
+    required this.controller,
+    required this.screenSize,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    var scale = screenSize.aspectRatio * controller.value.aspectRatio;
+    if (scale < 1) scale = 1 / scale;
+    return ClipRect(
+      child: Transform.scale(
+        scale: scale,
+        child: Center(
+          child: CameraPreview(controller, child: child),
+        ),
+      ),
+    );
+  }
+}
+
+/// The SolidCore mark with a transparent background.
 class BrandLogo extends StatelessWidget {
   final double width;
   const BrandLogo({super.key, required this.width});
 
-  static const _plate = Color(0xFF0D1117);
-
   @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.symmetric(horizontal: width * 0.08, vertical: width * 0.08),
-    decoration: BoxDecoration(
-      color: _plate,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Image.asset('assets/images/solidcore_logo.png', width: width),
-  );
+  Widget build(BuildContext context) =>
+      Image.asset('assets/images/solidcore_logo.png', width: width);
 }
 
 class SectionHeader extends StatelessWidget {
