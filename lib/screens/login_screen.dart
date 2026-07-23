@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../services/local_log_store.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/legal_consent.dart';
+import 'legal_pages.dart';
 
 class LoginScreen extends StatefulWidget {
   final Future<void> Function(String email, String password) onEmailSignIn;
@@ -20,10 +22,19 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   bool    _remember = false;
 
+  // Legal acceptance is one-time: once the current [kLegalVersion] has been
+  // accepted the tick box is replaced by a compact "accepted" line, and sign-in
+  // is no longer gated on it.
+  bool      _agreedLegal   = false;
+  bool      _alreadyAgreed = false;
+  DateTime? _agreedAt;
+  bool      _trackingConsent = false;
+
   @override
   void initState() {
     super.initState();
     _loadSavedCredentials();
+    _loadConsentState();
   }
 
   Future<void> _loadSavedCredentials() async {
@@ -33,6 +44,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _emailCtrl.text = creds.email;
       _passCtrl.text  = creds.password;
       _remember       = true;
+    });
+  }
+
+  Future<void> _loadConsentState() async {
+    final accepted = await LocalLogStore.hasAcceptedLegal(kLegalVersion);
+    final at       = await LocalLogStore.legalAcceptedAt();
+    final tracking = await LocalLogStore.dailyLogsConsent();
+    if (!mounted) return;
+    setState(() {
+      _alreadyAgreed   = accepted;
+      _agreedLegal     = accepted;
+      _agreedAt        = at;
+      _trackingConsent = tracking;
     });
   }
 
@@ -50,9 +74,20 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = 'Please enter your email and password.');
       return;
     }
+    if (!_agreedLegal) {
+      setState(() => _error =
+          'Please accept the Terms & Conditions and Privacy Policy to continue.');
+      return;
+    }
     setState(() { _loading = true; _error = null; });
     try {
       await widget.onEmailSignIn(email, pass);
+      // Recorded only once sign-in actually succeeds, so a mistyped password
+      // never leaves an acceptance behind for someone who never got in.
+      await LocalLogStore.setLegalAccepted(kLegalVersion);
+      if (!_alreadyAgreed) {
+        await LocalLogStore.setDailyLogsConsent(_trackingConsent);
+      }
       if (_remember) {
         await LocalLogStore.saveCredentials(email, pass);
       } else {
@@ -241,14 +276,37 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // ── Terms, Privacy & tracking consent ─────────────────────
+          // Asked once. After the current version has been accepted the
+          // tick boxes give way to a one-line confirmation.
+          if (_alreadyAgreed)
+            LegalAcceptedNotice(acceptedAt: _agreedAt)
+          else ...[
+            LegalAgreementCheckbox(
+              value: _agreedLegal,
+              onChanged: (v) => setState(() {
+                _agreedLegal = v;
+                if (v) _error = null;
+              }),
+            ),
+            const SizedBox(height: 12),
+            TrackingConsentCheckbox(
+              value: _trackingConsent,
+              onChanged: (v) => setState(() => _trackingConsent = v),
+            ),
+          ],
           const SizedBox(height: 20),
 
           SizedBox(
             height: 54,
             child: ElevatedButton(
-              onPressed: _loading ? null : _submit,
+              onPressed: _loading || !_agreedLegal ? null : _submit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kAccent,
+                disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
+                disabledForegroundColor: kOnAccent.withValues(alpha: 0.5),
                 foregroundColor: kOnAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 8,

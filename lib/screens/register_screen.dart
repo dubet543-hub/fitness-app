@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../services/local_log_store.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/legal_consent.dart';
+import 'legal_pages.dart';
 
 class RegisterScreen extends StatefulWidget {
   final Future<void> Function(String name, String email, String password, String? sport) onRegister;
@@ -21,6 +24,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+
+  // A new account is a new person, so acceptance is always asked for here even
+  // if a previous user of this device already accepted.
+  bool _agreedLegal     = false;
+  bool _trackingConsent = false;
 
   @override
   void dispose() {
@@ -54,10 +62,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _error = 'Passwords do not match.');
       return;
     }
+    if (!_agreedLegal) {
+      setState(() => _error =
+          'Please accept the Terms & Conditions and Privacy Policy to continue.');
+      return;
+    }
 
     setState(() { _loading = true; _error = null; });
     try {
       await widget.onRegister(name, email, pass, _sportCtrl.text.trim());
+      await LocalLogStore.setLegalAccepted(kLegalVersion);
+      await LocalLogStore.setDailyLogsConsent(_trackingConsent);
       // On success the AuthScreen swaps to the main app; nothing more to do here.
     } catch (e) {
       if (mounted) {
@@ -135,12 +150,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 12),
               _field(_confirmCtrl, 'Confirm password', Icons.lock_outline_rounded,
                   obscure: _obscure),
+              const SizedBox(height: 20),
+
+              LegalAgreementCheckbox(
+                value: _agreedLegal,
+                onChanged: (v) => setState(() {
+                  _agreedLegal = v;
+                  if (v) _error = null;
+                }),
+              ),
+              const SizedBox(height: 12),
+              TrackingConsentCheckbox(
+                value: _trackingConsent,
+                onChanged: (v) => setState(() => _trackingConsent = v),
+              ),
               const SizedBox(height: 24),
 
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _submit,
+                  onPressed: _loading || !_agreedLegal ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
+                    disabledForegroundColor: kOnAccent.withValues(alpha: 0.5),
+                  ),
                   child: _loading
                       ? SizedBox(width: 20, height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: kOnAccent))

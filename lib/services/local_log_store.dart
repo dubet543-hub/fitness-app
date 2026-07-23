@@ -21,6 +21,8 @@ class LocalLogStore {
   static const _kConsentDailyLogs = 'consent_daily_logs';      // bool
   static const _kConsentCamera    = 'consent_camera_features'; // bool
   static const _kConsentBca       = 'consent_body_composition';// bool
+  static const _kLegalVersion     = 'legal_accepted_version';  // kLegalVersion
+  static const _kLegalAcceptedAt  = 'legal_accepted_at';       // ISO8601
 
   static const Duration bcaInterval = Duration(days: 14);
 
@@ -29,15 +31,46 @@ class LocalLogStore {
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
 
-  // ── Privacy consent gates ──────────────────────────────────────────────────
-  // User-controlled consent for data-collecting features. Both default to true
-  // so existing users are unaffected; toggled from Privacy & Security settings.
-  // When a consent is off, the related feature refuses to run.
+  // ── Terms & Privacy acceptance ─────────────────────────────────────────────
+  // Recorded once, at sign-in, against the shipped `kLegalVersion`. Users are
+  // not re-prompted on later launches unless that version is bumped.
 
-  /// Whether the user consents to saving daily wellness/recovery logs.
+  /// The document version the user last accepted, or null if they never have.
+  static Future<String?> acceptedLegalVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kLegalVersion);
+  }
+
+  /// When the current acceptance was given, or null if never accepted.
+  static Future<DateTime?> legalAcceptedAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    return DateTime.tryParse(prefs.getString(_kLegalAcceptedAt) ?? '');
+  }
+
+  /// True when the user has accepted [version] (the version shipped in this
+  /// build). False for a first run and after a material legal update.
+  static Future<bool> hasAcceptedLegal(String version) async =>
+      await acceptedLegalVersion() == version;
+
+  /// Records acceptance of the Terms & Conditions and Privacy Policy.
+  static Future<void> setLegalAccepted(String version) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLegalVersion, version);
+    await prefs.setString(_kLegalAcceptedAt, DateTime.now().toIso8601String());
+  }
+
+  // ── Privacy consent gates ──────────────────────────────────────────────────
+  // User-controlled consent for data-collecting features, all opt-in: nothing
+  // is tracked until the user actively ticks the relevant box (at sign-in, or
+  // in Privacy & Security settings). When a consent is off, the related feature
+  // refuses to run.
+
+  /// Whether the user consents to recording their physical metrics, sleep, and
+  /// fatigue — i.e. to saving daily wellness/recovery logs. Defaults to false:
+  /// consent is explicit and never assumed.
   static Future<bool> dailyLogsConsent() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_kConsentDailyLogs) ?? true;
+    return prefs.getBool(_kConsentDailyLogs) ?? false;
   }
 
   static Future<void> setDailyLogsConsent(bool value) async {

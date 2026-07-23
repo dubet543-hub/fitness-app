@@ -8,6 +8,7 @@ import 'package:syncfusion_officechart/officechart.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
 import '../services/local_log_store.dart';
+import 'legal_pages.dart';
 
 class PrivacySecurityPage extends StatefulWidget {
   /// Called after the account is deleted so the app can return to sign-in.
@@ -20,8 +21,9 @@ class PrivacySecurityPage extends StatefulWidget {
 
 class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   bool analyticsShare = true;
-  bool dailyLogsConsent = true;
+  bool dailyLogsConsent = false;
   bool cameraConsent    = true;
+  DateTime? legalAcceptedAt;
 
   static const _kAnalytics = 'setting_analytics_share';
 
@@ -34,14 +36,19 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   Future<void> _loadConsent() async {
     final daily  = await LocalLogStore.dailyLogsConsent();
     final camera = await LocalLogStore.cameraConsent();
+    final legal  = await LocalLogStore.legalAcceptedAt();
     final prefs  = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
       dailyLogsConsent = daily;
       cameraConsent    = camera;
+      legalAcceptedAt  = legal;
       analyticsShare   = prefs.getBool(_kAnalytics) ?? true;
     });
   }
+
+  static String _fmtDay(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   Future<void> _setPref(String key, bool value) async {
     final prefs = await SharedPreferences.getInstance();
@@ -478,13 +485,13 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             _ToggleItem(
               icon: Icons.event_note_outlined,
               iconColor: const Color(0xFF34D399),
-              label: 'Daily logs',
-              subtitle: 'Allow saving wellness & recovery logs',
+              label: 'Physical metrics, sleep & fatigue',
+              subtitle: 'Consent to recording your wellness & recovery logs',
               value: dailyLogsConsent,
               onChanged: (v) {
                 setState(() => dailyLogsConsent = v);
                 LocalLogStore.setDailyLogsConsent(v);
-                _snack(v ? 'Daily logs enabled' : 'Daily logs turned off');
+                _snack(v ? 'Tracking consent given' : 'Tracking consent withdrawn');
               },
             ),
             _ToggleItem(
@@ -514,6 +521,33 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               onTap: _pickRangeAndDownload,
             ),
           ]),
+          const SizedBox(height: 20),
+
+          const _SectionLabel('LEGAL'),
+          const SizedBox(height: 8),
+          _Group(children: [
+            _RowItem(
+              icon: Icons.description_outlined,
+              iconColor: kTextSecondary,
+              label: 'Terms & Conditions',
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const TermsPage())),
+            ),
+            _RowItem(
+              icon: Icons.privacy_tip_outlined,
+              iconColor: kTextSecondary,
+              label: 'Privacy Policy',
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const PrivacyPolicyPage())),
+            ),
+          ]),
+          if (legalAcceptedAt != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Accepted on ${_fmtDay(legalAcceptedAt!)} (version $kLegalVersion)',
+              style: TextStyle(fontSize: 12, color: kTextMuted),
+            ),
+          ],
           const SizedBox(height: 20),
 
           const _SectionLabel('DANGER ZONE'),

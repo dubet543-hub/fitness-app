@@ -3,7 +3,10 @@ import '../api_service.dart';
 import '../core/theme.dart';
 import '../navigation/main_shell.dart';
 import '../services/dashboard_metrics.dart';
+import '../services/local_log_store.dart';
 import '../widgets/common_widgets.dart';
+import 'legal_consent_gate.dart';
+import 'legal_pages.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
@@ -18,6 +21,9 @@ class _AuthScreenState extends State<AuthScreen> {
   ApiUser? _user;
   bool _checking = true;
   bool _showRegister = false;
+  // Set when a restored session predates the current Terms & Privacy Policy —
+  // sign-ins made through the login/register form accept there instead.
+  bool _needsLegal = false;
 
   @override
   void initState() {
@@ -33,10 +39,12 @@ class _AuthScreenState extends State<AuthScreen> {
       user = await ApiService.verifyToken();
       if (user == null) await ApiService.clearSession();
     }
+    final accepted = await LocalLogStore.hasAcceptedLegal(kLegalVersion);
     if (mounted) {
       setState(() {
-        _user     = user;
-        _checking = false;
+        _user       = user;
+        _needsLegal = user != null && !accepted;
+        _checking   = false;
       });
     }
   }
@@ -44,25 +52,33 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithEmail(String email, String password) async {
     final result = await ApiService.login(email: email, password: password);
     AthleteMetricsService.invalidate(); // drop any prior user's cached metrics
-    if (mounted) setState(() => _user = result.user);
+    if (mounted) setState(() { _user = result.user; _needsLegal = false; });
   }
 
   Future<void> _register(String name, String email, String password, String? sport) async {
     final result = await ApiService.register(
       name: name, email: email, password: password, sport: sport);
     AthleteMetricsService.invalidate();
-    if (mounted) setState(() { _user = result.user; _showRegister = false; });
+    if (mounted) {
+      setState(() { _user = result.user; _needsLegal = false; _showRegister = false; });
+    }
   }
 
   Future<void> _signOut() async {
     await ApiService.clearSession();
     AthleteMetricsService.invalidate();
-    if (mounted) setState(() => _user = null);
+    if (mounted) setState(() { _user = null; _needsLegal = false; });
   }
 
   @override
   Widget build(BuildContext context) {
     if (_checking) return const _SplashScreen();
+    if (_user != null && _needsLegal) {
+      return LegalConsentGate(
+        onAccepted: () => setState(() => _needsLegal = false),
+        onSignOut: _signOut,
+      );
+    }
     if (_user != null) {
       return MainShell(
         name:     _user!.name,
