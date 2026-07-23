@@ -62,6 +62,10 @@ class Entitlements {
   final List<PlanInfo> plans;
   final Map<String, String> featureNames;
 
+  /// Whether the server can take card payments (Razorpay configured). Buy
+  /// buttons stay hidden when false.
+  final bool paymentsEnabled;
+
   const Entitlements({
     required this.status,
     required this.plan,
@@ -73,6 +77,7 @@ class Entitlements {
     required this.complimentary,
     required this.plans,
     required this.featureNames,
+    this.paymentsEnabled = false,
   });
 
   bool has(String feature) => features.contains(feature);
@@ -107,6 +112,7 @@ class Entitlements {
           .map((p) => PlanInfo.fromJson(p as Map<String, dynamic>))
           .toList(),
       featureNames: Map<String, String>.from(body['featureNames'] as Map? ?? const {}),
+      paymentsEnabled: (body['payments'] as Map?)?['enabled'] == true,
     );
   }
 }

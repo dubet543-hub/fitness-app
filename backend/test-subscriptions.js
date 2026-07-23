@@ -15,9 +15,9 @@ const NOW = new Date('2026-07-24T12:00:00Z');
 const days = (n) => new Date(NOW.getTime() + n * DAY);
 
 const PLANS = [
-  { key: 'athlete_optimisation', name: 'Athlete Optimisation', durationDays: 365,
+  { key: 'athlete_optimisation', name: 'Athlete Optimisation', priceInr: 20000, durationDays: 365,
     features: ['workload_monitoring', 'recovery', 'load_modulation', 'body_composition'] },
-  { key: 'solidcore_bio_lab', name: 'Solidcore Bio-Lab', durationDays: 365,
+  { key: 'solidcore_bio_lab', name: 'Solidcore Bio-Lab', priceInr: 25000, durationDays: 365,
     features: ALL_FEATURES },
 ];
 const SETTINGS = { trialDays: 30, graceDays: 7 };
@@ -260,14 +260,110 @@ async function runMiddleware(mw, user) {
   check('cancel ends access', () =>
     assert.equal(r.body.entitlements.status, 'cancelled'));
 
-  check('audit trail recorded every action with before/after', () => {
-    const actions = state.audits.map((a) => a.action);
-    assert.deepEqual(actions, ['assign', 'change_plan', 'change_plan', 'suspend',
-      'resume', 'extend', 'override_features', 'cancel']);
-    for (const a of state.audits) {
-      assert.ok(a.before && a.after, `${a.action} missing snapshots`);
-      assert.equal(a.actor, 'admin1');
+  // ── Purchase flow (Razorpay) ────────────────────────────────────────────
+  console.log('purchase flow:');
+  process.env.RAZORPAY_KEY_ID = 'rzp_test_key';
+  process.env.RAZORPAY_KEY_SECRET = 'test-secret';
+  const crypto = require('crypto');
+  const rz = require('./utils/razorpay');
+
+  check('signature verification accepts the genuine HMAC only', () => {
+    const sig = crypto.createHmac('sha256', 'test-secret')
+      .update('order_1|pay_1').digest('hex');
+    assert.ok(rz.verifySignature({ orderId: 'order_1', paymentId: 'pay_1', signature: sig }));
+    assert.ok(!rz.verifySignature({ orderId: 'order_1', paymentId: 'pay_1', signature: 'f'.repeat(64) }));
+    assert.ok(!rz.verifySignature({ orderId: 'order_2', paymentId: 'pay_1', signature: sig }));
+  });
+
+  // Stub PaymentOrder + Razorpay's REST call, then run order → verify end-to-end
+  // over the user-facing subscription router.
+  const orders = [];
+  class FakeOrder {
+    constructor(doc) { Object.assign(this, { status: 'created' }, doc); }
+    async save() { return this; }
+  }
+  FakeOrder.create = async (doc) => { const o = new FakeOrder(doc); orders.push(o); return o; };
+  FakeOrder.findOne = async (q) =>
+    orders.find((o) => o.orderId === q.orderId && String(o.user) === String(q.user)
+      && o.status === q.status) || null;
+  stub('./models/PaymentOrder', FakeOrder);
+  const userModelPath = require.resolve('./models/User');
+  require.cache[userModelPath] = { id: userModelPath, filename: userModelPath, loaded: true,
+    exports: { findById: () => ({ select: async () => ({ _id: 'u1', role: 'athlete', active: true }) }) } };
+  delete require.cache[require.resolve('./middleware/auth')];
+  delete require.cache[require.resolve('./routes/subscription')];
+
+  const realFetch = global.fetch;
+  global.fetch = async (url, opts) => {
+    if (String(url).includes('api.razorpay.com')) {
+      const req = JSON.parse(opts.body);
+      return { ok: true, json: async () => ({ id: 'order_test_1', amount: req.amount }) };
     }
+    return realFetch(url, opts);
+  };
+
+  const jwt = require('jsonwebtoken');
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'x';
+  const token = jwt.sign({ id: 'u1' }, process.env.JWT_SECRET);
+  const app2 = express();
+  app2.use(express.json());
+  app2.use('/api/subscription', require('./routes/subscription'));
+  const server2 = app2.listen(0);
+  const base2 = `http://localhost:${server2.address().port}/api/subscription`;
+  const call = async (path, body) => {
+    const res = await fetch(`${base2}${path}`, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { status: res.status, body: await res.json() };
+  };
+
+  state.sub = new FakeSub({ user: 'u1', status: 'trial', trialEndsAt: days(20) });
+  r = await call('/order', { plan: 'solidcore_bio_lab' });
+  check('mid-trial purchase: order created with key + paise amount', () => {
+    assert.equal(r.status, 200);
+    assert.equal(r.body.orderId, 'order_test_1');
+    assert.equal(r.body.keyId, 'rzp_test_key');
+    assert.equal(r.body.amountPaise, 25000 * 100);
+  });
+
+  const goodSig = crypto.createHmac('sha256', 'test-secret')
+    .update('order_test_1|pay_test_1').digest('hex');
+
+  r = await call('/verify', { orderId: 'order_test_1', paymentId: 'pay_test_1', signature: 'bad' });
+  check('forged signature rejected, plan NOT activated', () => {
+    assert.equal(r.status, 400);
+    assert.equal(state.sub.status, 'trial');
+  });
+
+  // failed attempt consumed the order; recreate for the genuine one
+  orders[0].status = 'created';
+  r = await call('/verify', { orderId: 'order_test_1', paymentId: 'pay_test_1', signature: goodSig });
+  check('verified payment activates the plan for a full term', () => {
+    assert.equal(r.status, 200);
+    assert.equal(r.body.subscription.status, 'active');
+    assert.equal(r.body.subscription.plan, 'solidcore_bio_lab');
+    assert.ok(r.body.entitlements.features.includes('bowling'));
+  });
+
+  r = await call('/verify', { orderId: 'order_test_1', paymentId: 'pay_test_1', signature: goodSig });
+  check('an order cannot be redeemed twice', () => assert.equal(r.status, 400));
+
+  check('purchase recorded in the audit trail', () => {
+    const last = state.audits[state.audits.length - 1];
+    assert.equal(last.action, 'purchase');
+    assert.ok(/pay_test_1/.test(last.note));
+  });
+
+  server2.close();
+  global.fetch = realFetch;
+
+  check('audit trail recorded every action with before/after', () => {
+    const admin = state.audits.filter((a) => a.actor === 'admin1');
+    assert.deepEqual(admin.map((a) => a.action), ['assign', 'change_plan',
+      'change_plan', 'suspend', 'resume', 'extend', 'override_features', 'cancel']);
+    for (const a of admin) assert.ok(a.before && a.after, `${a.action} missing snapshots`);
   });
 
   server.close();

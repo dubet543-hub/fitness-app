@@ -139,6 +139,38 @@ class ApiService {
     return _body(res);
   }
 
+  /// POST /api/subscription/order — Razorpay order for an annual plan.
+  static Future<Map<String, dynamic>> createPlanOrder(String planKey) async {
+    final res = await _send(http.post(
+      Uri.parse('$_baseUrl/subscription/order'),
+      headers: await _authHeaders(),
+      body: jsonEncode({'plan': planKey}),
+    ));
+    if (res.statusCode != 200) {
+      throw Exception(_body(res)['error'] ?? 'Could not start the purchase');
+    }
+    return _body(res);
+  }
+
+  /// POST /api/subscription/verify — server-side signature check; the plan
+  /// activates only when this succeeds.
+  static Future<void> verifyPlanPayment({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    final res = await _send(http.post(
+      Uri.parse('$_baseUrl/subscription/verify'),
+      headers: await _authHeaders(),
+      body: jsonEncode({
+        'orderId': orderId, 'paymentId': paymentId, 'signature': signature,
+      }),
+    ));
+    if (res.statusCode != 200) {
+      throw Exception(_body(res)['error'] ?? 'Payment verification failed');
+    }
+  }
+
   // ── Token storage ──────────────────────────────────────────────────────
 
   static Future<void> saveToken(String token) async {

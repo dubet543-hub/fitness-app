@@ -1,7 +1,15 @@
 const router = require('express').Router();
-const Plan   = require('../models/Plan');
+const Plan         = require('../models/Plan');
+const PaymentOrder = require('../models/PaymentOrder');
 const { authenticate } = require('../middleware/auth');
-const { entitlementsFor, FEATURES } = require('../utils/entitlements');
+const {
+  entitlementsFor, getOrCreateSubscription, audit, FEATURES,
+} = require('../utils/entitlements');
+const {
+  createOrder, verifySignature, paymentsConfigured, RazorpayConfigError,
+} = require('../utils/razorpay');
+
+const DAY = 86400000;
 
 router.use(authenticate);
 
@@ -17,6 +25,8 @@ router.get('/me', async (req, res) => {
     res.json({
       entitlements,
       featureNames: FEATURES,
+      // Buy buttons only render when the server can actually take payments.
+      payments: { enabled: paymentsConfigured() },
       plans: plans.map((p) => ({
         key: p.key,
         name: p.name,
@@ -24,6 +34,100 @@ router.get('/me', async (req, res) => {
         durationDays: p.durationDays,
         features: p.features,
       })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Purchase flow ───────────────────────────────────────────────────────────
+// Buying is open in every self-serve state — including mid-trial — except
+// suspension, which is an admin hold a payment must not silently lift.
+
+// POST /api/subscription/order { plan } → Razorpay order for the checkout UI
+router.post('/order', async (req, res) => {
+  try {
+    const plan = await Plan.findOne({ key: req.body.plan, active: true });
+    if (!plan) return res.status(400).json({ error: 'Unknown plan' });
+
+    const sub = await getOrCreateSubscription(req.user._id);
+    if (sub.status === 'suspended') {
+      return res.status(403).json({
+        error: 'Your subscription is suspended. Contact support before purchasing.' });
+    }
+
+    const { orderId, keyId, amountPaise } = await createOrder({
+      amountInr: plan.priceInr,
+      receipt: `sub_${req.user._id}_${Date.now()}`,
+      notes: { user: String(req.user._id), plan: plan.key },
+    });
+    await PaymentOrder.create({
+      user: req.user._id,
+      plan: plan.key,
+      planName: plan.name,
+      amountInr: plan.priceInr,
+      orderId,
+    });
+    res.json({
+      orderId,
+      keyId,
+      amountPaise,
+      currency: 'INR',
+      planName: plan.name,
+    });
+  } catch (err) {
+    if (err instanceof RazorpayConfigError) {
+      console.warn('[payments]', err.message);
+      return res.status(503).json({ error: 'Payments are not available right now.' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/subscription/verify { orderId, paymentId, signature }
+// Signature-checked server-side; only then does the plan activate.
+router.post('/verify', async (req, res) => {
+  try {
+    const { orderId, paymentId, signature } = req.body;
+    const order = await PaymentOrder.findOne({
+      orderId, user: req.user._id, status: 'created',
+    });
+    if (!order) return res.status(400).json({ error: 'Unknown or already-used order' });
+
+    if (!verifySignature({ orderId, paymentId, signature })) {
+      order.status = 'failed';
+      await order.save();
+      return res.status(400).json({ error: 'Payment could not be verified' });
+    }
+
+    const plan = await Plan.findOne({ key: order.plan });
+    if (!plan) return res.status(400).json({ error: 'Plan no longer exists' });
+
+    order.status = 'paid';
+    order.paymentId = paymentId;
+    order.paidAt = new Date();
+    await order.save();
+
+    const sub = await getOrCreateSubscription(req.user._id);
+    const before = sub.toObject();
+    const now = new Date();
+    // Renewing the same plan before it lapses stacks on the current expiry;
+    // anything else (trial, upgrade, downgrade, expired) starts a fresh term.
+    const renewing = sub.status === 'active' && sub.plan === plan.key &&
+      sub.expiresAt && sub.expiresAt > now;
+    sub.plan = plan.key;
+    sub.status = 'active';
+    sub.startsAt = renewing ? sub.startsAt : now;
+    sub.expiresAt = new Date(
+      (renewing ? sub.expiresAt : now).getTime() + plan.durationDays * DAY);
+    sub.complimentary = false;
+    await sub.save();
+    await audit(req.user._id, req.user._id, 'purchase', before, sub.toObject(),
+      `Razorpay ${paymentId} — ${plan.name} ₹${order.amountInr}`);
+
+    res.json({
+      subscription: sub,
+      entitlements: await entitlementsFor(req.user._id),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

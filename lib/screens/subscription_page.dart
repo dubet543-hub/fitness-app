@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import '../api_service.dart';
 import '../core/theme.dart';
 import '../services/entitlements.dart';
 import '../widgets/feature_gate.dart' show formatInr;
 
 /// Current plan status + the live plan catalogue. Prices, features, and plan
 /// names come from the backend, so admin edits show up here without an app
-/// update. Plans are activated by the SolidCore team — there is no in-app
-/// payment flow.
+/// update.
+///
+/// Plans can be purchased in-app through Razorpay in every self-serve state —
+/// including mid-trial — the checkout signature is verified server-side and
+/// the plan activates the moment verification passes. Buy buttons hide
+/// themselves when the server has no payment credentials configured.
 class SubscriptionPage extends StatefulWidget {
   const SubscriptionPage({super.key});
 
@@ -18,10 +24,24 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   Entitlements? _ent;
   String? _error;
 
+  late final Razorpay _razorpay;
+  String? _buyingPlan;   // plan key mid-checkout (spinner on that card)
+  String? _pendingOrder; // Razorpay order id awaiting verification
+
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -34,6 +54,81 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     }
   }
+
+  void _snack(String msg, {bool ok = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: ok ? const Color(0xFF14532D) : null,
+      duration: const Duration(seconds: 4),
+    ));
+  }
+
+  // ── Purchase ──────────────────────────────────────────────────────────────
+
+  Future<void> _buy(PlanInfo plan) async {
+    setState(() => _buyingPlan = plan.key);
+    try {
+      final order = await ApiService.createPlanOrder(plan.key);
+      final user = await ApiService.getCachedUser();
+      _pendingOrder = order['orderId'] as String;
+      _razorpay.open({
+        'key': order['keyId'],
+        'order_id': order['orderId'],
+        'amount': order['amountPaise'],
+        'currency': 'INR',
+        'name': 'SolidCore AMS',
+        'description': '${order['planName']} — annual plan',
+        if (user != null) 'prefill': {'email': user.email},
+        'theme': {'color': '#00CF74'},
+      });
+      // _buyingPlan stays set while the checkout sheet is up; cleared in the
+      // success/error callbacks below.
+    } catch (e) {
+      if (mounted) setState(() => _buyingPlan = null);
+      _snack(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _onPaymentSuccess(PaymentSuccessResponse r) async {
+    try {
+      await ApiService.verifyPlanPayment(
+        orderId: r.orderId ?? _pendingOrder ?? '',
+        paymentId: r.paymentId ?? '',
+        signature: r.signature ?? '',
+      );
+      await _load(); // pull the newly-activated entitlements
+      _snack('Payment successful — your plan is active!', ok: true);
+    } catch (e) {
+      // Paid but not verified (e.g. connection dropped) — the money is with
+      // Razorpay and support can activate manually from the payment id.
+      _snack('Payment received but verification failed: '
+          '${e.toString().replaceFirst('Exception: ', '')} '
+          'Contact support with payment ID ${r.paymentId ?? 'unknown'}.');
+    } finally {
+      _pendingOrder = null;
+      if (mounted) setState(() => _buyingPlan = null);
+    }
+  }
+
+  void _onPaymentError(PaymentFailureResponse r) {
+    _pendingOrder = null;
+    if (mounted) setState(() => _buyingPlan = null);
+    // Code 2 is the user closing the sheet — not an error worth alarming over.
+    if (r.code == Razorpay.PAYMENT_CANCELLED) {
+      _snack('Payment cancelled.');
+    } else {
+      _snack(r.message?.isNotEmpty == true
+          ? r.message!
+          : 'Payment failed. You have not been charged beyond this attempt.');
+    }
+  }
+
+  void _onExternalWallet(ExternalWalletResponse r) {
+    _snack('Continue in ${r.walletName ?? 'your wallet app'} to finish paying.');
+  }
+
+  // ── UI ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -82,15 +177,26 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                           letterSpacing: 1.4, color: kTextSecondary)),
                   const SizedBox(height: 10),
                   for (final plan in _ent!.plans) ...[
-                    _PlanCard(plan: plan, ent: _ent!),
+                    _PlanCard(
+                      plan: plan,
+                      ent: _ent!,
+                      busy: _buyingPlan == plan.key,
+                      anyBusy: _buyingPlan != null,
+                      onBuy: () => _buy(plan),
+                    ),
                     const SizedBox(height: 14),
                   ],
                   const SizedBox(height: 8),
                   Text(
-                    'To start, change, or renew a plan, contact your SolidCore '
-                    'administrator or email support@solidcoreats.com. Changing '
-                    'plans never deletes your data — locked features keep all '
-                    'their history and records, restored the moment you upgrade.',
+                    _ent!.paymentsEnabled
+                        ? 'Payments are processed securely by Razorpay. Changing '
+                          'plans never deletes your data — locked features keep '
+                          'all their history, restored the moment you upgrade. '
+                          'For help, email support@solidcoreats.com.'
+                        : 'To start, change, or renew a plan, contact your '
+                          'SolidCore administrator or email '
+                          'support@solidcoreats.com. Changing plans never '
+                          'deletes your data.',
                     style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.55),
                   ),
                 ],
@@ -114,7 +220,8 @@ class _StatusCard extends StatelessWidget {
       'trial' => (
           'FREE TRIAL', kSky,
           'All features unlocked${ent.trialEndsAt != null ? ' until ${_fmt(ent.trialEndsAt!)}' : ''}'
-          '${days != null ? ' — $days day${days == 1 ? '' : 's'} left' : ''}.',
+          '${days != null ? ' — $days day${days == 1 ? '' : 's'} left' : ''}. '
+          'Buy a plan below any time; it starts right away.',
         ),
       'active' => (
           ent.planName?.toUpperCase() ?? 'ACTIVE', kAccent,
@@ -130,7 +237,7 @@ class _StatusCard extends StatelessWidget {
       'cancelled' => ('CANCELLED', kDanger, 'Your subscription has been cancelled. Your data is retained.'),
       'expired' => ('EXPIRED', kDanger,
           'Your access has ended. Renew to unlock your data again — nothing has been deleted.'),
-      _ => ('NO SUBSCRIPTION', kTextMuted, 'Contact SolidCore to activate a plan.'),
+      _ => ('NO SUBSCRIPTION', kTextMuted, 'Choose a plan below to get started.'),
     };
 
     return Container(
@@ -172,12 +279,27 @@ class _StatusCard extends StatelessWidget {
 class _PlanCard extends StatelessWidget {
   final PlanInfo plan;
   final Entitlements ent;
-  const _PlanCard({required this.plan, required this.ent});
+  final bool busy;    // this plan's checkout is in flight
+  final bool anyBusy; // some checkout is in flight (disables the others)
+  final VoidCallback onBuy;
+  const _PlanCard({
+    required this.plan,
+    required this.ent,
+    required this.busy,
+    required this.anyBusy,
+    required this.onBuy,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isCurrent = ent.plan == plan.key && (ent.status == 'active' || ent.status == 'grace');
     final names = ent.featureNames;
+
+    // Purchasable in every self-serve state; suspension is an admin hold.
+    final canBuy = ent.paymentsEnabled && ent.status != 'suspended';
+    final buyLabel = isCurrent
+        ? 'Renew — ${formatInr(plan.priceInr)} for 1 more year'
+        : 'Buy for ${formatInr(plan.priceInr)}/year';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -239,6 +361,37 @@ class _PlanCard extends StatelessWidget {
                 ],
               ),
             ),
+          if (canBuy) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: isCurrent
+                  ? OutlinedButton(
+                      onPressed: anyBusy ? null : onBuy,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: kAccent.withValues(alpha: 0.6)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                      ),
+                      child: busy
+                          ? SizedBox(width: 18, height: 18,
+                              child: CircularProgressIndicator(color: kAccent, strokeWidth: 2))
+                          : Text(buyLabel,
+                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kAccent)),
+                    )
+                  : ElevatedButton(
+                      onPressed: anyBusy ? null : onBuy,
+                      style: ElevatedButton.styleFrom(
+                        disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
+                      ),
+                      child: busy
+                          ? SizedBox(width: 18, height: 18,
+                              child: CircularProgressIndicator(color: kOnAccent, strokeWidth: 2))
+                          : Text(buyLabel,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
+                    ),
+            ),
+          ],
         ],
       ),
     );
