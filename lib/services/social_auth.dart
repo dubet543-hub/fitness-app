@@ -27,9 +27,17 @@ class SocialAuth {
 
   // ── Google ────────────────────────────────────────────────────────────────
 
-  /// True when a Google client ID has been configured. The button stays hidden
-  /// otherwise, rather than showing and failing.
-  static bool get googleAvailable => AppConfig.googleServerClientId != null;
+  /// True when this platform has the Google client IDs it actually needs, so
+  /// the button stays hidden rather than showing and failing.
+  ///
+  /// iOS is the strict case: with no GoogleService-Info.plist in the project,
+  /// the plugin needs an explicit iOS client ID (and the matching reversed-ID
+  /// URL scheme in Info.plist). Without it the sign-in call takes the app down
+  /// rather than returning an error, so the button must not be offered at all.
+  static bool get googleAvailable {
+    if (!kIsWeb && Platform.isIOS) return AppConfig.googleIosClientId != null;
+    return AppConfig.googleServerClientId != null;
+  }
 
   static GoogleSignIn? _google;
 
@@ -45,6 +53,11 @@ class SocialAuth {
   /// Runs the Google flow and returns an app session, or null if the user
   /// backed out of the account picker.
   static Future<({ApiUser user, String token})?> signInWithGoogle() async {
+    // Second line of defence: reaching the plugin unconfigured crashes the app,
+    // so refuse here too rather than relying on the button being hidden.
+    if (!googleAvailable) {
+      throw SocialAuthException('Google sign-in is not configured for this app.');
+    }
     final client = _googleClient();
     GoogleSignInAccount? account;
     try {

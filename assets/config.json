@@ -1,10 +1,10 @@
 {
-  "API_BASE_URL": "https://fitness-app-dbav.onrender.com/api",
+  "API_BASE_URL": "https://fitness-app-1-c4uh.onrender.com/api",
 
   "_comment": "OAuth client IDs for Google/Apple sign-in. Public identifiers, not secrets. A blank value hides that provider's button. See SOCIAL_SIGN_IN.md.",
 
   "GOOGLE_SERVER_CLIENT_ID": "914527293028-etrijhbno16i334gfhh497e1fph2hhg3.apps.googleusercontent.com",
-  "GOOGLE_IOS_CLIENT_ID": "",
+  "GOOGLE_IOS_CLIENT_ID": "914527293028-t309m3c9465moiiefhmmbvvindtnvieh.apps.googleusercontent.com",
 
   "APPLE_SERVICE_ID": "",
   "APPLE_REDIRECT_URI": ""
