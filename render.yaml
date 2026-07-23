@@ -20,3 +20,10 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      # Allowed audiences for federated sign-in — comma-separated OAuth client
+      # IDs. Google/Apple sign-in is refused outright until these are set, so an
+      # unset value can never mean "accept tokens minted for any app".
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: APPLE_CLIENT_IDS
+        sync: false

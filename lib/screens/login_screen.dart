@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../services/local_log_store.dart';
+import '../services/social_auth.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/legal_consent.dart';
 import 'legal_pages.dart';
 
 class LoginScreen extends StatefulWidget {
   final Future<void> Function(String email, String password) onEmailSignIn;
+
+  /// Runs a federated provider flow (Google/Apple) and reports whether it
+  /// produced a session — false means the user cancelled.
+  final Future<bool> Function(SocialProvider provider)? onSocialSignIn;
   final VoidCallback? onCreateAccount;
-  const LoginScreen({super.key, required this.onEmailSignIn, this.onCreateAccount});
+  const LoginScreen({
+    super.key,
+    required this.onEmailSignIn,
+    this.onSocialSignIn,
+    this.onCreateAccount,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -30,11 +40,23 @@ class _LoginScreenState extends State<LoginScreen> {
   DateTime? _agreedAt;
   bool      _trackingConsent = false;
 
+  // Provider buttons are hidden unless their OAuth client is configured, so a
+  // half-set-up build never shows a button that can only fail.
+  bool           _appleAvailable = false;
+  SocialProvider? _socialBusy;
+
   @override
   void initState() {
     super.initState();
     _loadSavedCredentials();
     _loadConsentState();
+    _loadAppleAvailability();
+  }
+
+  Future<void> _loadAppleAvailability() async {
+    if (widget.onSocialSignIn == null) return;
+    final available = await SocialAuth.appleAvailable();
+    if (mounted) setState(() => _appleAvailable = available);
   }
 
   Future<void> _loadSavedCredentials() async {
@@ -82,12 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       await widget.onEmailSignIn(email, pass);
-      // Recorded only once sign-in actually succeeds, so a mistyped password
-      // never leaves an acceptance behind for someone who never got in.
-      await LocalLogStore.setLegalAccepted(kLegalVersion);
-      if (!_alreadyAgreed) {
-        await LocalLogStore.setDailyLogsConsent(_trackingConsent);
-      }
+      await _recordConsent();
       if (_remember) {
         await LocalLogStore.saveCredentials(email, pass);
       } else {
@@ -97,6 +114,34 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Recorded only once a sign-in actually succeeds, so a failed attempt never
+  /// leaves an acceptance behind for someone who never got in.
+  Future<void> _recordConsent() async {
+    await LocalLogStore.setLegalAccepted(kLegalVersion);
+    if (!_alreadyAgreed) {
+      await LocalLogStore.setDailyLogsConsent(_trackingConsent);
+    }
+  }
+
+  Future<void> _submitSocial(SocialProvider provider) async {
+    // The provider sheet bypasses the form, so the same acceptance gate has to
+    // be enforced here or it could be used to sign in without agreeing.
+    if (!_agreedLegal) {
+      setState(() => _error =
+          'Please accept the Terms & Conditions and Privacy Policy to continue.');
+      return;
+    }
+    setState(() { _socialBusy = provider; _error = null; });
+    try {
+      final signedIn = await widget.onSocialSignIn!(provider);
+      if (signedIn) await _recordConsent();
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _socialBusy = null);
     }
   }
 
@@ -318,9 +363,53 @@ class _LoginScreenState extends State<LoginScreen> {
                   : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
             ),
           ),
+
+          ..._buildSocialSection(),
         ],
       ),
     );
+  }
+
+  // ── Google / Apple sign-in ──────────────────────────────────────────────
+  // Each button is shown only when its OAuth client is configured for this
+  // build, so an unconfigured provider is absent rather than broken.
+
+  List<Widget> _buildSocialSection() {
+    if (widget.onSocialSignIn == null) return const [];
+    final showGoogle = SocialAuth.googleAvailable;
+    if (!showGoogle && !_appleAvailable) return const [];
+
+    return [
+      const SizedBox(height: 20),
+      Row(children: [
+        Expanded(child: Divider(color: kBorder)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('OR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+              color: kTextMuted, letterSpacing: 1.2)),
+        ),
+        Expanded(child: Divider(color: kBorder)),
+      ]),
+      const SizedBox(height: 16),
+      if (showGoogle) ...[
+        _SocialButton(
+          label: 'Continue with Google',
+          icon: const _GoogleGlyph(),
+          busy: _socialBusy == SocialProvider.google,
+          enabled: _agreedLegal && _socialBusy == null && !_loading,
+          onTap: () => _submitSocial(SocialProvider.google),
+        ),
+        if (_appleAvailable) const SizedBox(height: 10),
+      ],
+      if (_appleAvailable)
+        _SocialButton(
+          label: 'Continue with Apple',
+          icon: Icon(Icons.apple, size: 21, color: kTextPrimary),
+          busy: _socialBusy == SocialProvider.apple,
+          enabled: _agreedLegal && _socialBusy == null && !_loading,
+          onTap: () => _submitSocial(SocialProvider.apple),
+        ),
+    ];
   }
 
   InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
@@ -344,3 +433,64 @@ Widget _fieldLabel(String text) => Text(
   text,
   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
 );
+
+/// Outlined provider button, sized and shaped to match the Sign In button.
+class _SocialButton extends StatelessWidget {
+  final String label;
+  final Widget icon;
+  final bool   busy;
+  final bool   enabled;
+  final VoidCallback onTap;
+
+  const _SocialButton({
+    required this.label,
+    required this.icon,
+    required this.busy,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: SizedBox(
+        height: 50,
+        child: OutlinedButton(
+          onPressed: enabled ? onTap : null,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: const Color(0xFF0A0A14),
+            side: BorderSide(color: kBorderBright),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: busy
+              ? SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(color: kTextSecondary, strokeWidth: 2.2))
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    icon,
+                    const SizedBox(width: 10),
+                    Text(label, style: TextStyle(fontSize: 14,
+                        fontWeight: FontWeight.w600, color: kTextPrimary)),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Google's four-colour "G", drawn rather than shipped as an asset.
+class _GoogleGlyph extends StatelessWidget {
+  const _GoogleGlyph();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 20, height: 20,
+    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+    alignment: Alignment.center,
+    child: const Text('G', style: TextStyle(
+      fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF4285F4), height: 1.15)),
+  );
+}

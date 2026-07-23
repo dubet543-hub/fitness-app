@@ -2,6 +2,7 @@ const router = require('express').Router();
 const jwt    = require('jsonwebtoken');
 const User   = require('../models/User');
 const { authenticate } = require('../middleware/auth');
+const { verifyIdentityToken } = require('../utils/socialAuth');
 
 const sign = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -62,31 +63,83 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/google  — Flutter sends Google user info after Firebase sign-in
-// Backend checks if this email is pre-registered by admin, returns app JWT
-router.post('/google', async (req, res) => {
-  try {
-    const { email, name, photoUrl } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email required' });
+// ── Federated sign-in (Google / Apple) ──────────────────────────────────────
+//
+// The app sends the provider's signed identity token; the signature, issuer,
+// audience, and expiry are all checked in utils/socialAuth before any claim is
+// trusted. Accounts are created on first sign-in, matching the public
+// self-signup at /register.
 
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.status(403).json({ error: 'Account not registered. Contact your admin.' });
+/// Links a verified provider identity to a user, creating one if this is their
+/// first sign-in. Matched on the provider subject first, then on a verified
+/// email so an athlete who registered with a password can also use the button.
+async function upsertFederatedUser({ provider, subject, email, name, photoUrl }) {
+  const idField = provider === 'apple' ? 'appleId' : 'googleId';
 
-    if (!user.active)
-      return res.status(403).json({ error: 'Account deactivated. Contact admin.' });
+  let user = await User.findOne({ [idField]: subject });
+  if (!user && email) user = await User.findOne({ email: email.toLowerCase() });
 
-    // Sync name/photo from Google if not already set
-    if (!user.photoUrl && photoUrl) { user.photoUrl = photoUrl; await user.save(); }
-
-    res.json({
-      token: sign(user._id),
-      user:  { id: user._id, name: user.name, email: user.email, role: user.role, photoUrl: user.photoUrl },
+  if (!user) {
+    // Apple only returns the display name on the very first authorisation, and
+    // omits it entirely for Hide My Email users who edited it away.
+    user = new User({
+      name:  name || email?.split('@')[0] || 'Athlete',
+      email: email?.toLowerCase(),
+      [idField]: subject,
+      photoUrl,
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } else {
+    if (!user[idField]) user[idField] = subject;
+    if (!user.photoUrl && photoUrl) user.photoUrl = photoUrl;
   }
-});
+  await user.save();
+  return user;
+}
+
+function federatedRoute(provider) {
+  return async (req, res) => {
+    try {
+      const token = req.body.idToken || req.body.identityToken;
+      const payload = await verifyIdentityToken(provider, token);
+
+      // Apple sends no email once the user has authorised before, so fall back
+      // to whatever is already stored against this Apple ID.
+      const user = await upsertFederatedUser({
+        provider,
+        subject:  payload.sub,
+        email:    payload.email,
+        name:     req.body.name || payload.name,
+        photoUrl: payload.picture,
+      });
+
+      if (!user.active)
+        return res.status(403).json({ error: 'Account deactivated. Contact admin.' });
+      if (!user.email)
+        return res.status(400).json({ error: 'No email address available for this account.' });
+
+      res.json({
+        token: sign(user._id),
+        user:  { id: user._id, name: user.name, email: user.email, role: user.role, photoUrl: user.photoUrl },
+      });
+    } catch (err) {
+      // A token that fails verification is a rejected sign-in, not a server
+      // fault — never leak the reason back to the caller.
+      if (/token|key|audience|issuer|jwt|verified|subject/i.test(err.message)) {
+        console.warn(`[auth] rejected ${provider} sign-in: ${err.message}`);
+        return res.status(401).json({ error: 'Sign-in could not be verified. Please try again.' });
+      }
+      if (err.code === 11000)
+        return res.status(409).json({ error: 'This email is already linked to another account.' });
+      res.status(500).json({ error: err.message });
+    }
+  };
+}
+
+// POST /api/auth/google  — body: { idToken }
+router.post('/google', federatedRoute('google'));
+
+// POST /api/auth/apple   — body: { identityToken, name? }
+router.post('/apple', federatedRoute('apple'));
 
 // GET /api/auth/me  — return current user
 router.get('/me', authenticate, (req, res) => {

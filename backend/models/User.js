@@ -8,6 +8,12 @@ const userSchema = new mongoose.Schema({
   role:      { type: String, enum: ['admin', 'athlete'], default: 'athlete' },
   sport:     { type: String, trim: true },
   photoUrl:  { type: String },
+
+  // Federated identities. Keyed on the provider's stable subject rather than
+  // the email: Apple's "Hide My Email" hands out a per-app relay address, and a
+  // user can change the address on their Google account at any time.
+  googleId:  { type: String, index: { unique: true, sparse: true } },
+  appleId:   { type: String, index: { unique: true, sparse: true } },
   active:    { type: Boolean, default: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now },

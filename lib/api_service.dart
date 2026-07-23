@@ -12,28 +12,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 String _baseUrl =
     String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:3000/api');
 
+/// Everything loaded from `.env` / `assets/config.json`, so settings that are
+/// not the API host — the OAuth client IDs used by Google and Apple sign-in —
+/// can be read the same way. See [AppConfig].
+final Map<String, String> _config = {};
+
 class _ConfigLoader {
   static Future<void> load() async {
     // Prefer runtime .env (flutter_dotenv) when available.
     try {
-      final envUrl = dotenv.env['API_BASE_URL'];
-      if (envUrl != null && envUrl.isNotEmpty) {
-        _baseUrl = envUrl;
-        return;
-      }
+      // Empty values are dropped so a blank .env entry still falls through to
+      // config.json rather than shadowing it.
+      dotenv.env.forEach((k, v) { if (v.isNotEmpty) _config[k] = v; });
     } catch (_) {}
 
-    // Fallback to assets/config.json if present.
+    // Fallback to assets/config.json for anything .env did not provide.
     try {
       final raw = await rootBundle.loadString('assets/config.json');
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      final url = map['API_BASE_URL'] as String?;
-      if (url != null && url.isNotEmpty) {
-        _baseUrl = url;
+      for (final e in map.entries) {
+        final v = e.value?.toString();
+        if (v != null && v.isNotEmpty) _config.putIfAbsent(e.key, () => v);
       }
     } catch (_) {
       // ignore: no-op — use defaults if asset missing or invalid
     }
+
+    final url = _config['API_BASE_URL'];
+    if (url != null && url.isNotEmpty) _baseUrl = url;
   }
 }
 
@@ -62,6 +68,34 @@ class ApiUser {
         sport:    j['sport']    as String?,
         photoUrl: j['photoUrl'] as String?,
       );
+}
+
+/// Read-only view of the runtime configuration loaded at startup, for settings
+/// that are not API calls — the OAuth client IDs behind Google/Apple sign-in.
+class AppConfig {
+  AppConfig._();
+
+  /// The configured value for [key], or null when it was never provided. A null
+  /// OAuth client ID is what hides the corresponding sign-in button.
+  static String? get(String key) {
+    final v = _config[key];
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  /// Google OAuth **web** client ID. Doubles as the `serverClientId` that makes
+  /// Android return an ID token, and as the audience the backend checks.
+  static String? get googleServerClientId => get('GOOGLE_SERVER_CLIENT_ID');
+
+  /// Google OAuth iOS client ID — required on iOS, which has no
+  /// GoogleService-Info.plist in this project.
+  static String? get googleIosClientId => get('GOOGLE_IOS_CLIENT_ID');
+
+  /// Apple Services ID, used only for the web-based flow on Android.
+  static String? get appleServiceId => get('APPLE_SERVICE_ID');
+
+  /// Where Apple posts back to during the Android web flow. Must match the
+  /// Return URL registered against the Services ID.
+  static String? get appleRedirectUri => get('APPLE_REDIRECT_URI');
 }
 
 class ApiService {
@@ -128,28 +162,55 @@ class ApiService {
     };
   }
 
+  /// Decodes a JSON response body. A backend that is down, misrouted, or behind
+  /// a proxy replies with an HTML error page instead of JSON — surface that as
+  /// something readable rather than a raw "Unexpected character" parse failure.
   static Map<String, dynamic> _body(http.Response r) {
-    final decoded = jsonDecode(r.body);
-    return decoded as Map<String, dynamic>;
+    try {
+      final decoded = jsonDecode(r.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } on FormatException {
+      // fall through to the message below
+    }
+    throw Exception(switch (r.statusCode) {
+      404 => 'This feature is not available on the server yet (404). '
+          'The backend may need updating.',
+      502 || 503 || 504 => 'The server is unavailable right now. Please try again.',
+      _ => 'Unexpected response from the server (${r.statusCode}).',
+    });
   }
 
   // ── Auth ───────────────────────────────────────────────────────────────
 
-  /// Called after Firebase Google Sign-In. Sends the verified Google email
-  /// to the backend to get an app JWT (returns null if not pre-registered).
-  static Future<({ApiUser user, String token})?> authenticateWithGoogle({
-    required String email,
+  /// Exchanges a Google ID token for an app session. The backend verifies the
+  /// token's signature against Google's published keys, so nothing here is
+  /// trusted client-side; an account is created on first sign-in.
+  static Future<({ApiUser user, String token})> authenticateWithGoogle({
+    required String idToken,
+  }) => _federatedSignIn('google', {'idToken': idToken});
+
+  /// Exchanges an Apple identity token for an app session. [name] is only ever
+  /// available on the user's very first authorisation — Apple never sends it
+  /// again — so it is passed through to be stored at account creation.
+  static Future<({ApiUser user, String token})> authenticateWithApple({
+    required String identityToken,
     String? name,
-    String? photoUrl,
-  }) async {
+  }) => _federatedSignIn('apple', {
+        'identityToken': identityToken,
+        if (name != null && name.isNotEmpty) 'name': name,
+      });
+
+  static Future<({ApiUser user, String token})> _federatedSignIn(
+      String provider, Map<String, dynamic> body) async {
     final res = await _send(http.post(
-      Uri.parse('$_baseUrl/auth/google'),
+      Uri.parse('$_baseUrl/auth/$provider'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'name': name, 'photoUrl': photoUrl}),
+      body: jsonEncode(body),
     ));
-    if (res.statusCode == 403) return null; // not registered
-    if (res.statusCode != 200) throw Exception(_body(res)['error'] ?? 'Auth failed');
-    final data = _body(res);
+    if (res.statusCode != 200) {
+      throw Exception(_body(res)['error'] ?? 'Sign-in failed');
+    }
+    final data  = _body(res);
     final user  = ApiUser.fromJson(data['user'] as Map<String, dynamic>);
     final token = data['token'] as String;
     await saveToken(token);

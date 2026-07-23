@@ -4,6 +4,7 @@ import '../core/theme.dart';
 import '../navigation/main_shell.dart';
 import '../services/dashboard_metrics.dart';
 import '../services/local_log_store.dart';
+import '../services/social_auth.dart';
 import '../widgets/common_widgets.dart';
 import 'legal_consent_gate.dart';
 import 'legal_pages.dart';
@@ -55,6 +56,16 @@ class _AuthScreenState extends State<AuthScreen> {
     if (mounted) setState(() { _user = result.user; _needsLegal = false; });
   }
 
+  /// Runs a provider flow. Returns false when the user cancelled, so the
+  /// caller knows not to record consent for a sign-in that never happened.
+  Future<bool> _signInWithProvider(SocialProvider provider) async {
+    final result = await SocialAuth.signIn(provider);
+    if (result == null) return false;
+    AthleteMetricsService.invalidate();
+    if (mounted) setState(() { _user = result.user; _needsLegal = false; });
+    return true;
+  }
+
   Future<void> _register(String name, String email, String password, String? sport) async {
     final result = await ApiService.register(
       name: name, email: email, password: password, sport: sport);
@@ -66,6 +77,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _signOut() async {
     await ApiService.clearSession();
+    await SocialAuth.signOut(); // so the next Google sign-in re-shows the picker
     AthleteMetricsService.invalidate();
     if (mounted) setState(() { _user = null; _needsLegal = false; });
   }
@@ -95,6 +107,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     return LoginScreen(
       onEmailSignIn: _signInWithEmail,
+      onSocialSignIn: _signInWithProvider,
       onCreateAccount: () => setState(() => _showRegister = true),
     );
   }
