@@ -11,6 +11,11 @@ const { createPublicKey } = require('crypto');
 //
 // Uses only `jsonwebtoken` plus Node's built-in JWK support — no extra deps.
 
+/// Raised when the server itself is misconfigured, as opposed to the caller
+/// presenting a bad token. Kept distinct so the route can answer 503 and log
+/// the detail rather than reflecting internals back to the client.
+class SocialAuthConfigError extends Error {}
+
 const PROVIDERS = {
   google: {
     jwks:    'https://www.googleapis.com/oauth2/v3/certs',
@@ -58,7 +63,7 @@ function allowedAudiences(provider) {
   const raw = process.env[PROVIDERS[provider].envIds] || '';
   const ids = raw.split(',').map((s) => s.trim()).filter(Boolean);
   if (!ids.length) {
-    throw new Error(
+    throw new SocialAuthConfigError(
       `${PROVIDERS[provider].envIds} is not configured — refusing to accept ${provider} sign-ins`);
   }
   return ids;
@@ -70,13 +75,17 @@ async function verifyIdentityToken(provider, token) {
   if (!PROVIDERS[provider]) throw new Error(`Unsupported provider ${provider}`);
   if (!token || typeof token !== 'string') throw new Error('Missing identity token');
 
+  // Checked up front so a misconfigured server fails fast and reports itself as
+  // misconfigured, instead of first fetching keys and failing as a bad token.
+  const audiences = allowedAudiences(provider);
+
   const decoded = jwt.decode(token, { complete: true });
   if (!decoded?.header?.kid) throw new Error('Malformed identity token');
 
   const key = await publicKeyFor(provider, decoded.header.kid);
   const payload = jwt.verify(token, key, {
     algorithms: [decoded.header.alg === 'ES256' ? 'ES256' : 'RS256'],
-    audience:   allowedAudiences(provider),
+    audience:   audiences,
     issuer:     PROVIDERS[provider].issuers,
   });
 
@@ -88,4 +97,4 @@ async function verifyIdentityToken(provider, token) {
   return payload;
 }
 
-module.exports = { verifyIdentityToken };
+module.exports = { verifyIdentityToken, SocialAuthConfigError };

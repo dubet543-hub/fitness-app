@@ -2,7 +2,7 @@ const router = require('express').Router();
 const jwt    = require('jsonwebtoken');
 const User   = require('../models/User');
 const { authenticate } = require('../middleware/auth');
-const { verifyIdentityToken } = require('../utils/socialAuth');
+const { verifyIdentityToken, SocialAuthConfigError } = require('../utils/socialAuth');
 
 const sign = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -122,6 +122,14 @@ function federatedRoute(provider) {
         user:  { id: user._id, name: user.name, email: user.email, role: user.role, photoUrl: user.photoUrl },
       });
     } catch (err) {
+      // A missing client-ID list is our problem, not the caller's. Log which
+      // variable is unset; tell the client only that it is unavailable.
+      if (err instanceof SocialAuthConfigError) {
+        console.error(`[auth] ${err.message}`);
+        return res.status(503).json({
+          error: `${provider === 'apple' ? 'Apple' : 'Google'} sign-in is not available right now.`,
+        });
+      }
       // A token that fails verification is a rejected sign-in, not a server
       // fault — never leak the reason back to the caller.
       if (/token|key|audience|issuer|jwt|verified|subject/i.test(err.message)) {
