@@ -3,6 +3,8 @@ import '../api_service.dart';
 import '../core/theme.dart';
 import '../services/dashboard_metrics.dart';
 import '../services/local_log_store.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 class WellnessLogScreen extends StatefulWidget {
   const WellnessLogScreen({super.key});
@@ -145,7 +147,10 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.recovery, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(

@@ -10,6 +10,8 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'services/local_log_store.dart';
 import 'core/theme.dart';
 import 'widgets/common_widgets.dart';
+import 'services/entitlements.dart';
+import 'widgets/feature_gate.dart';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -421,7 +423,10 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   // ── BUILD ─────────────────────────────────────────────────────────────────
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.bowling, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Bowling Analysis"),

@@ -5,6 +5,8 @@ import 'api_service.dart';
 import 'core/theme.dart';
 import 'services/dashboard_metrics.dart';
 import 'screens/workload_monitor_screen.dart';
+import 'services/entitlements.dart';
+import 'widgets/feature_gate.dart';
 
 // Aliases so the rest of the file compiles without change.
 
@@ -720,7 +722,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.loadModulation, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(

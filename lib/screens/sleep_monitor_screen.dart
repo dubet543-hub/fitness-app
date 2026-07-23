@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../services/sleep_metrics.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 /// Which clock a time picker is editing.
 enum _Clock { bed, wake, outOfBed }
@@ -114,7 +116,10 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.recovery, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(

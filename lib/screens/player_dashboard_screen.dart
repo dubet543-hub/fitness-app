@@ -5,6 +5,8 @@ import '../running_analysis_screen.dart';
 import '../bowling_analysis_screen.dart';
 import '../services/local_log_store.dart';
 import 'body_composition_screen.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlayerDashboardScreen — Analysis Results
@@ -71,8 +73,9 @@ class _PDS extends State<PlayerDashboardScreen> with SingleTickerProviderStateMi
 
   /// Opens an analysis screen, then reloads history so a fresh result
   /// replaces the empty state or the previous one as soon as we're back.
-  Future<void> _runThen(Widget Function() builder) async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => builder()));
+  Future<void> _runThen(String feature, Widget Function() builder) async {
+    // Gated: locked features show the upgrade sheet instead of the tool.
+    await FeatureGate.push(context, feature, builder);
     await _loadHistory();
   }
 
@@ -145,11 +148,11 @@ class _PDS extends State<PlayerDashboardScreen> with SingleTickerProviderStateMi
                         title: 'No posture result yet',
                         hint: 'Run a postural analysis to see your alignment results here.',
                         runLabel: 'Run Postural Analysis',
-                        onRun: () => _runThen(() => PostureGuideScreen()),
+                        onRun: () => _runThen(FeatureKeys.posture, () => PostureGuideScreen()),
                       )
                     : _PostureResultSummary(
                         entry: _postureHistory.last,
-                        onRun: () => _runThen(() => PostureGuideScreen()),
+                        onRun: () => _runThen(FeatureKeys.posture, () => PostureGuideScreen()),
                       ),
                 _runningHistory.isEmpty
                     ? _MotionLabEmpty(
@@ -158,11 +161,11 @@ class _PDS extends State<PlayerDashboardScreen> with SingleTickerProviderStateMi
                         title: 'No running result yet',
                         hint: 'Record a running analysis to see your mechanics here.',
                         runLabel: 'Run Running Analysis',
-                        onRun: () => _runThen(() => const RunningAnalysisScreen()),
+                        onRun: () => _runThen(FeatureKeys.running, () => const RunningAnalysisScreen()),
                       )
                     : _RunningResultSummary(
                         entry: _runningHistory.last,
-                        onRun: () => _runThen(() => const RunningAnalysisScreen()),
+                        onRun: () => _runThen(FeatureKeys.running, () => const RunningAnalysisScreen()),
                       ),
                 _bowlingHistory.isEmpty
                     ? _MotionLabEmpty(
@@ -171,11 +174,11 @@ class _PDS extends State<PlayerDashboardScreen> with SingleTickerProviderStateMi
                         title: 'No bowling result yet',
                         hint: 'Record a bowling analysis to see your action here.',
                         runLabel: 'Run Bowling Analysis',
-                        onRun: () => _runThen(() => const BowlingAnalysisScreen()),
+                        onRun: () => _runThen(FeatureKeys.bowling, () => const BowlingAnalysisScreen()),
                       )
                     : _BowlingResultSummary(
                         entry: _bowlingHistory.last,
-                        onRun: () => _runThen(() => const BowlingAnalysisScreen()),
+                        onRun: () => _runThen(FeatureKeys.bowling, () => const BowlingAnalysisScreen()),
                       ),
                 const BodyCompositionScreen(embedded: true),
               ],

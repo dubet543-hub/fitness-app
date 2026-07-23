@@ -3,6 +3,8 @@ import '../core/theme.dart';
 import '../posture_screen.dart';
 import '../running_analysis_screen.dart';
 import '../bowling_analysis_screen.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 class ExploreTab extends StatelessWidget {
   const ExploreTab({super.key});
@@ -82,7 +84,7 @@ class ExploreTab extends StatelessWidget {
               subtitle: 'Body alignment & postural symmetry check',
               tags: const ['Pose AI', 'Alignment'],
               accentColor: kSky,
-              onTap: () => Navigator.push(context, _route(PostureGuideScreen())),
+              onTap: () => FeatureGate.push(context, FeatureKeys.posture, () => PostureGuideScreen()),
             ),
             const SizedBox(height: 12),
             _MotionToolCard(
@@ -91,7 +93,7 @@ class ExploreTab extends StatelessWidget {
               subtitle: 'Gait, cadence & running form analysis',
               tags: const ['Pose AI', 'Gait'],
               accentColor: kOrange,
-              onTap: () => Navigator.push(context, _route(const RunningAnalysisScreen())),
+              onTap: () => FeatureGate.push(context, FeatureKeys.running, () => const RunningAnalysisScreen()),
             ),
             const SizedBox(height: 12),
             _MotionToolCard(
@@ -100,7 +102,7 @@ class ExploreTab extends StatelessWidget {
               subtitle: 'Fast & spin action biomechanics',
               tags: const ['Pose AI', 'Technique'],
               accentColor: kSleep,
-              onTap: () => Navigator.push(context, _route(const BowlingAnalysisScreen())),
+              onTap: () => FeatureGate.push(context, FeatureKeys.bowling, () => const BowlingAnalysisScreen()),
             ),
           ],
         ),
@@ -108,7 +110,6 @@ class ExploreTab extends StatelessWidget {
     );
   }
 
-  Route _route(Widget screen) => MaterialPageRoute(builder: (_) => screen);
 }
 
 class _SectionLabel extends StatelessWidget {

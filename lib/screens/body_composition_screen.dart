@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import '../core/theme.dart';
 import '../api_service.dart';
 import '../services/local_log_store.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 // ─── Data Model ────────────────────────────────────────────────────────────
 
@@ -438,7 +440,10 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.bodyComposition, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     final body = _loading
         ? Center(child: CircularProgressIndicator(color: kAccent))
         : SingleChildScrollView(

@@ -10,6 +10,8 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'services/local_log_store.dart';
 import 'core/theme.dart';
 import 'widgets/common_widgets.dart';
+import 'services/entitlements.dart';
+import 'widgets/feature_gate.dart';
 
 // ── Running Metrics Data Model ────────────────────────────────────────────────
 
@@ -576,7 +578,10 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.running, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Running Analysis"),

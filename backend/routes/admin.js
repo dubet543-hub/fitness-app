@@ -7,6 +7,10 @@ const M                = require('../utils/metrics');
 
 router.use(authenticate, requireAdmin);
 
+// Subscription management (plans, settings, per-athlete actions, audit trail)
+const adminSubscriptions = require('./adminSubscriptions');
+router.use(adminSubscriptions);
+
 // ── Athletes ───────────────────────────────────────────────────────────────────
 
 // GET /api/admin/athletes
@@ -16,12 +20,16 @@ router.get('/athletes', async (req, res) => {
       .select('-password')
       .sort({ createdAt: -1 });
 
+    // One batched lookup for every athlete's subscription state (list chips).
+    const subSummaries = await adminSubscriptions.summariseAll(athletes.map((a) => a._id));
+
     // Attach last session info + app-consistent metrics
     const withStats = await Promise.all(athletes.map(async (a) => {
       const last = await TrainingSession.findOne({ athlete: a._id }).sort({ date: -1 });
       const readinessPct = last?.readinessPercent ?? null;
       return {
         ...a.toJSON(),
+        subscription:      subSummaries[String(a._id)],
         lastSession:       last?.date      || null,
         lastTotalLoad:     last?.totalLoad || null,
         lastReadiness:     readinessPct,
@@ -53,6 +61,7 @@ router.post('/athletes', async (req, res) => {
       role: 'athlete',
       createdBy: req.user._id,
     });
+    await require('../utils/entitlements').startTrial(athlete._id, req.user._id);
     res.status(201).json(athlete);
   } catch (err) {
     res.status(400).json({ error: err.message });

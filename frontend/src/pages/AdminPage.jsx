@@ -11,12 +11,13 @@ import { monitorSeriesForAthlete } from '../utils/flutterWorkloadMonitorData';
 import { fmtDate, fmtNum } from '../utils/fmt';
 import { CHART_OPTS, ACWR_OPTS, DONUT_OPTS, COLORS } from '../utils/chartDefaults';
 import { acwrColor, acwrLabel, readinessColor } from '../components/Badge';
+import SubscriptionsSection from './SubscriptionsSection';
 import {
   computeBCA, interpret,
   gradeBF, gradeFFMI, gradeSMM, gradeSMI, gradeRelASM, gradeMBR, gradeAppendicular, gradeAxial,
 } from '../utils/bodyComposition';
 
-const SECTIONS = ['Overview', 'Athletes', 'Sessions', 'Analytics', 'Workload Monitor', 'Create Athlete'];
+const SECTIONS = ['Overview', 'Athletes', 'Sessions', 'Analytics', 'Workload Monitor', 'Subscriptions', 'Create Athlete'];
 
 export default function AdminPage() {
   const [section, setSection]         = useState('Overview');
@@ -384,6 +385,8 @@ export default function AdminPage() {
           )}
 
           {/* ── Create Athlete ── */}
+          {section === 'Subscriptions' && <SubscriptionsSection athletes={athletes} />}
+
           {section === 'Create Athlete' && (
             <div className="max-w-md">
               <div className="bg-surface border border-bdr rounded-xl p-6 space-y-4">

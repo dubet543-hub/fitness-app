@@ -7,6 +7,8 @@ import '../screens/profile_tab.dart';
 import '../screens/wellness_log_screen.dart';
 import '../screens/body_composition_screen.dart';
 import '../training_load_screen.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 class MainShell extends StatefulWidget {
   final String  name;
@@ -34,9 +36,10 @@ class _MainShellState extends State<MainShell> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _LogMenuSheet(
-        onSelect: (screen) {
+        onSelect: (feature, builder) {
           Navigator.pop(sheetContext);
-          Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+          // Locked features show the upgrade sheet instead of the log screen.
+          FeatureGate.push(context, feature, builder);
         },
       ),
     );
@@ -261,7 +264,7 @@ class _MagicTab extends StatelessWidget {
 // which kind of entry to log.
 
 class _LogMenuSheet extends StatelessWidget {
-  final ValueChanged<Widget> onSelect;
+  final void Function(String feature, Widget Function() builder) onSelect;
   const _LogMenuSheet({required this.onSelect});
 
   @override
@@ -307,19 +310,19 @@ class _LogMenuSheet extends StatelessWidget {
               icon: Icons.fitness_center_rounded,
               title: 'Training Load Log',
               subtitle: 'Sessions, RPE & skill workload',
-              onTap: () => onSelect(const TrainingLoadScreen()),
+              onTap: () => onSelect(FeatureKeys.loadModulation, () => const TrainingLoadScreen()),
             ),
             _LogMenuItem(
               icon: Icons.favorite_rounded,
               title: 'Wellness Log',
               subtitle: 'Sleep, soreness, fatigue & mood',
-              onTap: () => onSelect(const WellnessLogScreen()),
+              onTap: () => onSelect(FeatureKeys.recovery, () => const WellnessLogScreen()),
             ),
             _LogMenuItem(
               icon: Icons.monitor_weight_rounded,
               title: 'Body Composition',
               subtitle: 'Weight, skinfolds & measurements',
-              onTap: () => onSelect(const BodyCompositionScreen()),
+              onTap: () => onSelect(FeatureKeys.bodyComposition, () => const BodyCompositionScreen()),
             ),
           ],
         ),

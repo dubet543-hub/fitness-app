@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../api_service.dart';
 import '../services/dashboard_metrics.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
@@ -84,7 +86,10 @@ class _WMState extends State<WorkloadMonitorScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.workloadMonitoring, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(

@@ -3,6 +3,7 @@ import '../api_service.dart';
 import '../core/theme.dart';
 import '../navigation/main_shell.dart';
 import '../services/dashboard_metrics.dart';
+import '../services/entitlements.dart';
 import '../services/local_log_store.dart';
 import '../services/social_auth.dart';
 import '../widgets/common_widgets.dart';
@@ -39,6 +40,7 @@ class _AuthScreenState extends State<AuthScreen> {
       // Validate token with the backend; fall back to login if expired/invalid.
       user = await ApiService.verifyToken();
       if (user == null) await ApiService.clearSession();
+      if (user != null) EntitlementsService.load(refresh: true).ignore();
     }
     final accepted = await LocalLogStore.hasAcceptedLegal(kLegalVersion);
     if (mounted) {
@@ -53,6 +55,8 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithEmail(String email, String password) async {
     final result = await ApiService.login(email: email, password: password);
     AthleteMetricsService.invalidate(); // drop any prior user's cached metrics
+    await EntitlementsService.invalidate();
+    EntitlementsService.load(refresh: true).ignore(); // prime plan gates
     if (mounted) setState(() { _user = result.user; _needsLegal = false; });
   }
 
@@ -62,6 +66,8 @@ class _AuthScreenState extends State<AuthScreen> {
     final result = await SocialAuth.signIn(provider);
     if (result == null) return false;
     AthleteMetricsService.invalidate();
+    await EntitlementsService.invalidate();
+    EntitlementsService.load(refresh: true).ignore();
     if (mounted) setState(() { _user = result.user; _needsLegal = false; });
     return true;
   }
@@ -70,6 +76,8 @@ class _AuthScreenState extends State<AuthScreen> {
     final result = await ApiService.register(
       name: name, email: email, password: password, sport: sport);
     AthleteMetricsService.invalidate();
+    await EntitlementsService.invalidate();
+    EntitlementsService.load(refresh: true).ignore();
     if (mounted) {
       setState(() { _user = result.user; _needsLegal = false; _showRegister = false; });
     }
@@ -79,6 +87,7 @@ class _AuthScreenState extends State<AuthScreen> {
     await ApiService.clearSession();
     await SocialAuth.signOut(); // so the next Google sign-in re-shows the picker
     AthleteMetricsService.invalidate();
+    await EntitlementsService.invalidate();
     if (mounted) setState(() { _user = null; _needsLegal = false; });
   }
 

@@ -35,6 +35,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/body-composition', require('./routes/bodyComposition'));
+app.use('/api/subscription', require('./routes/subscription'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Public legal pages (hosted URLs for the app stores) — before the SPA catch-all
@@ -56,6 +57,7 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(async () => {
     console.log('✓ MongoDB connected');
     await seedAdmin();
+    await require('./utils/entitlements').seedBilling();
 
     const server = app.listen(PORT, '::', () => console.log(`✓ Server running → port ${PORT} (dual-stack IPv4 + IPv6, reachable on your LAN)`));
 

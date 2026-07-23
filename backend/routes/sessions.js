@@ -1,8 +1,12 @@
 const router          = require('express').Router();
 const TrainingSession = require('../models/TrainingSession');
 const { authenticate } = require('../middleware/auth');
+const { requireFeature } = require('../middleware/entitlements');
 
 router.use(authenticate);
+// Sessions carry the workload, recovery, and load-modulation data — all part
+// of the base plan, so holding any one of those features unlocks the API.
+router.use(requireFeature('workload_monitoring', 'recovery', 'load_modulation'));
 
 // POST /api/sessions  — log a new session
 router.post('/', async (req, res) => {

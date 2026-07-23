@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/screens/sleep_monitor_screen.dart';
+import 'package:fitness_app/services/entitlements.dart';
 
 // Smoke tests over the sleep log screen: the summary card must report the sheet
 // figures, and editing a clock must move them.
@@ -8,6 +9,8 @@ import 'package:fitness_app/screens/sleep_monitor_screen.dart';
 // The form is a lazy ListView, so the default 800x600 test viewport never
 // builds the questions below the fold. A tall surface renders the whole form.
 Future<void> pumpScreen(WidgetTester t) async {
+  // The screen sits behind a subscription FeatureGuard; unlock it for tests.
+  EntitlementsService.debugOverride = EntitlementsService.allFeaturesForTesting();
   t.view.physicalSize = const Size(1000, 3000);
   t.view.devicePixelRatio = 1.0;
   addTearDown(t.view.resetPhysicalSize);

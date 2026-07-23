@@ -107,6 +107,11 @@ class ApiService {
   // Bulk history fetches (e.g. "All time" export) can legitimately take
   // longer than the standard timeout, especially on a cold-started backend.
   static const _bulkRequestTimeout = Duration(seconds: 60);
+  // Sign-in is usually the first request of the session, so it is the one that
+  // pays for waking a backend that has spun down after being idle — on a free
+  // Render instance that alone can take ~50s. Failing at 15s would reject a
+  // perfectly good sign-in as "could not reach the server".
+  static const _authTimeout = Duration(seconds: 75);
 
   /// Bounds every network call so a dead/unreachable backend fails fast with
   /// a clear message instead of hanging on the OS-level TCP timeout (which
@@ -117,6 +122,21 @@ class ApiService {
       onTimeout: () => throw Exception(
           'Could not reach the server. Check your connection and try again.'),
     );
+  }
+
+  // ── Subscription ───────────────────────────────────────────────────────
+
+  /// GET /api/subscription/me — the athlete's effective entitlements plus the
+  /// live plan catalogue (names, prices, features) for the subscription page.
+  static Future<Map<String, dynamic>> fetchSubscription() async {
+    final res = await _send(http.get(
+      Uri.parse('$_baseUrl/subscription/me'),
+      headers: await _authHeaders(),
+    ));
+    if (res.statusCode != 200) {
+      throw Exception(_body(res)['error'] ?? 'Could not load subscription');
+    }
+    return _body(res);
   }
 
   // ── Token storage ──────────────────────────────────────────────────────
@@ -172,9 +192,14 @@ class ApiService {
     } on FormatException {
       // fall through to the message below
     }
+    // A 200 whose body is HTML is the backend's SPA catch-all answering for an
+    // API route it doesn't have — i.e. the server predates this endpoint.
+    final looksLikeHtml = r.body.trimLeft().startsWith('<');
     throw Exception(switch (r.statusCode) {
       404 => 'This feature is not available on the server yet (404). '
           'The backend may need updating.',
+      200 when looksLikeHtml =>
+        'This feature is not available on the server yet. The backend may need updating.',
       502 || 503 || 504 => 'The server is unavailable right now. Please try again.',
       _ => 'Unexpected response from the server (${r.statusCode}).',
     });
@@ -206,7 +231,7 @@ class ApiService {
       Uri.parse('$_baseUrl/auth/$provider'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(body),
-    ));
+    ), timeout: _authTimeout);
     if (res.statusCode != 200) {
       throw Exception(_body(res)['error'] ?? 'Sign-in failed');
     }
@@ -234,7 +259,7 @@ class ApiService {
         'password': password,
         if (sport != null && sport.isNotEmpty) 'sport': sport,
       }),
-    ));
+    ), timeout: _authTimeout);
     if (res.statusCode != 201)
       throw Exception(_body(res)['error'] ?? 'Sign up failed');
     final data = _body(res);
@@ -254,7 +279,7 @@ class ApiService {
       Uri.parse('$_baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
-    ));
+    ), timeout: _authTimeout);
     if (!res.statusCode.toString().startsWith('2'))
       throw Exception(_body(res)['error'] ?? 'Login failed');
     final data = _body(res);
@@ -397,7 +422,7 @@ class ApiService {
       final res = await _send(http.get(
         Uri.parse('$_baseUrl/auth/me'),
         headers: await _authHeaders(),
-      ));
+      ), timeout: _authTimeout);
       if (res.statusCode == 200) {
         return ApiUser.fromJson(_body(res));
       }

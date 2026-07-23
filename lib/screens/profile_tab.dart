@@ -7,6 +7,7 @@ import 'privacy_security_page.dart';
 import 'units_language_page.dart';
 import 'support_pages.dart';
 import 'legal_pages.dart';
+import 'subscription_page.dart';
 
 class ProfileTab extends StatefulWidget {
   final String name;
@@ -204,6 +205,7 @@ class _ProfileTabState extends State<ProfileTab> {
             const SizedBox(height: 8),
             _MenuGroup(items: [
               _MenuItem(icon: Icons.person_outline_rounded, iconColor: kSky, label: 'Personal info',      onTap: _goPersonal),
+              _MenuItem(icon: Icons.workspace_premium_outlined, iconColor: kAccent, label: 'Subscription',       onTap: () => _go((_) => const SubscriptionPage())),
               _MenuItem(icon: Icons.notifications_outlined,  iconColor: kWarn, label: 'Notifications',      onTap: () => _go((_) => const NotificationsPage())),
               _MenuItem(icon: Icons.lock_outline_rounded,    iconColor: kViolet, label: 'Privacy & security', onTap: () => _go((_) => PrivacySecurityPage(onLoggedOut: widget.onLogout))),
             ]),

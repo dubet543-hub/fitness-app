@@ -10,6 +10,8 @@ import 'player_stats_screen.dart';
 // Navigation target only — LoadTarget/CombinedLoadTarget come from the
 // dashboard_metrics service.
 import 'workload_monitor_screen.dart' show WorkloadMonitorScreen;
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 class HomeTab extends StatefulWidget {
   final String  name;
@@ -216,8 +218,9 @@ class _HomeTabState extends State<HomeTab> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                       child: _LoadTargetCard(
                         target: metrics.loadTargets(),
-                        onTap: () => Navigator.push(
-                            context, _route(const WorkloadMonitorScreen())),
+                        onTap: () => FeatureGate.push(context,
+                            FeatureKeys.workloadMonitoring,
+                            () => const WorkloadMonitorScreen()),
                       ),
                     ),
                 ],

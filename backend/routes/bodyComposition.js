@@ -1,8 +1,10 @@
 const router          = require('express').Router();
 const BodyComposition = require('../models/BodyComposition');
 const { authenticate } = require('../middleware/auth');
+const { requireFeature } = require('../middleware/entitlements');
 
 router.use(authenticate);
+router.use(requireFeature('body_composition'));
 
 // POST /api/body-composition  — athlete syncs a computed estimate
 router.post('/', async (req, res) => {

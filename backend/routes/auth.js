@@ -3,6 +3,7 @@ const jwt    = require('jsonwebtoken');
 const User   = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { verifyIdentityToken, SocialAuthConfigError } = require('../utils/socialAuth');
+const { startTrial } = require('../utils/entitlements');
 
 const sign = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -30,6 +31,7 @@ router.post('/register', async (req, res) => {
       sport: sport ? String(sport).trim() : undefined,
       role: 'athlete',
     });
+    await startTrial(user._id); // every new user gets the free month
 
     res.status(201).json({
       token: sign(user._id),
@@ -71,15 +73,24 @@ router.post('/login', async (req, res) => {
 // self-signup at /register.
 
 /// Links a verified provider identity to a user, creating one if this is their
-/// first sign-in. Matched on the provider subject first, then on a verified
-/// email so an athlete who registered with a password can also use the button.
+/// first sign-in.
+///
+/// Matched *only* on the provider subject — never on the email. Registration is
+/// public and addresses are never verified, so adopting an existing account
+/// because the addresses happen to match would let anyone take over an account
+/// by registering under someone else's address first (or vice versa). An email
+/// already in use therefore fails rather than silently merging.
 async function upsertFederatedUser({ provider, subject, email, name, photoUrl }) {
   const idField = provider === 'apple' ? 'appleId' : 'googleId';
 
   let user = await User.findOne({ [idField]: subject });
-  if (!user && email) user = await User.findOne({ email: email.toLowerCase() });
 
   if (!user) {
+    if (email && await User.exists({ email: email.toLowerCase() })) {
+      const err = new Error('EMAIL_IN_USE');
+      err.emailInUse = true;
+      throw err;
+    }
     // Apple only returns the display name on the very first authorisation, and
     // omits it entirely for Hide My Email users who edited it away.
     user = new User({
@@ -88,11 +99,12 @@ async function upsertFederatedUser({ provider, subject, email, name, photoUrl })
       [idField]: subject,
       photoUrl,
     });
-  } else {
-    if (!user[idField]) user[idField] = subject;
-    if (!user.photoUrl && photoUrl) user.photoUrl = photoUrl;
+  } else if (!user.photoUrl && photoUrl) {
+    user.photoUrl = photoUrl;
   }
+  const isNew = user.isNew;
   await user.save();
+  if (isNew) await startTrial(user._id); // first social sign-in gets the free month too
   return user;
 }
 
@@ -136,8 +148,15 @@ function federatedRoute(provider) {
         console.warn(`[auth] rejected ${provider} sign-in: ${err.message}`);
         return res.status(401).json({ error: 'Sign-in could not be verified. Please try again.' });
       }
-      if (err.code === 11000)
-        return res.status(409).json({ error: 'This email is already linked to another account.' });
+      // Deliberately not merged into the existing account — see
+      // upsertFederatedUser. The user signs in with their password instead.
+      if (err.emailInUse || err.code === 11000) {
+        const label = provider === 'apple' ? 'Apple' : 'Google';
+        return res.status(409).json({
+          error: `An account already exists with this email address. `
+               + `Sign in with your email and password, or use a different ${label} account.`,
+        });
+      }
       res.status(500).json({ error: err.message });
     }
   };

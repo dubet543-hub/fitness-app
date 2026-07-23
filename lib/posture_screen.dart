@@ -10,6 +10,8 @@ import 'package:image/image.dart' as imglib;
 import 'services/local_log_store.dart';
 import 'core/theme.dart';
 import 'widgets/common_widgets.dart';
+import 'services/entitlements.dart';
+import 'widgets/feature_gate.dart';
 
 enum PostureMode { frontal, sagittal }
 
@@ -111,7 +113,10 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FeatureGuard(
+      feature: FeatureKeys.posture, child: _gatedBody(context));
+
+  Widget _gatedBody(BuildContext context) {
     final instructions = _mode == PostureMode.frontal
         ? _frontalInstructions
         : _sagittalInstructions;

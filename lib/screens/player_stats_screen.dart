@@ -5,6 +5,8 @@ import '../api_service.dart';
 import '../services/dashboard_metrics.dart';
 import '../services/sleep_metrics.dart';
 import 'workload_monitor_screen.dart';
+import '../services/entitlements.dart';
+import '../widgets/feature_gate.dart';
 
 // ── Data Models & series ────────────────────────────────────────────────────────
 // The workload / recovery models live in dashboard_metrics.dart (single source
@@ -181,8 +183,8 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final zColor = _acwrColor(last.acwr);
     final zLabel = _acwrZone(last.acwr);
     return GestureDetector(
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const WorkloadMonitorScreen())),
+      onTap: () => FeatureGate.push(context, FeatureKeys.workloadMonitoring,
+          () => const WorkloadMonitorScreen()),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
