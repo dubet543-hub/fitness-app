@@ -81,6 +81,27 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         'description': '${order['planName']} — annual plan',
         if (user != null) 'prefill': {'email': user.email},
         'theme': {'color': '#00CF74'},
+        // UPI first, with the intent flow (tap-through to GPay/PhonePe/Paytm)
+        // ahead of collect/QR; the default blocks keep cards, netbanking, and
+        // wallets available below it.
+        'method': {'upi': true},
+        'config': {
+          'display': {
+            'blocks': {
+              'upi': {
+                'name': 'Pay using UPI',
+                'instruments': [
+                  {
+                    'method': 'upi',
+                    'flows': ['intent', 'collect', 'qr'],
+                  },
+                ],
+              },
+            },
+            'sequence': ['block.upi'],
+            'preferences': {'show_default_blocks': true},
+          },
+        },
       });
       // _buyingPlan stays set while the checkout sheet is up; cleared in the
       // success/error callbacks below.

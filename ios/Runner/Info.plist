@@ -38,6 +38,17 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Razorpay UPI intent on iOS: canOpenURL only answers for whitelisted
+	     schemes, so without these the checkout can't detect GPay/PhonePe/Paytm
+	     /BHIM and won't offer the intent flow. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>bhim</string>
+		<string>upi</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
