@@ -370,6 +370,9 @@ class _PlanCard extends StatelessWidget {
                   ? OutlinedButton(
                       onPressed: anyBusy ? null : onBuy,
                       style: OutlinedButton.styleFrom(
+                        // The card's SizedBox sets the height; the global 18px
+                        // vertical button padding would clip the label inside it.
+                        padding: EdgeInsets.zero,
                         side: BorderSide(color: kAccent.withValues(alpha: 0.6)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
                       ),
@@ -382,6 +385,7 @@ class _PlanCard extends StatelessWidget {
                   : ElevatedButton(
                       onPressed: anyBusy ? null : onBuy,
                       style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.zero, // height comes from the SizedBox
                         disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
                       ),
                       child: busy
