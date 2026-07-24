@@ -127,6 +127,11 @@ class TrialPlanDialog {
                     Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const SubscriptionPage()));
                   },
+                  style: ElevatedButton.styleFrom(
+                    // Height comes from the SizedBox; the theme's 18px vertical
+                    // padding would clip the label inside 48px.
+                    padding: EdgeInsets.zero,
+                  ),
                   child: const Text('View plans'),
                 ),
               ),
