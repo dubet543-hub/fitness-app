@@ -12,7 +12,6 @@ import 'player_stats_screen.dart';
 import 'workload_monitor_screen.dart' show WorkloadMonitorScreen;
 import '../services/entitlements.dart';
 import '../widgets/feature_gate.dart';
-import 'subscription_page.dart';
 
 class HomeTab extends StatefulWidget {
   final String  name;
@@ -148,10 +147,6 @@ class _HomeTabState extends State<HomeTab> {
                     ),
                   ),
                 ),
-
-                // ── Trial countdown / plan promo ────────────────────────────
-                // Shown until the athlete owns a plan; disappears once active.
-                const _PlanPromoBanner(),
 
                 // ── Three-Ring Row ───────────────────────────────────────────
                 if (home == null || metrics == null)
@@ -998,148 +993,6 @@ class _LoadTargetChip extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-
-
-// ── Plan promo banner ─────────────────────────────────────────────────────────
-//
-// Trial countdown + the two plans, pinned to the top of Home until the athlete
-// has actually bought (or been comped) a plan. Reads the same cached
-// entitlements the feature gates use, so it costs no extra network call.
-
-class _PlanPromoBanner extends StatefulWidget {
-  const _PlanPromoBanner();
-
-  @override
-  State<_PlanPromoBanner> createState() => _PlanPromoBannerState();
-}
-
-class _PlanPromoBannerState extends State<_PlanPromoBanner> {
-  Entitlements? _ent;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final ent = await EntitlementsService.load();
-      if (mounted) setState(() => _ent = ent);
-    } catch (_) {
-      // No entitlements info (offline, fresh install) — show nothing rather
-      // than a wrong countdown; the gates still enforce access.
-    }
-  }
-
-  void _openPlans() {
-    Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const SubscriptionPage()))
-        .then((_) {
-      // Re-read after returning — a purchase should dismiss the banner.
-      _ent = null;
-      _load();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ent = _ent;
-    // Nothing while unknown, and nothing once a plan is active or the account
-    // is under an admin hold.
-    if (ent == null || ent.status == 'active' || ent.status == 'suspended') {
-      return const SizedBox.shrink();
-    }
-
-    final days = ent.daysRemaining;
-    final (chip, chipColor, headline) = switch (ent.status) {
-      'trial' => (
-          'FREE TRIAL', kSky,
-          days == null
-              ? 'Your free trial is active'
-              : '$days day${days == 1 ? '' : 's'} of full access left',
-        ),
-      'grace' => ('RENEWAL DUE', kWarn, 'Your plan has expired — renew to keep access'),
-      _ => ('LOCKED', kDanger, 'Subscribe to unlock your training data'),
-    };
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      child: GestureDetector(
-        onTap: _openPlans,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: kCard,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: chipColor.withValues(alpha: 0.45)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: chipColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Text(chip,
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
-                            letterSpacing: 1.1, color: chipColor)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(headline,
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                            color: kTextPrimary)),
-                  ),
-                  Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
-                ],
-              ),
-              if (ent.plans.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    for (final plan in ent.plans.take(2)) ...[
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: kCardAlt,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: kBorder),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(plan.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 11.5,
-                                      fontWeight: FontWeight.w700, color: kTextSecondary)),
-                              const SizedBox(height: 2),
-                              Text('${formatInr(plan.priceInr)}/yr',
-                                  style: TextStyle(fontSize: 13,
-                                      fontWeight: FontWeight.w800, color: kAccent)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (plan != ent.plans.take(2).last) const SizedBox(width: 8),
-                    ],
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }

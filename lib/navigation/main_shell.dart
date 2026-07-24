@@ -9,6 +9,7 @@ import '../screens/body_composition_screen.dart';
 import '../training_load_screen.dart';
 import '../services/entitlements.dart';
 import '../widgets/feature_gate.dart';
+import '../widgets/trial_plan_dialog.dart';
 
 class MainShell extends StatefulWidget {
   final String  name;
@@ -30,6 +31,21 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Trial/plan popup on app open, until the athlete owns a plan.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) TrialPlanDialog.maybeShow(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    TrialPlanDialog.resetForNextSignIn(); // sign-out → next sign-in sees it again
+    super.dispose();
+  }
 
   void _openLog() {
     showModalBottomSheet<void>(
