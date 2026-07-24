@@ -56,9 +56,13 @@ router.post('/order', async (req, res) => {
         error: 'Your subscription is suspended. Contact support before purchasing.' });
     }
 
+    // Razorpay caps receipts at 40 chars — tail of the user id + base36 time
+    // stays well under while remaining unique enough for reconciliation (the
+    // notes carry the full ids).
+    const receipt = `sub_${String(req.user._id).slice(-8)}_${Date.now().toString(36)}`;
     const { orderId, keyId, amountPaise } = await createOrder({
       amountInr: plan.priceInr,
-      receipt: `sub_${req.user._id}_${Date.now()}`,
+      receipt,
       notes: { user: String(req.user._id), plan: plan.key },
     });
     await PaymentOrder.create({

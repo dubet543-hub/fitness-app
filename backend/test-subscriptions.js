@@ -297,6 +297,11 @@ async function runMiddleware(mw, user) {
   global.fetch = async (url, opts) => {
     if (String(url).includes('api.razorpay.com')) {
       const req = JSON.parse(opts.body);
+      // Mirror Razorpay's real validation that bit us in production.
+      if (req.receipt && req.receipt.length > 40) {
+        return { ok: false, status: 400,
+          json: async () => ({ error: { description: 'receipt: the length must be no more than 40.' } }) };
+      }
       return { ok: true, json: async () => ({ id: 'order_test_1', amount: req.amount }) };
     }
     return realFetch(url, opts);
