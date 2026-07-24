@@ -295,9 +295,16 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   dynamic _sessionFromJson(Map<String, dynamic> raw) {
     final id = raw['_id']?.toString();
     final date = DateTime.tryParse(raw['date']?.toString() ?? '') ?? DateTime.now();
-    final hasWellness = [raw['sleep'], raw['wellness'], raw['soreness'], raw['fatigue']].any((v) => v != null);
-    final hasTraining = [raw['primaryTypes'], raw['primaryDuration'], raw['primaryRpe']].any((v) => v != null);
-    final hasSkill = [raw['skillTypes'], raw['skillDuration'], raw['skillRpe']].any((v) => v != null);
+    // Mongoose array paths (primaryTypes/skillTypes) come back as [] rather
+    // than null when empty, so a bare `!= null` check reports EVERY session as
+    // having skill data (skillTypes: []) and misfiles training sessions under
+    // Skill. Treat an empty list as absent, and trust the explicit hasSkill
+    // flag the skill payload sets as the authoritative signal.
+    bool present(dynamic v) => v is List ? v.isNotEmpty : v != null;
+    final hasWellness = [raw['sleep'], raw['wellness'], raw['soreness'], raw['fatigue']].any(present);
+    final hasTraining = [raw['primaryTypes'], raw['primaryDuration'], raw['primaryRpe']].any(present);
+    final hasSkill = raw['hasSkill'] == true ||
+        [raw['skillTypes'], raw['skillDuration'], raw['skillRpe']].any(present);
 
     if (hasWellness && !hasTraining && !hasSkill) {
       return WellnessLog(
