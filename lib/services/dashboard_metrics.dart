@@ -137,8 +137,12 @@ class AthleteMetrics {
         ? 0.0
         : last7.map((r) => r.readinessPct).reduce((a, b) => a + b) / last7.length;
 
-    // Today — latest daily-total exertion (matches the Today tab's Total arc).
-    final todayExertion = total.isEmpty ? 2.0 : total.last.exertion;
+    // Today — today's daily-total exertion (the series is padded through
+    // today, so `last` is today). A day with nothing logged reads 0, not the
+    // exertion formula's 2.0 floor — the floor is for real sessions, and a
+    // rest day showing "2.0" looks like phantom data.
+    final todayExertion =
+        total.isEmpty || total.last.load <= 0 ? 0.0 : total.last.exertion;
 
     // Performance — composite using the same 7-day readiness and latest ACWR.
     final latestAcwr = total.isEmpty ? 0.0 : total.last.acwr;

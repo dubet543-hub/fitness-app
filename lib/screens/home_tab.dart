@@ -833,22 +833,38 @@ class _SleepCardState extends State<_SleepCard> {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      GestureDetector(
-                        onTap: _toggleAlarm,
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          children: [
-                            Icon(Icons.circle, size: 7, color: alarmColor),
-                            const SizedBox(width: 4),
-                            Text(
+                      // A real switch: the old tappable label read as static
+                      // text, so nobody found the on/off control.
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 22,
+                            width: 38,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: Switch(
+                                value: _alarmOn,
+                                onChanged: (_) => _toggleAlarm(),
+                                activeThumbColor: kAccent,
+                                activeTrackColor: kAccent.withValues(alpha: 0.25),
+                                inactiveThumbColor: kTextMuted,
+                                inactiveTrackColor: kBorderBright,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: _toggleAlarm,
+                            behavior: HitTestBehavior.opaque,
+                            child: Text(
                               _alarmOn ? 'ALARM ON' : 'ALARM OFF',
                               style: TextStyle(
                                 fontSize: 9, color: alarmColor,
                                 letterSpacing: 0.3, fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

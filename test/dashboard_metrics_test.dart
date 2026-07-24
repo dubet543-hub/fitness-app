@@ -295,7 +295,7 @@ void main() {
       final h = AthleteMetrics.empty.homeMetrics();
       expect(h.performancePct, 0.0);
       expect(h.recoveryPct, 0.0);
-      expect(h.todayExertion, 2.0); // exertion(0) floor, same as backend
+      expect(h.todayExertion, 0.0); // nothing logged today reads 0, not the floor
       expect(h.performanceTrend, isEmpty);
     });
   });
