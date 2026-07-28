@@ -590,7 +590,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
         'load':   load,
         'ewma':   ewma,
         'acwr':   ewma == 0 ? 0.0 : acute / ewma,
-        'exertion': load <= 0 ? 0.0 : (log(load) / log(1000)) * 10,
+        'exertion': load <= 0 ? 0.0 : min(10.0, 2.087 * log(load / 50.0 + 1.0) + 2.0),
       };
     });
   }
