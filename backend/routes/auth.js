@@ -1,8 +1,12 @@
 const router = require('express').Router();
 const jwt    = require('jsonwebtoken');
-const User   = require('../models/User');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const User    = require('../models/User');
+const OtpCode = require('../models/OtpCode');
 const { authenticate } = require('../middleware/auth');
 const { verifyIdentityToken, SocialAuthConfigError } = require('../utils/socialAuth');
+const { sendOtpEmail, MailerConfigError } = require('../utils/mailer');
 const { startTrial } = require('../utils/entitlements');
 
 const sign = (id) =>
@@ -167,6 +171,91 @@ router.post('/google', federatedRoute('google'));
 
 // POST /api/auth/apple   — body: { identityToken, name? }
 router.post('/apple', federatedRoute('apple'));
+
+// ── Email OTP sign-in / sign-up ─────────────────────────────────────────────
+//
+// One flow for both: requesting a code never reveals whether the address
+// already has an account, and verifying it logs in if the account exists or
+// creates one otherwise — the same create-on-first-sign-in behaviour as the
+// federated routes above.
+
+const OTP_TTL_MS      = 10 * 60 * 1000;
+const OTP_RESEND_MS   = 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+
+// POST /api/auth/otp/request  — body: { email }
+router.post('/otp/request', async (req, res) => {
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    if (!email || !email.includes('@'))
+      return res.status(400).json({ error: 'A valid email address is required' });
+
+    const existing = await OtpCode.findOne({ email });
+    if (existing && Date.now() - existing.lastSentAt.getTime() < OTP_RESEND_MS)
+      return res.status(429).json({ error: 'Please wait a moment before requesting another code' });
+
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+    const codeHash = await bcrypt.hash(code, 10);
+
+    await OtpCode.findOneAndUpdate(
+      { email },
+      { codeHash, expiresAt: new Date(Date.now() + OTP_TTL_MS), attempts: 0, lastSentAt: new Date() },
+      { upsert: true }
+    );
+
+    await sendOtpEmail(email, code);
+    res.json({ message: 'Code sent' });
+  } catch (err) {
+    if (err instanceof MailerConfigError) {
+      console.error(`[auth] ${err.message}`);
+      return res.status(503).json({ error: 'Email sign-in is not available right now.' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/otp/verify  — body: { email, code }
+router.post('/otp/verify', async (req, res) => {
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    const code  = String(req.body.code || '').trim();
+    if (!email || !code) return res.status(400).json({ error: 'Email and code are required' });
+
+    const otp = await OtpCode.findOne({ email });
+    if (!otp || otp.expiresAt < new Date())
+      return res.status(401).json({ error: 'Code is invalid or has expired. Request a new one.' });
+
+    if (otp.attempts >= OTP_MAX_ATTEMPTS) {
+      await OtpCode.deleteOne({ _id: otp._id });
+      return res.status(401).json({ error: 'Too many incorrect attempts. Request a new code.' });
+    }
+
+    const matches = await bcrypt.compare(code, otp.codeHash);
+    if (!matches) {
+      otp.attempts += 1;
+      await otp.save();
+      return res.status(401).json({ error: 'Incorrect code' });
+    }
+
+    await OtpCode.deleteOne({ _id: otp._id });
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({ name: email.split('@')[0], email, role: 'athlete' });
+      await startTrial(user._id); // first sign-in gets the free month too
+    }
+
+    if (!user.active)
+      return res.status(403).json({ error: 'Account deactivated. Contact admin.' });
+
+    res.json({
+      token: sign(user._id),
+      user:  { id: user._id, name: user.name, email: user.email, role: user.role, photoUrl: user.photoUrl },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/auth/me  — return current user
 router.get('/me', authenticate, (req, res) => {

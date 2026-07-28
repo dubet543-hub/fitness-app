@@ -27,3 +27,14 @@ services:
         sync: false
       - key: APPLE_CLIENT_IDS
         sync: false
+      # SMTP creds for sending email OTP sign-in codes.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false

@@ -8,7 +8,13 @@ import 'legal_pages.dart';
 class RegisterScreen extends StatefulWidget {
   final Future<void> Function(String name, String email, String password, String? sport) onRegister;
   final VoidCallback onBackToLogin;
-  const RegisterScreen({super.key, required this.onRegister, required this.onBackToLogin});
+  final VoidCallback? onOtpSignIn;
+  const RegisterScreen({
+    super.key,
+    required this.onRegister,
+    required this.onBackToLogin,
+    this.onOtpSignIn,
+  });
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -197,6 +203,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
+              if (widget.onOtpSignIn != null)
+                Center(
+                  child: TextButton(
+                    onPressed: _loading ? null : widget.onOtpSignIn,
+                    child: Text('Or create an account with a one-time code',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAccent)),
+                  ),
+                ),
               const SizedBox(height: 24),
             ],
           ),

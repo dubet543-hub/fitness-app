@@ -322,6 +322,40 @@ class ApiService {
     return (user: user, token: token);
   }
 
+  /// Requests a one-time sign-in code be emailed to [email]. Works whether or
+  /// not an account already exists for that address — [verifyOtp] decides
+  /// which on success — so the response never reveals that either way.
+  static Future<void> requestOtp({required String email}) async {
+    final res = await _send(http.post(
+      Uri.parse('$_baseUrl/auth/otp/request'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    ), timeout: _authTimeout);
+    if (res.statusCode != 200)
+      throw Exception(_body(res)['error'] ?? 'Could not send the code');
+  }
+
+  /// Verifies the emailed code, logging in if the account exists or creating
+  /// one otherwise.
+  static Future<({ApiUser user, String token})> verifyOtp({
+    required String email,
+    required String code,
+  }) async {
+    final res = await _send(http.post(
+      Uri.parse('$_baseUrl/auth/otp/verify'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'code': code}),
+    ), timeout: _authTimeout);
+    if (res.statusCode != 200)
+      throw Exception(_body(res)['error'] ?? 'Could not verify the code');
+    final data = _body(res);
+    final user  = ApiUser.fromJson(data['user'] as Map<String, dynamic>);
+    final token = data['token'] as String;
+    await saveToken(token);
+    await saveUser(user);
+    return (user: user, token: token);
+  }
+
   // ── Sessions ───────────────────────────────────────────────────────────
 
   /// POST /api/sessions — log a new training session.

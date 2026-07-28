@@ -10,6 +10,7 @@ import '../widgets/common_widgets.dart';
 import 'legal_consent_gate.dart';
 import 'legal_pages.dart';
 import 'login_screen.dart';
+import 'otp_screen.dart';
 import 'register_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
   ApiUser? _user;
   bool _checking = true;
   bool _showRegister = false;
+  bool _showOtp = false;
   // Set when a restored session predates the current Terms & Privacy Policy —
   // sign-ins made through the login/register form accept there instead.
   bool _needsLegal = false;
@@ -83,6 +85,18 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _requestOtp(String email) => ApiService.requestOtp(email: email);
+
+  /// Verifies the emailed code; the backend logs in if the account exists or
+  /// creates one otherwise, so this mirrors _signInWithEmail either way.
+  Future<void> _verifyOtpAndSignIn(String email, String code) async {
+    final result = await ApiService.verifyOtp(email: email, code: code);
+    AthleteMetricsService.invalidate();
+    await EntitlementsService.invalidate();
+    EntitlementsService.load(refresh: true).ignore();
+    if (mounted) setState(() { _user = result.user; _needsLegal = false; _showOtp = false; });
+  }
+
   Future<void> _signOut() async {
     await ApiService.clearSession();
     await SocialAuth.signOut(); // so the next Google sign-in re-shows the picker
@@ -108,16 +122,25 @@ class _AuthScreenState extends State<AuthScreen> {
         onLogout: _signOut,
       );
     }
+    if (_showOtp) {
+      return OtpScreen(
+        onRequestOtp: _requestOtp,
+        onVerifyOtp: _verifyOtpAndSignIn,
+        onBack: () => setState(() => _showOtp = false),
+      );
+    }
     if (_showRegister) {
       return RegisterScreen(
         onRegister: _register,
         onBackToLogin: () => setState(() => _showRegister = false),
+        onOtpSignIn: () => setState(() { _showRegister = false; _showOtp = true; }),
       );
     }
     return LoginScreen(
       onEmailSignIn: _signInWithEmail,
       onSocialSignIn: _signInWithProvider,
       onCreateAccount: () => setState(() => _showRegister = true),
+      onOtpSignIn: () => setState(() => _showOtp = true),
     );
   }
 }

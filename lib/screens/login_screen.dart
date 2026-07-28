@@ -13,11 +13,13 @@ class LoginScreen extends StatefulWidget {
   /// produced a session — false means the user cancelled.
   final Future<bool> Function(SocialProvider provider)? onSocialSignIn;
   final VoidCallback? onCreateAccount;
+  final VoidCallback? onOtpSignIn;
   const LoginScreen({
     super.key,
     required this.onEmailSignIn,
     this.onSocialSignIn,
     this.onCreateAccount,
+    this.onOtpSignIn,
   });
 
   @override
@@ -363,6 +365,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
             ),
           ),
+
+          if (widget.onOtpSignIn != null) ...[
+            const SizedBox(height: 14),
+            Center(
+              child: TextButton(
+                onPressed: widget.onOtpSignIn,
+                child: Text('Or sign in with a one-time code',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAccent)),
+              ),
+            ),
+          ],
 
           ..._buildSocialSection(),
         ],
