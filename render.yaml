@@ -27,14 +27,9 @@ services:
         sync: false
       - key: APPLE_CLIENT_IDS
         sync: false
-      # SMTP creds for sending email OTP sign-in codes.
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
+      # Resend API for sending email OTP sign-in codes (HTTPS, not SMTP —
+      # Render blocks outbound SMTP ports).
+      - key: RESEND_API_KEY
         sync: false
       - key: MAIL_FROM
         sync: false
