@@ -12,13 +12,19 @@ const trainingSessionSchema = new mongoose.Schema({
 
   // Sleep details (always collected)
   sleepTimeToBed:   { type: String }, // "HH:MM" 24h format
+  sleepFellAsleep:  { type: String }, // "HH:MM" 24h format
   sleepWakeUpTime:  { type: String }, // "HH:MM" 24h format
+  sleepOutOfBedTime: { type: String }, // "HH:MM" 24h format
   sleepDisturbances:       { type: Boolean, default: false },
   sleepDisturbanceDetails: { type: String },
+  sleepDisturbanceMinutes: { type: Number },
   sleepRoomTemp:    { type: String },
   sleepRoomNoise:   { type: String },
   sleepRoomLight:   { type: String },
   sleepDuration:    { type: Number }, // hours, computed from bed/wake times
+  sleepTimeInBedMinutes: { type: Number }, // out-of-bed minus time-to-bed
+  sleepMinutes:     { type: Number },       // wake minus fell-asleep, less disturbance minutes
+  sleepEfficiency:  { type: Number },        // sleepMinutes / sleepTimeInBedMinutes, 0-100
 
   // Mood questions (collected when wellness >= 3 OR fatigue >= 3)
   // motivation: very_low | low | moderate | high | very_high
@@ -96,8 +102,54 @@ function parseSleepDuration(bedTime, wakeTime) {
   return Math.round((diffMins / 60) * 100) / 100;
 }
 
+// "HH:MM" -> minutes from midnight, or null if unparsable.
+function toMinutes(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+// Wraps a minute difference into [0, 1440) — same MOD(x, 1) the sheet uses,
+// mirrored from lib/services/sleep_metrics.dart so client and server agree.
+function wrapMinutes(diff) {
+  return ((diff % 1440) + 1440) % 1440;
+}
+
+// Mirrors SleepNight in lib/services/sleep_metrics.dart: sleep time, time in
+// bed and efficiency all derive from the same four clocks so this stays the
+// authoritative calculation regardless of what (if anything) the client sent.
+function computeSleepMetrics(doc) {
+  const timeToBed = toMinutes(doc.sleepTimeToBed);
+  const wokeUp    = toMinutes(doc.sleepWakeUpTime);
+  if (timeToBed === null || wokeUp === null) return {};
+
+  // Fall back to the bed/wake clocks when the finer-grained ones are absent,
+  // same as nightFromLog's fallback on the client.
+  const fellAsleep = toMinutes(doc.sleepFellAsleep) ?? timeToBed;
+  const outOfBed   = toMinutes(doc.sleepOutOfBedTime) ?? wokeUp;
+  const awakeMinutes = doc.sleepDisturbances ? (doc.sleepDisturbanceMinutes || 0) : 0;
+
+  const sleepMinutes = Math.max(0, Math.min(1440,
+    wrapMinutes(wokeUp - fellAsleep) - awakeMinutes));
+  const timeInBedMinutes = wrapMinutes(outOfBed - timeToBed);
+  const efficiency = timeInBedMinutes > 0
+    ? Math.round((sleepMinutes / timeInBedMinutes) * 100 * 100) / 100
+    : 0;
+
+  return { sleepMinutes, timeInBedMinutes, efficiency };
+}
+
 trainingSessionSchema.pre('save', function (next) {
   this.sleepDuration = parseSleepDuration(this.sleepTimeToBed, this.sleepWakeUpTime);
+
+  const { sleepMinutes, timeInBedMinutes, efficiency } = computeSleepMetrics(this);
+  if (sleepMinutes !== undefined) {
+    this.sleepMinutes          = sleepMinutes;
+    this.sleepTimeInBedMinutes = timeInBedMinutes;
+    this.sleepEfficiency       = efficiency;
+  }
+
   this.primaryLoad   = (this.primaryRpe || 0) * (this.primaryDuration || 0);
   this.secondaryLoad = this.hasSecondary
     ? (this.secondaryRpe || 0) * (this.secondaryDuration || 0)
