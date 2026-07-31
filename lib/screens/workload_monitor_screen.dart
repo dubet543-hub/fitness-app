@@ -746,10 +746,10 @@ class _AcwrGauge extends StatelessWidget {
       const SizedBox(height: 10),
       // Zone labels — same flex proportions as gauge bar
       Row(children: [
-        Expanded(flex: 40, child: _ZL('Under\nTraining', kInfo)),
-        Expanded(flex: 25, child: _ZL('Sweet\nSpot ✓', kSuccess)),
-        Expanded(flex: 10, child: _ZL('Caution', kWarn)),
-        Expanded(flex: 25, child: _ZL('Danger\nZone', kDanger)),
+        Expanded(flex: 40, child: _ZL('Under\nTraining${acwr > 0 && acwr < 0.8 ? ' ✓' : ''}', kInfo)),
+        Expanded(flex: 25, child: _ZL('Sweet\nSpot${acwr >= 0.8 && acwr <= 1.3 ? ' ✓' : ''}', kSuccess)),
+        Expanded(flex: 10, child: _ZL('Caution${acwr > 1.3 && acwr <= 1.5 ? ' ✓' : ''}', kWarn)),
+        Expanded(flex: 25, child: _ZL('Danger\nZone${acwr > 1.5 ? ' ✓' : ''}', kDanger)),
       ]),
     ]);
   }
