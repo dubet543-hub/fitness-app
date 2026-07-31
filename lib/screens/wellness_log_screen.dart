@@ -4,7 +4,11 @@ import '../core/theme.dart';
 import '../services/dashboard_metrics.dart';
 import '../services/local_log_store.dart';
 import '../services/entitlements.dart';
+import '../services/sleep_metrics.dart';
 import '../widgets/feature_gate.dart';
+
+/// Which clock a sleep-detail time picker is editing.
+enum _SleepClock { bed, asleep, wake, outOfBed }
 
 class WellnessLogScreen extends StatefulWidget {
   const WellnessLogScreen({super.key});
@@ -21,10 +25,13 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
   int _fatigue      = 3;
 
   // ── Sleep details ─────────────────────────────────────────────────────────
-  TimeOfDay _timeToBed   = const TimeOfDay(hour: 22, minute: 0);
-  TimeOfDay _wakeUpTime  = const TimeOfDay(hour: 6,  minute: 0);
+  TimeOfDay _timeToBed    = const TimeOfDay(hour: 22, minute: 0);
+  TimeOfDay _sleepTime    = const TimeOfDay(hour: 22, minute: 20);
+  TimeOfDay _wakeUpTime   = const TimeOfDay(hour: 6,  minute: 0);
+  TimeOfDay _outOfBedTime = const TimeOfDay(hour: 6,  minute: 10);
   bool      _disturbances = false;
-  final _disturbanceCtrl  = TextEditingController();
+  final _disturbanceCtrl        = TextEditingController();
+  final _disturbanceMinutesCtrl = TextEditingController();
   final _roomTempCtrl     = TextEditingController();
   final _roomNoiseCtrl    = TextEditingController();
   final _roomLightCtrl    = TextEditingController();
@@ -56,21 +63,33 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
 
   bool get _showExtended => _wellness >= 3 || _fatigue >= 3;
 
-  double get _sleepDuration {
-    final bedMins  = _timeToBed.hour  * 60 + _timeToBed.minute;
-    final wakeMins = _wakeUpTime.hour * 60 + _wakeUpTime.minute;
-    double diff = (wakeMins - bedMins).toDouble();
-    if (diff < 0) diff += 24 * 60;
-    return (diff / 60 * 100).roundToDouble() / 100;
-  }
+  int _mins(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  /// Tonight's sleep expressed via the shared sheet formulae, so the log
+  /// screen's duration/time-in-bed/efficiency figures stay identical to the
+  /// Sleep Monitor's and to whatever the dashboard recomputes them into.
+  SleepNight get _night => SleepNight(
+        d: 'today',
+        timeToBed:    _mins(_timeToBed),
+        fellAsleep:   _mins(_sleepTime),
+        wokeUp:       _mins(_wakeUpTime),
+        outOfBed:     _mins(_outOfBedTime),
+        awakeMinutes: _disturbances ? (int.tryParse(_disturbanceMinutesCtrl.text) ?? 0) : 0,
+      );
 
   String _fmt(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-  Future<void> _pickTime(bool isBed) async {
+  Future<void> _pickTime(_SleepClock which) async {
+    final current = switch (which) {
+      _SleepClock.bed      => _timeToBed,
+      _SleepClock.asleep   => _sleepTime,
+      _SleepClock.wake     => _wakeUpTime,
+      _SleepClock.outOfBed => _outOfBedTime,
+    };
     final picked = await showTimePicker(
       context: context,
-      initialTime: isBed ? _timeToBed : _wakeUpTime,
+      initialTime: current,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: ColorScheme.dark(
@@ -83,7 +102,14 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
       ),
     );
     if (picked == null) return;
-    setState(() => isBed ? _timeToBed = picked : _wakeUpTime = picked);
+    setState(() {
+      switch (which) {
+        case _SleepClock.bed:      _timeToBed = picked;
+        case _SleepClock.asleep:   _sleepTime = picked;
+        case _SleepClock.wake:     _wakeUpTime = picked;
+        case _SleepClock.outOfBed: _outOfBedTime = picked;
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -101,11 +127,18 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
         'wellness': _wellness,
         'soreness': _soreness,
         'fatigue':  _fatigue,
-        'sleepTimeToBed':  _fmt(_timeToBed),
-        'sleepWakeUpTime': _fmt(_wakeUpTime),
+        'sleepTimeToBed':   _fmt(_timeToBed),
+        'sleepFellAsleep':  _fmt(_sleepTime),
+        'sleepWakeUpTime':  _fmt(_wakeUpTime),
+        'sleepOutOfBedTime': _fmt(_outOfBedTime),
+        'sleepTimeInBedMinutes': _night.timeInBedMinutes,
+        'sleepMinutes':          _night.sleepMinutes,
+        'sleepEfficiency':       (_night.efficiency * 100).roundToDouble() / 100,
         'sleepDisturbances': _disturbances,
         if (_disturbances && _disturbanceCtrl.text.isNotEmpty)
           'sleepDisturbanceDetails': _disturbanceCtrl.text.trim(),
+        if (_disturbances && _disturbanceMinutesCtrl.text.isNotEmpty)
+          'sleepDisturbanceMinutes': int.tryParse(_disturbanceMinutesCtrl.text) ?? 0,
         if (_roomTempCtrl.text.isNotEmpty)   'sleepRoomTemp':  _roomTempCtrl.text.trim(),
         if (_roomNoiseCtrl.text.isNotEmpty)  'sleepRoomNoise': _roomNoiseCtrl.text.trim(),
         if (_roomLightCtrl.text.isNotEmpty)  'sleepRoomLight': _roomLightCtrl.text.trim(),
@@ -139,6 +172,7 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
   @override
   void dispose() {
     _disturbanceCtrl.dispose();
+    _disturbanceMinutesCtrl.dispose();
     _roomTempCtrl.dispose();
     _roomNoiseCtrl.dispose();
     _roomLightCtrl.dispose();
@@ -179,19 +213,36 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
           _SectionHeader(title: 'Sleep Details'),
           const SizedBox(height: 12),
 
-          // Time to bed / Wake-up
+          // Time to bed / Fell asleep
           Row(
             children: [
               Expanded(child: _TimePickerTile(
                 label: 'Time to Bed',
                 value: _fmt(_timeToBed),
-                onTap: () => _pickTime(true),
+                onTap: () => _pickTime(_SleepClock.bed),
               )),
               const SizedBox(width: 12),
               Expanded(child: _TimePickerTile(
+                label: 'Fell Asleep',
+                value: _fmt(_sleepTime),
+                onTap: () => _pickTime(_SleepClock.asleep),
+              )),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Wake-up / Out of bed
+          Row(
+            children: [
+              Expanded(child: _TimePickerTile(
                 label: 'Wake-up Time',
                 value: _fmt(_wakeUpTime),
-                onTap: () => _pickTime(false),
+                onTap: () => _pickTime(_SleepClock.wake),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: _TimePickerTile(
+                label: 'Out of Bed',
+                value: _fmt(_outOfBedTime),
+                onTap: () => _pickTime(_SleepClock.outOfBed),
               )),
             ],
           ),
@@ -201,14 +252,40 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
             decoration: BoxDecoration(
               color: kCard, borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorder),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Icon(Icons.bedtime_outlined, size: 16, color: kTextSecondary),
-                const SizedBox(width: 8),
-                Text('Sleep Duration', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                const Spacer(),
-                Text('${_sleepDuration.toStringAsFixed(2)} hrs',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                Row(
+                  children: [
+                    Icon(Icons.bedtime_outlined, size: 16, color: kTextSecondary),
+                    const SizedBox(width: 8),
+                    Text('Sleep Time', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                    const Spacer(),
+                    Text(formatHhMm(_night.sleepMinutes),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.king_bed_outlined, size: 16, color: kTextSecondary),
+                    const SizedBox(width: 8),
+                    Text('Time in Bed', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                    const Spacer(),
+                    Text(formatHhMm(_night.timeInBedMinutes),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.insights_rounded, size: 16, color: kTextSecondary),
+                    const SizedBox(width: 8),
+                    Text('Sleep Efficiency', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                    const Spacer(),
+                    Text('${(_night.efficiency * 100).toStringAsFixed(0)}%',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kAccent)),
+                  ],
+                ),
               ],
             ),
           ),
@@ -223,6 +300,14 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
           if (_disturbances) ...[
             const SizedBox(height: 8),
             _InputField(controller: _disturbanceCtrl, hint: 'Describe disturbance (e.g. Cramps, Noisy)'),
+            const SizedBox(height: 8),
+            _InputField(
+              controller: _disturbanceMinutesCtrl,
+              hint: 'Minutes awake during disturbance (e.g. 15)',
+              label: 'Time Awake During Disturbance',
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
+            ),
           ],
           const SizedBox(height: 12),
 
@@ -597,7 +682,12 @@ class _InputField extends StatelessWidget {
   final String  hint;
   final String? label;
   final int     maxLines;
-  const _InputField({required this.controller, required this.hint, this.label, this.maxLines = 1});
+  final TextInputType? keyboardType;
+  final ValueChanged<String>? onChanged;
+  const _InputField({
+    required this.controller, required this.hint, this.label, this.maxLines = 1,
+    this.keyboardType, this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) => Column(
@@ -610,6 +700,8 @@ class _InputField extends StatelessWidget {
       TextField(
         controller: controller,
         maxLines: maxLines,
+        keyboardType: keyboardType,
+        onChanged: onChanged,
         style: TextStyle(color: kTextPrimary, fontSize: 13),
         decoration: InputDecoration(
           hintText: hint,
