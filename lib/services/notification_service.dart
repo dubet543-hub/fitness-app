@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -19,6 +20,7 @@ class NotificationService {
   static const int _morningId = 101;
   static const int _eveningId = 102;
   static const int _wakeAlarmId = 103;
+  static const int _sessionId = 104;
 
   static Future<void> init() async {
     tz.initializeTimeZones();
@@ -43,9 +45,31 @@ class NotificationService {
     await scheduleAll();
   }
 
+  /// Re-arms all reminders from their last saved settings. Needed on every
+  /// app start (not just when a toggle is touched) because Android/OEM
+  /// battery managers can force-stop the app, which silently wipes every
+  /// AlarmManager entry the app had registered.
   static Future<void> scheduleAll() async {
-    await scheduleMorning();
-    await scheduleEvening();
+    final prefs = await SharedPreferences.getInstance();
+    final sound = prefs.getBool(soundPrefKey) ?? true;
+    await scheduleMorning(
+      enabled: prefs.getBool('notif_morning') ?? true,
+      sound: sound,
+    );
+    await scheduleEvening(
+      enabled: prefs.getBool('notif_evening') ?? true,
+      sound: sound,
+    );
+    await scheduleWakeAlarm(
+      enabled: prefs.getBool('wake_alarm_on') ?? true,
+      hour: prefs.getInt('wake_alarm_hour') ?? 8,
+      minute: prefs.getInt('wake_alarm_minute') ?? 30,
+      sound: sound,
+    );
+    await scheduleSessionReminder(
+      enabled: prefs.getBool('notif_session') ?? true,
+      sound: sound,
+    );
   }
 
   static Future<void> scheduleMorning({bool enabled = true, bool sound = true}) async {
@@ -108,6 +132,36 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.time,
     );
   }
+
+  /// Daily reminder to log a training/skill session, enabled by default so
+  /// it works out of the box without the user having to visit settings.
+  static Future<void> scheduleSessionReminder({bool enabled = true, bool sound = true}) async {
+    if (!enabled) {
+      await _plugin.cancel(_sessionId);
+      return;
+    }
+    await _plugin.zonedSchedule(
+      _sessionId,
+      'Session Reminder',
+      "Don't forget to log today's training session.",
+      _nextInstanceOf(18, 0),
+      _details(sound: sound),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  /// Fires an immediate notification through the same channel as the
+  /// wellness reminders, so a user can confirm delivery actually works on
+  /// their device without waiting for the next scheduled time.
+  static Future<void> showTestNotification({bool sound = true}) => _plugin.show(
+        999,
+        'Test Notification',
+        "If you can see this, notifications are working on your device.",
+        _details(sound: sound),
+      );
 
   static NotificationDetails _details({bool sound = true}) => NotificationDetails(
         android: AndroidNotificationDetails(

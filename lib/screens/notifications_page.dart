@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme.dart';
 import '../services/notification_service.dart';
@@ -18,11 +20,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool weeklySummary    = false;
   bool pushNotifications = true;
   bool emailDigest      = false;
+  bool _batteryUnrestricted = false;
+  bool _checkingBattery     = true;
 
   @override
   void initState() {
     super.initState();
     _loadPrefs();
+    _checkBatteryStatus();
   }
 
   Future<void> _loadPrefs() async {
@@ -31,7 +36,35 @@ class _NotificationsPageState extends State<NotificationsPage> {
       _morningReminder = prefs.getBool('notif_morning') ?? true;
       _eveningReminder = prefs.getBool('notif_evening') ?? true;
       _alarmSound      = prefs.getBool(NotificationService.soundPrefKey) ?? true;
+      sessionReminders = prefs.getBool('notif_session') ?? true;
     });
+  }
+
+  Future<void> _checkBatteryStatus() async {
+    if (!Platform.isAndroid) {
+      setState(() => _checkingBattery = false);
+      return;
+    }
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    if (!mounted) return;
+    setState(() {
+      _batteryUnrestricted = status.isGranted;
+      _checkingBattery = false;
+    });
+  }
+
+  Future<void> _requestBatteryExemption() async {
+    final status = await Permission.ignoreBatteryOptimizations.request();
+    if (!mounted) return;
+    setState(() => _batteryUnrestricted = status.isGranted);
+  }
+
+  Future<void> _sendTestNotification() async {
+    await NotificationService.showTestNotification(sound: _alarmSound);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Test notification sent — check your notification shade.')),
+    );
   }
 
   Future<void> _setMorning(bool v) async {
@@ -60,7 +93,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
       minute:  prefs.getInt('wake_alarm_minute') ?? 30,
       sound:   v,
     );
+    await NotificationService.scheduleSessionReminder(enabled: sessionReminders, sound: v);
     setState(() => _alarmSound = v);
+  }
+
+  Future<void> _setSessionReminders(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notif_session', v);
+    await NotificationService.scheduleSessionReminder(enabled: v, sound: _alarmSound);
+    setState(() => sessionReminders = v);
   }
 
   @override
@@ -104,8 +145,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           _SectionLabel('ACTIVITY'),
           const SizedBox(height: 8),
           _ToggleGroup(items: [
-            _ToggleItem(title: 'Session reminders', subtitle: 'Daily workout reminders',
-              value: sessionReminders, onChanged: (v) => setState(() => sessionReminders = v)),
+            _ToggleItem(title: 'Session reminders', subtitle: '6:00 PM · Log today\'s training session',
+              value: sessionReminders, onChanged: _setSessionReminders),
             _ToggleItem(title: 'Weekly summary', subtitle: 'Performance recap every Monday',
               value: weeklySummary, onChanged: (v) => setState(() => weeklySummary = v)),
           ]),
@@ -119,6 +160,75 @@ class _NotificationsPageState extends State<NotificationsPage> {
             _ToggleItem(title: 'Email digest', subtitle: 'Weekly email roundup',
               value: emailDigest, onChanged: (v) => setState(() => emailDigest = v)),
           ]),
+          const SizedBox(height: 20),
+
+          _SectionLabel('TROUBLESHOOTING'),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: kCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: kBorder),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                if (Platform.isAndroid) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Battery optimization', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
+                              const SizedBox(height: 2),
+                              Text(
+                                _checkingBattery
+                                    ? 'Checking…'
+                                    : _batteryUnrestricted
+                                        ? 'Unrestricted — reminders can run in the background'
+                                        : 'Restricted — the OS may stop reminders from firing',
+                                style: TextStyle(fontSize: 12, color: kTextSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!_checkingBattery && !_batteryUnrestricted)
+                          TextButton(
+                            onPressed: _requestBatteryExemption,
+                            child: Text('Fix', style: TextStyle(color: kAccent, fontWeight: FontWeight.w700)),
+                          )
+                        else if (!_checkingBattery)
+                          Icon(Icons.check_circle_rounded, color: kSuccess, size: 20),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, indent: 16, color: kBorder),
+                ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Send test notification', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
+                            const SizedBox(height: 2),
+                            Text('Confirms notifications actually show on this device', style: TextStyle(fontSize: 12, color: kTextSecondary)),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _sendTestNotification,
+                        child: Text('Send', style: TextStyle(color: kAccent, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
