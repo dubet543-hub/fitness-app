@@ -482,20 +482,25 @@ class ApiService {
     await clearSession();
   }
 
-  /// GET /api/auth/me — verify token is still valid; returns null on 401/error.
+  /// GET /api/auth/me — verify token is still valid.
+  ///
+  /// Returns null ONLY when the server explicitly rejects the token
+  /// (401/403) — that's a real logout. Network failures (no connectivity,
+  /// timeout, backend briefly down) throw instead, so callers restoring a
+  /// session on launch can keep the cached user rather than wiping a
+  /// perfectly valid session because of a transient connectivity blip.
   static Future<ApiUser?> verifyToken() async {
-    try {
-      final res = await _send(http.get(
-        Uri.parse('$_baseUrl/auth/me'),
-        headers: await _authHeaders(),
-      ), timeout: _authTimeout);
-      if (res.statusCode == 200) {
-        return ApiUser.fromJson(_body(res));
-      }
-      return null;
-    } catch (_) {
+    final res = await _send(http.get(
+      Uri.parse('$_baseUrl/auth/me'),
+      headers: await _authHeaders(),
+    ), timeout: _authTimeout);
+    if (res.statusCode == 200) {
+      return ApiUser.fromJson(_body(res));
+    }
+    if (res.statusCode == 401 || res.statusCode == 403) {
       return null;
     }
+    throw Exception('Unexpected response verifying session (${res.statusCode}).');
   }
 
   /// DELETE /api/sessions/:id

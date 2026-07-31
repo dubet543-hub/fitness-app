@@ -39,9 +39,15 @@ class _AuthScreenState extends State<AuthScreen> {
     final token = await ApiService.getToken();
     ApiUser? user;
     if (token != null) {
-      // Validate token with the backend; fall back to login if expired/invalid.
-      user = await ApiService.verifyToken();
-      if (user == null) await ApiService.clearSession();
+      // Validate token with the backend; only a real 401/403 rejection logs
+      // the user out. A network error (offline, backend momentarily down)
+      // keeps the cached session instead of discarding valid credentials.
+      try {
+        user = await ApiService.verifyToken();
+        if (user == null) await ApiService.clearSession();
+      } catch (_) {
+        user = await ApiService.getCachedUser();
+      }
       if (user != null) EntitlementsService.load(refresh: true).ignore();
     }
     final accepted = await LocalLogStore.hasAcceptedLegal(kLegalVersion);
@@ -133,14 +139,12 @@ class _AuthScreenState extends State<AuthScreen> {
       return RegisterScreen(
         onRegister: _register,
         onBackToLogin: () => setState(() => _showRegister = false),
-        onOtpSignIn: () => setState(() { _showRegister = false; _showOtp = true; }),
       );
     }
     return LoginScreen(
       onEmailSignIn: _signInWithEmail,
       onSocialSignIn: _signInWithProvider,
       onCreateAccount: () => setState(() => _showRegister = true),
-      onOtpSignIn: () => setState(() => _showOtp = true),
     );
   }
 }
