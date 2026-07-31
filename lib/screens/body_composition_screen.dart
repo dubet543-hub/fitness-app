@@ -877,6 +877,11 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
                 _Seg(r.skinConnective / r.lbm * 100, const Color(0xFF4ADE80), 'Skin'),
                 _Seg(r.nonMuscleFluid / r.lbm * 100, kTextSecondary, 'Fluids'),
               ]),
+              child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text('${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(color: kTextPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
+                Text('Muscle', style: TextStyle(color: kTextSecondary, fontSize: 10)),
+              ])),
             ),
           ),
           const SizedBox(height: 12),
@@ -1128,7 +1133,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     if (actions.isEmpty) {
       actions.add('Maintain current training and nutrition protocols. Focus on consistency and progressive overload.');
     }
-    actions.add('Follow-up body composition assessment recommended in 8–12 weeks to track adaptations.');
+    actions.add('Follow-up body composition assessment recommended in 2 weeks to track adaptations.');
 
     return _card(
       title: 'INTERPRETATION REPORT',

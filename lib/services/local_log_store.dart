@@ -199,6 +199,39 @@ class LocalLogStore {
 
   static Future<void> clearBowlingHistory() => _clearHistory(_kBowlingHistory);
 
+  // ── Bio Lab tool locks (posture / running / bowling) ───────────────────────
+  // Same 14-day cadence as body composition (bcaInterval): each tool locks
+  // after a check and only opens again once 14 days have passed, so an
+  // athlete's technique baseline isn't re-measured mid-adaptation.
+
+  static Future<DateTime?> _lastEntryDate(
+      Future<List<Map<String, dynamic>>> Function() historyFn) async {
+    final history = await historyFn();
+    if (history.isEmpty) return null;
+    return DateTime.tryParse(history.last['date'] as String? ?? '');
+  }
+
+  static Future<DateTime?> lastPostureDate() => _lastEntryDate(postureHistory);
+  static Future<DateTime?> lastRunningDate() => _lastEntryDate(runningHistory);
+  static Future<DateTime?> lastBowlingDate() => _lastEntryDate(bowlingHistory);
+
+  static Future<DateTime?> postureNextAvailable() async =>
+      (await lastPostureDate())?.add(bcaInterval);
+  static Future<DateTime?> runningNextAvailable() async =>
+      (await lastRunningDate())?.add(bcaInterval);
+  static Future<DateTime?> bowlingNextAvailable() async =>
+      (await lastBowlingDate())?.add(bcaInterval);
+
+  static Future<bool> _isLocked(Future<DateTime?> Function() nextAvailableFn) async {
+    final next = await nextAvailableFn();
+    if (next == null) return false;
+    return DateTime.now().isBefore(next);
+  }
+
+  static Future<bool> postureLocked() => _isLocked(postureNextAvailable);
+  static Future<bool> runningLocked() => _isLocked(runningNextAvailable);
+  static Future<bool> bowlingLocked() => _isLocked(bowlingNextAvailable);
+
   // ── Backend sync tracking ──────────────────────────────────────────────────
   // Records the ISO dates of BCA entries already pushed to the server so the
   // backfill sync never uploads the same reading twice.
