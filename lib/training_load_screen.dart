@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'api_service.dart';
 import 'core/theme.dart';
 import 'services/dashboard_metrics.dart';
-import 'screens/workload_monitor_screen.dart';
 import 'services/entitlements.dart';
 import 'widgets/feature_gate.dart';
 
@@ -18,6 +17,8 @@ enum PrimarySessionType {
   endurance('Endurance Program'),
   plyometrics('Plyometrics/Agility'),
   hiit('HIIT'),
+  corrective('Corrective Prehab'),
+  core('Core Program'),
   rest('Rest Day'),
   match('Match Day');
 
@@ -185,14 +186,11 @@ class TrainingLoadScreen extends StatefulWidget {
   State<TrainingLoadScreen> createState() => _TrainingLoadScreenState();
 }
 
-class _TrainingLoadScreenState extends State<TrainingLoadScreen>
-    with SingleTickerProviderStateMixin {
+class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
   final List<WellnessLog> _wellnessLogs = [];
   final List<TrainingLog> _trainingLogs = [];
   final List<SkillLog>    _skillLogs    = [];
-
-  late final TabController _tabController;
 
   // ── Training form ──────────────────────────────────────────────────────────
   bool _showTrainingForm = false;
@@ -200,10 +198,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   final _tPrimaryDurCtrl = TextEditingController();
   int  _tPrimaryRpe = 5;
   String? _tSessionType; // "Match day", "Strength Program", etc.
-  bool _tHasSub     = false;
-  final Set<SecondarySessionType> _tSubTypes = {};
-  final _tSubDurCtrl     = TextEditingController();
-  int  _tSubRpe          = 5;
   final _tDistCtrl       = TextEditingController();
   final _tSprintsCtrl    = TextEditingController();
   final _tMaxHRCtrl      = TextEditingController();
@@ -229,15 +223,13 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadSessions();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     for (final c in [
-      _tPrimaryDurCtrl, _tSubDurCtrl, _tDistCtrl, _tSprintsCtrl, _tMaxHRCtrl, _tAvgHRCtrl,
+      _tPrimaryDurCtrl, _tDistCtrl, _tSprintsCtrl, _tMaxHRCtrl, _tAvgHRCtrl,
       _sDurCtrl, _sSubDurCtrl, _sBallsCtrl, _sSubBallsCtrl, _sMaxHRCtrl, _sAvgHRCtrl,
     ]) { c.dispose(); }
     super.dispose();
@@ -538,63 +530,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     }).toList()..sort((a, b) => a.date.compareTo(b.date));
   }
 
-  // ── Analytics ─────────────────────────────────────────────────────────────
-
-  double get _acuteLoad {
-    final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    return _buildDailyRecords()
-        .where((r) => r.date.isAfter(cutoff))
-        .fold(0.0, (s, r) => s + r.totalLoad);
-  }
-
-  double get _chronicLoad {
-    final records = _buildDailyRecords();
-    if (records.isEmpty) return 0;
-    const lambda = 2.0 / 29.0;
-    double ewma = records.first.totalLoad;
-    for (int i = 1; i < records.length; i++) {
-      ewma = (records[i].totalLoad * lambda) + (ewma * (1 - lambda));
-    }
-    return ewma;
-  }
-
-  double get _acwr {
-    final c = _chronicLoad;
-    return c == 0 ? 0 : _acuteLoad / c;
-  }
-
-  double get _zScore {
-    final records = _buildDailyRecords();
-    if (records.length < 2) return 0;
-    final loads = records.map((r) => r.totalLoad).toList();
-    final mean  = loads.reduce((a, b) => a + b) / loads.length;
-    final sigma = sqrt(loads.map((l) => pow(l - mean, 2)).reduce((a, b) => a + b) / loads.length);
-    if (sigma == 0) return 0;
-    return (records.last.totalLoad - mean) / sigma;
-  }
-
-  List<Map<String, dynamic>> _buildSeries(double Function(DailyRecord) fn) {
-    final records = _buildDailyRecords();
-    if (records.isEmpty) return [];
-    const lambda = 2.0 / 29.0;
-    double ewma = 0;
-    return List.generate(records.length, (i) {
-      final load = fn(records[i]);
-      ewma = i == 0 ? load : (load * lambda) + (ewma * (1 - lambda));
-      final cutoff = records[i].date.subtract(const Duration(days: 7));
-      final acute  = records.sublist(0, i + 1)
-          .where((r) => r.date.isAfter(cutoff))
-          .fold(0.0, (s, r) => s + fn(r));
-      return {
-        'date':   records[i].date,
-        'load':   load,
-        'ewma':   ewma,
-        'acwr':   ewma == 0 ? 0.0 : acute / ewma,
-        'exertion': load <= 0 ? 0.0 : min(10.0, 2.087 * log(load / 50.0 + 1.0) + 2.0),
-      };
-    });
-  }
-
   // ── Submit: Training ──────────────────────────────────────────────────────
 
   // Daily activity-log caps: 2 training sessions + 2 skill sessions.
@@ -609,14 +544,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     if (_tPrimaryTypes.isEmpty) { _snack("Select at least one session type"); return; }
     final dur = int.tryParse(_tPrimaryDurCtrl.text.trim()) ?? 0;
     if (dur <= 0) { _snack("Enter a valid duration"); return; }
-    if (_tHasSub && (int.tryParse(_tSubDurCtrl.text.trim()) ?? 0) <= 0) {
-      _snack("Enter subordinate session duration"); return;
-    }
 
     final capturedPrimaryTypes = Set<PrimarySessionType>.from(_tPrimaryTypes);
-    final capturedSubTypes = Set<SecondarySessionType>.from(_tSubTypes);
     final capturedPrimaryRpe = _tPrimaryRpe;
-    final capturedSubRpe = _tHasSub ? _tSubRpe : null;
     final now = DateTime.now();
 
     try {
@@ -626,10 +556,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
         'primaryTypes': capturedPrimaryTypes.map((e) => e.name).toList(),
         'primaryDuration': dur,
         'primaryRpe': capturedPrimaryRpe,
-        'hasSecondary': _tHasSub,
-        'secondaryTypes': _tHasSub ? capturedSubTypes.map((e) => e.name).toList() : [],
-        'secondaryDuration': _tHasSub ? int.tryParse(_tSubDurCtrl.text.trim()) : null,
-        'secondaryRpe': capturedSubRpe,
+        'hasSecondary': false,
+        'secondaryTypes': [],
+        'secondaryDuration': null,
+        'secondaryRpe': null,
         'distance': int.tryParse(_tDistCtrl.text.trim()),
         'sprints': int.tryParse(_tSprintsCtrl.text.trim()),
         'maxHR': int.tryParse(_tMaxHRCtrl.text.trim()),
@@ -699,10 +629,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     _tPrimaryDurCtrl.clear();
     _tPrimaryRpe = 5;
     _tSessionType = null;
-    _tHasSub = false;
-    _tSubTypes.clear();
-    _tSubDurCtrl.clear();
-    _tSubRpe = 5;
     _tDistCtrl.clear();
     _tSprintsCtrl.clear();
     _tMaxHRCtrl.clear();
@@ -742,27 +668,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
         centerTitle: true,
         iconTheme: IconThemeData(color: kTextPrimary),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(49),
-          child: Column(children: [
-            Divider(height: 1, color: kBorder),
-            TabBar(
-              controller: _tabController,
-              labelColor: kAccent,
-              unselectedLabelColor: kTextSecondary,
-              indicatorColor: kAccent,
-              indicatorSize: TabBarIndicatorSize.label,
-              tabs: const [
-                Tab(icon: Icon(Icons.edit_note_rounded),  text: "Log"),
-                Tab(icon: Icon(Icons.dashboard_rounded),  text: "Dashboard"),
-              ],
-            ),
-          ]),
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: kBorder),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildLogTab(), _buildDashboardTab()],
-      ),
+      body: _buildLogTab(),
     );
   }
 
@@ -923,62 +833,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
             const SizedBox(width: 10),
             Expanded(child: _NumField(ctrl: _tAvgHRCtrl, label: "Avg HR")),
           ]),
-
-          // Subordinate session
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: kCard,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _tHasSub ? kAccent.withValues(alpha: 0.45) : kBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // FIX: Wrapped Column in Expanded to prevent Row overflow
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Subordinate Session",
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                          Text("Corrective prehab or core work",
-                              style: TextStyle(fontSize: 11, color: kTextSecondary)),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _tHasSub,
-                      activeThumbColor: kAccent,
-                      activeTrackColor: kAccent.withValues(alpha: 0.25),
-                      onChanged: (v) => setState(() => _tHasSub = v),
-                    ),
-                  ],
-                ),
-                if (_tHasSub) ...[
-                  const SizedBox(height: 12),
-                  const _FieldLabel("Type (Subordinate)"),
-                  const SizedBox(height: 8),
-                  _ChipSelector<SecondarySessionType>(
-                    values: SecondarySessionType.values,
-                    selected: _tSubTypes,
-                    label: (v) => v.label,
-                    onToggle: (v) => setState(() =>
-                        _tSubTypes.contains(v) ? _tSubTypes.remove(v) : _tSubTypes.add(v)),
-                  ),
-                  const SizedBox(height: 12),
-                  _NumField(ctrl: _tSubDurCtrl, label: "Duration (minutes)"),
-                  const SizedBox(height: 12),
-                  const _FieldLabel("RPE — Subordinate Session"),
-                  _RpeSlider(value: _tSubRpe, onChanged: (v) => setState(() => _tSubRpe = v)),
-                ],
-              ],
-            ),
-          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _submitTraining,
@@ -1166,220 +1020,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen>
     );
   }
 
-  // ── Dashboard Tab ─────────────────────────────────────────────────────────
-
-  Widget _buildDashboardTab() {
-    final records = _buildDailyRecords();
-    final acwr    = _acwr;
-    final zScore  = _zScore;
-    final last    = records.isNotEmpty ? records.last : null;
-
-    if (_loadingSessions) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (records.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bar_chart_rounded, size: 52, color: kBorder),
-            const SizedBox(height: 16),
-            Text("No data yet",
-                style: TextStyle(color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text("Log your first session to get started.",
-                style: TextStyle(color: kTextSecondary, fontSize: 13)),
-          ],
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const WorkloadMonitorScreen())),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kAccent.withValues(alpha: 0.18), kAccent.withValues(alpha: 0.06)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: kAccent.withValues(alpha: 0.35)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.monitor_heart_rounded, color: kAccent, size: 20),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Workload Monitor',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
-                        Text('Training · Skill · Daily Total — athlete comparison',
-                            style: TextStyle(fontSize: 11, color: kTextSecondary)),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.arrow_forward_ios_rounded, size: 13, color: kAccent),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (last?.wellness != null)
-            _SectionCard(
-              title: "Latest Readiness",
-              child: Row(
-                children: [
-                  _ReadinessDot(pct: last!.readinessPercent, color: last.readinessColor),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("${last.readinessPercent.toStringAsFixed(0)}% Ready",
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: last.readinessColor)),
-                        Text(
-                          "Sleep ${last.wellness!.sleep}  ·  Wellness ${last.wellness!.wellness}"
-                          "  ·  Soreness ${last.wellness!.soreness}  ·  Fatigue ${last.wellness!.fatigue}",
-                          style: TextStyle(fontSize: 11, color: kTextSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 12),
-
-          _SectionCard(
-            title: "Load Metrics",
-            child: Column(
-              children: [
-                Row(children: [
-                  Expanded(child: _MetricTile(label: "Acute Load",   subtitle: "Last 7 days",   value: _acuteLoad.toStringAsFixed(0),  color: kSky)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _MetricTile(label: "Chronic Load", subtitle: "EWMA 28-day",   value: _chronicLoad.toStringAsFixed(1), color: kViolet)),
-                ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: _MetricTile(
-                    label: "ACWR", subtitle: _acwrLabel(acwr),
-                    value: acwr == 0 ? "—" : acwr.toStringAsFixed(2),
-                    color: _acwrColor(acwr),
-                  )),
-                  const SizedBox(width: 12),
-                  Expanded(child: _MetricTile(
-                    label: "Scaled Grade", subtitle: "Last day",
-                    value: last != null ? last.scaledGrade.toStringAsFixed(1) : "—",
-                    color: kWarn,
-                  )),
-                ]),
-                const SizedBox(height: 12),
-                _MetricTile(
-                  label: "Z-Score", subtitle: "Last vs chronic baseline",
-                  value: records.length < 2 ? "—" : zScore.toStringAsFixed(2),
-                  color: zScore > 2 ? kDanger : zScore < -2 ? kInfo : kSuccess,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          _SectionCard(title: "ACWR Zone", child: _AcwrGauge(acwr: acwr)),
-          const SizedBox(height: 12),
-
-          _SectionCard(
-            title: "Daily Load History",
-            child: _DailyLoadBarChart(records: records),
-          ),
-          const SizedBox(height: 12),
-
-          _SectionCard(
-            title: "Readiness Trend",
-            subtitle: "% Readiness per day over time",
-            child: _ReadinessTrendChart(records: records),
-          ),
-          const SizedBox(height: 12),
-
-          _SectionCard(
-            title: "ACWR Trends",
-            subtitle: "Solid = Chronic Load  ·  Orange dashed = ACWR",
-            child: Column(children: [
-              _AcwrTrendChart(data: _buildSeries((r) => r.trainingLoad), title: "Training ACWR",  lineColor: kSky),
-              const SizedBox(height: 14),
-              _AcwrTrendChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill ACWR",     lineColor: kSuccess),
-              const SizedBox(height: 14),
-              _AcwrTrendChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily ACWR",     lineColor: kViolet),
-            ]),
-          ),
-          const SizedBox(height: 12),
-
-          _SectionCard(
-            title: "Load vs Exertion",
-            subtitle: "Bars = Load  ·  White line = Scaled Grade",
-            child: Column(children: [
-              _LoadExertionChart(data: _buildSeries((r) => r.trainingLoad), title: "Training Load vs Exertion", barColor: kSky),
-              const SizedBox(height: 14),
-              _LoadExertionChart(data: _buildSeries((r) => r.skillLoad),    title: "Skill Load vs Exertion",    barColor: kSuccess),
-              const SizedBox(height: 14),
-              _LoadExertionChart(data: _buildSeries((r) => r.totalLoad),    title: "Daily Load vs Exertion",    barColor: kViolet),
-            ]),
-          ),
-          const SizedBox(height: 12),
-
-          _SectionCard(
-            title: "Session Log",
-            child: Column(
-              children: List.generate(records.length, (i) {
-                final r = records[records.length - 1 - i];
-                return _DayRecordTile(
-                  record: r,
-                  onDeleteTraining: (t) async {
-                    if (t.id != null) {
-                      try { await ApiService.deleteSession(t.id!); AthleteMetricsService.invalidate(); } catch (_) {}
-                    }
-                    await _loadSessions();
-                  },
-                  onDeleteSkill: (s) async {
-                    if (s.id != null) {
-                      try { await ApiService.deleteSession(s.id!); AthleteMetricsService.invalidate(); } catch (_) {}
-                    }
-                    await _loadSessions();
-                  },
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color  _acwrColor(double v) {
-    if (v == 0)   return kTextSecondary;
-    if (v < 0.8)  return kInfo;
-    if (v <= 1.3) return kSuccess;
-    if (v <= 1.5) return kWarn;
-    return kDanger;
-  }
-
-  String _acwrLabel(double v) {
-    if (v == 0)   return "No Data";
-    if (v < 0.8)  return "Undertraining";
-    if (v <= 1.3) return "Sweet Spot";
-    if (v <= 1.5) return "Caution";
-    return "Danger Zone";
-  }
 }
 
 // ── Daily Limit Notice ────────────────────────────────────────────────────────
@@ -1517,90 +1157,6 @@ class _SkillLogTile extends StatelessWidget {
   }
 }
 
-// ── Day Record Tile (dashboard session log) ───────────────────────────────────
-
-class _DayRecordTile extends StatefulWidget {
-  final DailyRecord record;
-  final void Function(TrainingLog) onDeleteTraining;
-  final void Function(SkillLog)    onDeleteSkill;
-  const _DayRecordTile({required this.record, required this.onDeleteTraining, required this.onDeleteSkill});
-
-  @override
-  State<_DayRecordTile> createState() => _DayRecordTileState();
-}
-
-class _DayRecordTileState extends State<_DayRecordTile> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final d = widget.record.date;
-    final r = widget.record;
-    return Column(
-      children: [
-        InkWell(
-          onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: r.readinessColor.withValues(alpha: 0.2),
-                  child: Text(
-                    r.wellness != null ? "${r.readinessPercent.toStringAsFixed(0)}%" : "—",
-                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${d.day}/${d.month}/${d.year}  ·  Load: ${r.totalLoad.toStringAsFixed(0)}",
-                        style: TextStyle(fontSize: 13, color: kTextPrimary),
-                      ),
-                      Text(
-                        "Training: ${r.trainingLoad.toStringAsFixed(0)}  ·  Skill: ${r.skillLoad.toStringAsFixed(0)}"
-                        "  ·  ${r.training.length} training, ${r.skills.length} skill",
-                        style: TextStyle(fontSize: 11, color: kTextSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(_expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 18, color: kTextSecondary),
-              ],
-            ),
-          ),
-        ),
-        if (_expanded) ...[
-          for (final t in r.training)
-            Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 6),
-              child: _TrainingLogTile(
-                log: t, index: r.training.indexOf(t) + 1,
-                onDelete: () => widget.onDeleteTraining(t),
-              ),
-            ),
-          for (final s in r.skills)
-            Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 6),
-              child: _SkillLogTile(
-                log: s, index: r.skills.indexOf(s) + 1,
-                onDelete: () => widget.onDeleteSkill(s),
-              ),
-            ),
-          const SizedBox(height: 4),
-        ],
-        Divider(height: 1, color: kBorder),
-      ],
-    );
-  }
-}
-
 // ── RPE Slider ────────────────────────────────────────────────────────────────
 
 class _RpeSlider extends StatelessWidget {
@@ -1701,453 +1257,6 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text(text, style: TextStyle(fontSize: 12, color: kTextSecondary));
-}
-
-// ── Readiness Dot ─────────────────────────────────────────────────────────────
-
-class _ReadinessDot extends StatelessWidget {
-  final double pct;
-  final Color  color;
-  const _ReadinessDot({required this.pct, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60, height: 60,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CircularProgressIndicator(
-            value: pct / 100, strokeWidth: 5,
-            backgroundColor: kBorder,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-          Text("${pct.toStringAsFixed(0)}%",
-              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-}
-
-// ── ACWR Gauge ────────────────────────────────────────────────────────────────
-
-class _AcwrGauge extends StatelessWidget {
-  final double acwr;
-  const _AcwrGauge({required this.acwr});
-
-  @override
-  Widget build(BuildContext context) {
-    final clamped = acwr.clamp(0.0, 2.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            height: 18,
-            child: Row(children: [
-              Expanded(flex: 40,  child: Container(color: kInfo.withValues(alpha: 0.7))),
-              Expanded(flex: 50,  child: Container(color: kSuccess.withValues(alpha: 0.85))),
-              Expanded(flex: 10,  child: Container(color: kWarn.withValues(alpha: 0.85))),
-              Expanded(flex: 100, child: Container(color: kDanger.withValues(alpha: 0.7))),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text("0",    style: TextStyle(fontSize: 10)),
-            Text("0.8",  style: TextStyle(fontSize: 10)),
-            Text("1.3",  style: TextStyle(fontSize: 10)),
-            Text("1.5",  style: TextStyle(fontSize: 10)),
-            Text("2.0+", style: TextStyle(fontSize: 10)),
-          ],
-        ),
-        const SizedBox(height: 6),
-        LayoutBuilder(builder: (context, c) {
-          final x = (c.maxWidth * (clamped / 2.0)).clamp(0.0, c.maxWidth - 20.0);
-          return Stack(children: [
-            const SizedBox(height: 24),
-            Positioned(left: x, child: Icon(Icons.arrow_drop_down, color: acwr == 0 ? kTextSecondary : kTextPrimary, size: 20)),
-          ]);
-        }),
-        SizedBox(height: 4),
-        Text(
-          acwr == 0 ? "Log sessions to see ACWR" : "ACWR: ${acwr.toStringAsFixed(2)}",
-          textAlign: TextAlign.center,
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _ZoneLabel("Under-\ntraining", kInfo),
-            _ZoneLabel("Sweet\nSpot",      kSuccess),
-            _ZoneLabel("Caution",          kWarn),
-            _ZoneLabel("Danger",           kDanger),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ZoneLabel extends StatelessWidget {
-  final String label;
-  final Color  color;
-  const _ZoneLabel(this.label, this.color);
-  @override
-  Widget build(BuildContext context) =>
-      Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: color));
-}
-
-// ── Daily Load Bar Chart ──────────────────────────────────────────────────────
-
-class _DailyLoadBarChart extends StatelessWidget {
-  final List<DailyRecord> records;
-  const _DailyLoadBarChart({required this.records});
-
-  @override
-  Widget build(BuildContext context) {
-    final recent  = records.length > 14 ? records.sublist(records.length - 14) : records;
-    final maxLoad = recent.map((r) => r.totalLoad).reduce(max);
-    return SizedBox(
-      height: 120,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: recent.map((r) {
-          final frac = maxLoad > 0 ? r.totalLoad / maxLoad : 0.0;
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(r.totalLoad.toStringAsFixed(0), style: const TextStyle(fontSize: 7)),
-                  const SizedBox(height: 2),
-                  Container(
-                    height: 90 * frac + 4,
-                    decoration: BoxDecoration(
-                      color: kSuccess.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text("${r.date.day}/${r.date.month}", style: const TextStyle(fontSize: 7)),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-// ── Metric Tile ───────────────────────────────────────────────────────────────
-
-class _MetricTile extends StatelessWidget {
-  final String label, subtitle, value;
-  final Color  color;
-  const _MetricTile({required this.label, required this.subtitle, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,    style: TextStyle(fontSize: 11, color: kTextSecondary)),
-          const SizedBox(height: 6),
-          Text(value,    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5)),
-          const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 10, color: kTextSecondary)),
-        ],
-      ),
-    );
-  }
-}
-
-// ── ACWR Trend Chart ──────────────────────────────────────────────────────────
-
-class _AcwrTrendChart extends StatelessWidget {
-  final List<Map<String, dynamic>> data;
-  final String title;
-  final Color  lineColor;
-  const _AcwrTrendChart({required this.data, required this.title, required this.lineColor});
-
-  @override
-  Widget build(BuildContext context) {
-    if (data.isEmpty) {
-      return SizedBox(height: 80, child: Center(child: Text(title, style: TextStyle(color: kTextSecondary, fontSize: 11))));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(title, style: TextStyle(fontSize: 11, color: kTextSecondary, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 160,
-          child: CustomPaint(
-            painter: _DualLinePainter(
-              ewmaValues: data.map((d) => d['ewma']  as double).toList(),
-              acwrValues: data.map((d) => d['acwr']  as double).toList(),
-              dates:      data.map((d) => d['date']  as DateTime).toList(),
-              lineColor:  lineColor,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DualLinePainter extends CustomPainter {
-  final List<double>   ewmaValues, acwrValues;
-  final List<DateTime> dates;
-  final Color          lineColor;
-  _DualLinePainter({required this.ewmaValues, required this.acwrValues, required this.dates, required this.lineColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (ewmaValues.isEmpty) return;
-    final n = ewmaValues.length;
-    const bPad = 22.0, tPad = 14.0;
-    final chartH = size.height - bPad - tPad;
-    final xStep  = n > 1 ? size.width / (n - 1) : 0.0;
-    double xAt(int i) => n == 1 ? size.width / 2 : i * xStep;
-
-    double normY(double v, double mn, double mx) =>
-        mx == mn ? tPad + chartH / 2 : tPad + chartH * (1 - (v - mn) / (mx - mn));
-
-    final ewmaMin = ewmaValues.reduce(min), ewmaMax = ewmaValues.reduce(max);
-    final acwrMin = acwrValues.reduce(min), acwrMax = acwrValues.reduce(max);
-
-    final gPaint = Paint()..color = lineColor..strokeWidth = 2..style = PaintingStyle.stroke;
-    final gPath  = Path();
-    for (int i = 0; i < n; i++) {
-      final p = Offset(xAt(i), normY(ewmaValues[i], ewmaMin, ewmaMax));
-      i == 0 ? gPath.moveTo(p.dx, p.dy) : gPath.lineTo(p.dx, p.dy);
-    }
-    canvas.drawPath(gPath, gPaint);
-    for (int i = 0; i < n; i++) {
-      final p = Offset(xAt(i), normY(ewmaValues[i], ewmaMin, ewmaMax));
-      canvas.drawCircle(p, 4, Paint()..color = lineColor);
-      _text(canvas, "ACWR:${acwrValues[i].toStringAsFixed(2)}", p.dx, p.dy - 13, lineColor, 7.5);
-    }
-
-    final oPaint = Paint()..color = kWarn..strokeWidth = 1.5..style = PaintingStyle.stroke;
-    for (int i = 0; i < n - 1; i++) {
-      _dash(canvas, oPaint,
-        Offset(xAt(i),     normY(acwrValues[i],     acwrMin, acwrMax)),
-        Offset(xAt(i + 1), normY(acwrValues[i + 1], acwrMin, acwrMax)));
-    }
-    for (int i = 0; i < n; i++) {
-      canvas.drawCircle(Offset(xAt(i), normY(acwrValues[i], acwrMin, acwrMax)), 3, Paint()..color = kWarn);
-    }
-    for (int i = 0; i < n; i++) {
-      final d = dates[i];
-      _text(canvas, "${d.day}/${d.month}", xAt(i), size.height - bPad + 5, kTextSecondary, 7);
-    }
-  }
-
-  void _dash(Canvas c, Paint p, Offset a, Offset b) {
-    final dx = b.dx - a.dx, dy = b.dy - a.dy;
-    final dist = sqrt(dx * dx + dy * dy);
-    if (dist == 0) return;
-    final nx = dx / dist, ny = dy / dist;
-    double t = 0;
-    while (t < dist) {
-      final e = (t + 4.0).clamp(0.0, dist);
-      c.drawLine(Offset(a.dx + nx * t, a.dy + ny * t), Offset(a.dx + nx * e, a.dy + ny * e), p);
-      t += 7.0;
-    }
-  }
-
-  void _text(Canvas c, String s, double cx, double cy, Color col, double fs) {
-    final tp = TextPainter(text: TextSpan(text: s, style: TextStyle(color: col, fontSize: fs)), textDirection: TextDirection.ltr)..layout();
-    tp.paint(c, Offset(cx - tp.width / 2, cy));
-  }
-
-  @override
-  bool shouldRepaint(covariant _DualLinePainter old) =>
-      old.ewmaValues != ewmaValues || old.acwrValues != acwrValues;
-}
-
-// ── Load vs Exertion Chart ──────────────────────────────────────────────────────
-
-class _LoadExertionChart extends StatelessWidget {
-  final List<Map<String, dynamic>> data;
-  final String title;
-  final Color  barColor;
-  const _LoadExertionChart({required this.data, required this.title, required this.barColor});
-
-  @override
-  Widget build(BuildContext context) {
-    if (data.isEmpty) {
-      return SizedBox(height: 80, child: Center(child: Text(title, style: TextStyle(color: kTextSecondary, fontSize: 11))));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(title, style: TextStyle(fontSize: 11, color: kTextSecondary, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 160,
-          child: CustomPaint(
-            painter: _BarLinePainter(
-              barValues:  data.map((d) => d['load']   as double).toList(),
-              lineValues: data.map((d) => d['exertion'] as double).toList(),
-              dates:      data.map((d) => d['date']   as DateTime).toList(),
-              barColor:   barColor,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BarLinePainter extends CustomPainter {
-  final List<double>   barValues, lineValues;
-  final List<DateTime> dates;
-  final Color          barColor;
-  _BarLinePainter({required this.barValues, required this.lineValues, required this.dates, required this.barColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (barValues.isEmpty) return;
-    final n = barValues.length;
-    const bPad = 22.0, tPad = 14.0;
-    final chartH = size.height - bPad - tPad;
-    final slotW  = size.width / n;
-    final barW   = min(slotW * 0.6, 44.0);
-    final maxBar = barValues.fold(0.0, (p, v) => v > p ? v : p).clamp(1.0, 1e9);
-    final maxLine = lineValues.fold(0.0, (p, v) => v > p ? v : p);
-    final minLine = lineValues.fold(maxLine, (p, v) => v < p ? v : p);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, tPad, size.width, chartH), const Radius.circular(4)),
-      Paint()..color = kTextPrimary.withValues(alpha: 0.04),
-    );
-
-    final bPaint = Paint()..color = barColor.withValues(alpha: 0.75);
-    for (int i = 0; i < n; i++) {
-      final x  = i * slotW + (slotW - barW) / 2;
-      final bh = (barValues[i] / maxBar) * chartH * 0.82;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(x, size.height - bPad - bh, barW, bh), const Radius.circular(3)),
-        bPaint,
-      );
-      _text(canvas, barValues[i].toStringAsFixed(0), i * slotW + slotW / 2, size.height - bPad - bh - 11, kTextSecondary, 7);
-    }
-
-    double lineY(double v) =>
-        maxLine == minLine ? tPad + chartH / 2 : tPad + chartH * (1 - (v - minLine) / (maxLine - minLine));
-
-    final lp   = Paint()..color = kTextPrimary..strokeWidth = 2..style = PaintingStyle.stroke;
-    final path = Path();
-    for (int i = 0; i < n; i++) {
-      final x = i * slotW + slotW / 2;
-      i == 0 ? path.moveTo(x, lineY(lineValues[i])) : path.lineTo(x, lineY(lineValues[i]));
-    }
-    canvas.drawPath(path, lp);
-    for (int i = 0; i < n; i++) {
-      final x = i * slotW + slotW / 2;
-      canvas.drawCircle(Offset(x, lineY(lineValues[i])), 3, Paint()..color = kTextPrimary);
-      _text(canvas, lineValues[i].toStringAsFixed(2), x, lineY(lineValues[i]) - 12, kTextPrimary, 7);
-      _text(canvas, "${dates[i].day}/${dates[i].month}", x, size.height - bPad + 5, kTextSecondary, 7);
-    }
-  }
-
-  void _text(Canvas c, String s, double cx, double cy, Color col, double fs) {
-    final tp = TextPainter(text: TextSpan(text: s, style: TextStyle(color: col, fontSize: fs)), textDirection: TextDirection.ltr)..layout();
-    tp.paint(c, Offset(cx - tp.width / 2, cy));
-  }
-
-  @override
-  bool shouldRepaint(covariant _BarLinePainter old) =>
-      old.barValues != barValues || old.lineValues != lineValues;
-}
-
-// ── Readiness Trend Chart ─────────────────────────────────────────────────────
-
-class _ReadinessTrendChart extends StatelessWidget {
-  final List<DailyRecord> records;
-  const _ReadinessTrendChart({required this.records});
-
-  @override
-  Widget build(BuildContext context) {
-    final withWellness = records.where((r) => r.wellness != null).toList();
-    if (withWellness.isEmpty) {
-      return SizedBox(height: 80, child: Center(child: Text("No wellness data yet", style: TextStyle(color: kTextSecondary, fontSize: 11))));
-    }
-    return SizedBox(height: 140, child: CustomPaint(painter: _ReadinessPainter(records: withWellness)));
-  }
-}
-
-class _ReadinessPainter extends CustomPainter {
-  final List<DailyRecord> records;
-  _ReadinessPainter({required this.records});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (records.isEmpty) return;
-    final n = records.length;
-    const bPad = 22.0, tPad = 10.0;
-    final chartH = size.height - bPad - tPad;
-    final xStep  = n > 1 ? size.width / (n - 1) : 0.0;
-    double xAt(int i) => n == 1 ? size.width / 2 : i * xStep;
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, tPad, size.width, chartH), const Radius.circular(4)),
-      Paint()..color = kTextPrimary.withValues(alpha: 0.04),
-    );
-    final refY = tPad + chartH * (1 - 0.75);
-    canvas.drawLine(Offset(0, refY), Offset(size.width, refY),
-        Paint()..color = kSuccess.withValues(alpha: 0.3)..strokeWidth = 1);
-    _text(canvas, "75%", 16, refY - 9, kSuccess.withValues(alpha: 0.6), 7);
-
-    final linePaint = Paint()..color = kWarn..strokeWidth = 2..style = PaintingStyle.stroke;
-    final path = Path();
-    for (int i = 0; i < n; i++) {
-      final x = xAt(i), y = tPad + chartH * (1 - records[i].readinessPercent / 100);
-      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
-    }
-    canvas.drawPath(path, linePaint);
-
-    final fill = Path()..addPath(path, Offset.zero);
-    fill.lineTo(xAt(n - 1), size.height - bPad);
-    fill.lineTo(xAt(0),     size.height - bPad);
-    fill.close();
-    canvas.drawPath(fill, Paint()..color = kWarn.withValues(alpha: 0.08));
-
-    for (int i = 0; i < n; i++) {
-      final pct = records[i].readinessPercent;
-      final x   = xAt(i), y = tPad + chartH * (1 - pct / 100);
-      final col = records[i].readinessColor;
-      canvas.drawCircle(Offset(x, y), 4, Paint()..color = col);
-      _text(canvas, "${pct.toStringAsFixed(0)}%", x, y - 12, col, 7.5);
-      final d = records[i].date;
-      _text(canvas, "${d.day}/${d.month}", x, size.height - bPad + 5, kTextSecondary, 7);
-    }
-  }
-
-  void _text(Canvas c, String s, double cx, double cy, Color col, double fs) {
-    final tp = TextPainter(text: TextSpan(text: s, style: TextStyle(color: col, fontSize: fs)), textDirection: TextDirection.ltr)..layout();
-    tp.paint(c, Offset(cx - tp.width / 2, cy));
-  }
-
-  @override
-  bool shouldRepaint(covariant _ReadinessPainter old) => old.records != records;
 }
 
 // ── Section Card ──────────────────────────────────────────────────────────────
