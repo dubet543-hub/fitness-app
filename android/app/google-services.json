@@ -7,12 +7,20 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:914527293028:android:afb69ca3edd95569f91971",
+        "mobilesdk_app_id": "1:914527293028:android:2a27184d37a47a85f91971",
         "android_client_info": {
           "package_name": "com.solidcore.ams"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "914527293028-88iahokgu8gbl8l6rt9oq2ns77j5bm15.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.solidcore.ams",
+            "certificate_hash": "037652a914087b368d39ffc850717880637472f8"
+          }
+        },
         {
           "client_id": "914527293028-u29d70r6799nkccdhkvvblabrtnj22au.apps.googleusercontent.com",
           "client_type": 1,
