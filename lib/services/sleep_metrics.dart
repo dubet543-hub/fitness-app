@@ -62,10 +62,12 @@ String formatHhMm(int minutes) {
 }
 
 /// Formula 3 — AVERAGE SLEEP TIME.
-/// SUMIFS over the window (d-7, d] divided by 7: the given night plus the six
-/// before it. Note the divisor is a literal 7, not the number of nights found,
-/// so the first six rows of a log read low by design — that is what the sheet
-/// does, and the debt figure below is calibrated against it.
+/// SUMIFS over the window (d-7, d]: the given night plus the six before it,
+/// divided by however many of those nights actually exist. The sheet divides
+/// by a literal 7 regardless of how many rows are found, which reads as a
+/// heavily diluted (and misleading) average during an athlete's first week of
+/// logging — dividing by the real count instead keeps the figure meaningful
+/// from night one, and is identical to the sheet once 7+ nights exist.
 int averageSleepMinutes(List<SleepNight> nights, int index) {
   if (nights.isEmpty || index < 0 || index >= nights.length) return 0;
   final start = index - 6 < 0 ? 0 : index - 6;
@@ -73,7 +75,7 @@ int averageSleepMinutes(List<SleepNight> nights, int index) {
   for (var i = start; i <= index; i++) {
     sum += nights[i].sleepMinutes;
   }
-  return sum ~/ 7;
+  return sum ~/ (index - start + 1);
 }
 
 /// Formula 6 — SLEEP DEBT: weekly average (M) minus that night's sleep (K).

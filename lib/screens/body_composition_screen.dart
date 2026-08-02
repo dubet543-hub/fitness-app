@@ -287,7 +287,6 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
   // ── Persistence / 2-week gate ──────────────────────────────────────────────
   bool _loading = true;
   bool _locked  = false;            // true while within 2 weeks of last analysis
-  bool _justCalculated = false;     // show full breakdown for the fresh analysis
   DateTime? _nextAvailable;         // when a new analysis is permitted
   List<Map<String, dynamic>> _history = []; // stored measurements, oldest first
 
@@ -434,7 +433,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     }());
 
     if (!mounted) return;
-    setState(() { _result = result; _error = null; _justCalculated = true; });
+    setState(() { _result = result; _error = null; });
     FocusScope.of(context).unfocus();
     await _loadHistory();
   }
@@ -473,15 +472,10 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             ],
             if (_result != null) ...[
               const SizedBox(height: 28),
-              // The raw measurement breakdown is part of running an analysis, so
-              // it is only shown right after a fresh analysis, then hidden while
-              // the 2-week interval keeps the segment to interpretation only.
-              if (!_locked || _justCalculated) ...[
-                _buildStructuralTable(_result!),
-                const SizedBox(height: 20),
-                _buildDonutRow(_result!),
-                const SizedBox(height: 20),
-              ],
+              _buildStructuralTable(_result!),
+              const SizedBox(height: 20),
+              _buildDonutRow(_result!),
+              const SizedBox(height: 20),
               _buildMetricGrid(_result!),
               const SizedBox(height: 20),
               _buildTrends(_result!),

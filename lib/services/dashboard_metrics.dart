@@ -318,11 +318,17 @@ class AthleteMetricsService {
       final bed = _clockMinutes(p.raw['sleepTimeToBed']);
       final wake = _clockMinutes(p.raw['sleepWakeUpTime']);
       if (bed == null || wake == null) continue;
-      sleep.add(nightFromLog(
+      // Fell-asleep and out-of-bed are logged separately from bedtime and
+      // wake-up (see wellness_log_screen) — fall back to bed/wake only for
+      // older entries recorded before those pickers existed.
+      final asleep  = _clockMinutes(p.raw['sleepFellAsleep']) ?? bed;
+      final outOfBed = _clockMinutes(p.raw['sleepOutOfBedTime']) ?? wake;
+      sleep.add(SleepNight(
         d: _label(_addDays(firstDay, idx)),
         timeToBed: bed,
-        latencyMinutes: 0, // not captured in the log — assume fell asleep at bedtime
+        fellAsleep: asleep,
         wokeUp: wake,
+        outOfBed: outOfBed,
       ));
     }
 

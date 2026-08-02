@@ -109,10 +109,11 @@ void main() {
       expect(averageSleepMinutes(steady, 6), 480);
     });
 
-    test('divides by a literal 7, so a partial window reads low', () {
-      // Row 0 sees one 8h night but still divides by 7 — matches the sheet.
-      expect(averageSleepMinutes(steady, 0), 480 ~/ 7);
-      expect(averageSleepMinutes(steady, 3), (480 * 4) ~/ 7);
+    test('divides by the nights actually in the window, not a fixed 7', () {
+      // Row 0 sees only one 8h night, so the average is that night's value —
+      // not diluted by dividing a single night's total by 7.
+      expect(averageSleepMinutes(steady, 0), 480);
+      expect(averageSleepMinutes(steady, 3), 480);
     });
 
     test('window is the night plus the six before it, not the whole log', () {
