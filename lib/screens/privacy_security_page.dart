@@ -7,6 +7,7 @@ import 'package:syncfusion_flutter_xlsio/xlsio.dart' hide Column, Row, Border;
 import 'package:syncfusion_officechart/officechart.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
+import '../services/dashboard_metrics.dart';
 import '../services/local_log_store.dart';
 import 'legal_pages.dart';
 
@@ -404,6 +405,11 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               try {
                 await ApiService.deleteMyData();
                 await LocalLogStore.clearBcaHistory();
+                // These gates/caches only track that something was logged —
+                // they don't know it was just deleted, so they must be reset
+                // too or today's screens stay locked against nothing.
+                await LocalLogStore.clearRecoveryLoggedToday();
+                AthleteMetricsService.invalidate();
                 if (mounted) _snack('Your data has been deleted');
               } catch (e) {
                 if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));

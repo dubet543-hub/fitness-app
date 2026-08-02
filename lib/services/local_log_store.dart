@@ -118,6 +118,15 @@ class LocalLogStore {
     await prefs.setString(_kRecoveryDate, _dayKey(DateTime.now()));
   }
 
+  /// Lifts today's recovery-log gate. This flag only tracks that *a* log was
+  /// saved today — it has no idea whether that entry still exists on the
+  /// backend, so deleting the athlete's data must clear it too, or the
+  /// wellness log stays locked for the rest of the day with nothing behind it.
+  static Future<void> clearRecoveryLoggedToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kRecoveryDate);
+  }
+
   // ── Generic on-device history (JSON list-of-maps, oldest first) ───────────
   // Shared by every Bio Lab feature's saved results (body composition,
   // posture, running, bowling) — same shape, different storage key.
