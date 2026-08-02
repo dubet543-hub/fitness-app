@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -37,10 +39,23 @@ class NotificationService {
       const InitializationSettings(android: android, iOS: ios),
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.requestNotificationsPermission();
+
+    // Android 12+ revokes exact-alarm scheduling by default, and OEM battery
+    // managers (Xiaomi/vivo/Oppo/etc.) kill backgrounded apps outright unless
+    // exempted — either one silently drops every reminder below with no error,
+    // so both are requested proactively at startup rather than left for the
+    // user to discover and fix manually.
+    if (Platform.isAndroid) {
+      try {
+        await androidPlugin?.requestExactAlarmsPermission();
+      } catch (_) {}
+      try {
+        await Permission.ignoreBatteryOptimizations.request();
+      } catch (_) {}
+    }
 
     await scheduleAll();
   }
@@ -77,16 +92,12 @@ class NotificationService {
       await _plugin.cancel(_morningId);
       return;
     }
-    await _plugin.zonedSchedule(
+    await _zonedSchedule(
       _morningId,
       'Morning Wellness Check-in',
       'Log your Sleep data & Overall Recovery Metrics to stay on top of recovery.',
       _nextInstanceOf(7, 30),
-      _details(sound: sound),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+      sound: sound,
     );
   }
 
@@ -95,16 +106,12 @@ class NotificationService {
       await _plugin.cancel(_eveningId);
       return;
     }
-    await _plugin.zonedSchedule(
+    await _zonedSchedule(
       _eveningId,
       'Evening Load Reminder',
       "Don't forget to log today's training & skill Load before the day ends.",
       _nextInstanceOf(20, 0),
-      _details(sound: sound),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+      sound: sound,
     );
   }
 
@@ -120,16 +127,12 @@ class NotificationService {
       await _plugin.cancel(_wakeAlarmId);
       return;
     }
-    await _plugin.zonedSchedule(
+    await _zonedSchedule(
       _wakeAlarmId,
       'Wake up',
       'Time to get up — log last night’s sleep while it is fresh.',
       _nextInstanceOf(hour, minute),
-      _details(sound: sound),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+      sound: sound,
     );
   }
 
@@ -140,28 +143,53 @@ class NotificationService {
       await _plugin.cancel(_sessionId);
       return;
     }
-    await _plugin.zonedSchedule(
+    await _zonedSchedule(
       _sessionId,
       'Session Reminder',
       "Don't forget to log today's training session.",
       _nextInstanceOf(18, 0),
-      _details(sound: sound),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+      sound: sound,
     );
   }
 
-  /// Fires an immediate notification through the same channel as the
-  /// wellness reminders, so a user can confirm delivery actually works on
-  /// their device without waiting for the next scheduled time.
-  static Future<void> showTestNotification({bool sound = true}) => _plugin.show(
-        999,
-        'Test Notification',
-        "If you can see this, notifications are working on your device.",
+  /// Schedules with exact timing, falling back to an inexact (OS-batched,
+  /// within-~15-min) alarm if exact scheduling is rejected — e.g. the user
+  /// never granted "Alarms & reminders" on Android 12+. Without this
+  /// fallback a denied exact-alarm permission throws here and silently
+  /// cancels scheduling for every reminder still to come in scheduleAll().
+  static Future<void> _zonedSchedule(
+    int id,
+    String title,
+    String body,
+    tz.TZDateTime when, {
+    required bool sound,
+  }) async {
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        when,
         _details(sound: sound),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
       );
+    } catch (_) {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        when,
+        _details(sound: sound),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
+  }
 
   static NotificationDetails _details({bool sound = true}) => NotificationDetails(
         android: AndroidNotificationDetails(

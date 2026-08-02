@@ -5,8 +5,8 @@ const mongoose = require('mongoose');
 const appSettingsSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true },
 
-  // Free-trial length for new signups, in days ("one month" by default).
-  trialDays: { type: Number, default: 30, min: 0 },
+  // Free-trial length for new signups, in days.
+  trialDays: { type: Number, default: 15, min: 0 },
 
   // Default continued-access window after a term expires. A per-athlete
   // graceDays on the subscription overrides this.
