@@ -62,29 +62,31 @@ String formatHhMm(int minutes) {
 }
 
 /// Formula 3 — AVERAGE SLEEP TIME.
-/// SUMIFS over the window (d-7, d]: the given night plus the six before it,
-/// divided by however many of those nights actually exist. The sheet divides
-/// by a literal 7 regardless of how many rows are found, which reads as a
-/// heavily diluted (and misleading) average during an athlete's first week of
-/// logging — dividing by the real count instead keeps the figure meaningful
-/// from night one, and is identical to the sheet once 7+ nights exist.
-int averageSleepMinutes(List<SleepNight> nights, int index) {
-  if (nights.isEmpty || index < 0 || index >= nights.length) return 0;
+/// SUMIFS over the window (d-7, d] ÷ 7: the given night plus the six before
+/// it. This requires a full 7-night window — with fewer nights logged there
+/// is no "7-day average" yet, so this returns null (blank) rather than
+/// diluting or inflating the figure from a partial week.
+int? averageSleepMinutes(List<SleepNight> nights, int index) {
+  if (nights.isEmpty || index < 0 || index >= nights.length) return null;
   final start = index - 6 < 0 ? 0 : index - 6;
+  final count = index - start + 1;
+  if (count < 7) return null;
   var sum = 0;
   for (var i = start; i <= index; i++) {
     sum += nights[i].sleepMinutes;
   }
-  return sum ~/ (index - start + 1);
+  return sum ~/ 7;
 }
 
 /// Formula 6 — SLEEP DEBT: weekly average (M) minus that night's sleep (K).
-/// The sheet blanks the cell when the difference is negative — a night that
-/// beats the average carries no debt — so this returns null rather than a
-/// negative number.
+/// Blank (null) both when the weekly average itself isn't available yet
+/// (fewer than 7 nights logged) and when the sheet's own rule blanks it — a
+/// night that beats the average carries no debt.
 int? sleepDebtMinutes(List<SleepNight> nights, int index) {
   if (nights.isEmpty || index < 0 || index >= nights.length) return null;
-  final debt = averageSleepMinutes(nights, index) - nights[index].sleepMinutes;
+  final avg = averageSleepMinutes(nights, index);
+  if (avg == null) return null;
+  final debt = avg - nights[index].sleepMinutes;
   return debt < 0 ? null : debt;
 }
 

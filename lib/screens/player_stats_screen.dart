@@ -408,8 +408,8 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     // sleep time (1), 7-day average (3), efficiency (5) and sleep debt (6).
     final i       = sleep.length - 1;
     final last    = sleep[i];
-    final avgMins = averageSleepMinutes(sleep, i);
-    final debt    = sleepDebtMinutes(sleep, i);      // null = no debt that night
+    final avgMins = averageSleepMinutes(sleep, i);   // null until 7 nights are logged
+    final debt    = sleepDebtMinutes(sleep, i);      // null = no avg yet, or no debt that night
     final effPct  = last.efficiency * 100;
 
     final effCol  = effPct >= 85 ? kAccent : effPct >= 75 ? kWarn : kDanger;
@@ -419,11 +419,13 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         ? kAccent
         : debt <= 60 ? kWarn : kDanger;
 
-    final summary = effPct >= 85 && (debt ?? 0) <= 30
-        ? 'Sleep is restorative — efficiency is high and last night held the weekly average. Maintain current routine.'
-        : (debt ?? 0) > 60
-            ? 'Last night fell more than an hour below the 7-day average. Prioritise an earlier bedtime tonight and a recovery nap.'
-            : 'Sleep is adequate but inconsistent. Aim for steadier bedtimes to lift efficiency and clear debt.';
+    final summary = avgMins == null
+        ? 'Log 7 nights of sleep to unlock your rolling 7-day average and sleep debt.'
+        : effPct >= 85 && (debt ?? 0) <= 30
+            ? 'Sleep is restorative — efficiency is high and last night held the weekly average. Maintain current routine.'
+            : (debt ?? 0) > 60
+                ? 'Last night fell more than an hour below the 7-day average. Prioritise an earlier bedtime tonight and a recovery nap.'
+                : 'Sleep is adequate but inconsistent. Aim for steadier bedtimes to lift efficiency and clear debt.';
 
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
@@ -439,7 +441,12 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
       Row(children: [
         Expanded(child: _sleepStat('Sleep Time', formatHhMm(last.sleepMinutes), 'last night', kSleep)),
         const SizedBox(width: 10),
-        Expanded(child: _sleepStat('7-Day Average', formatHhMm(avgMins), 'rolling', kSleep)),
+        Expanded(child: _sleepStat(
+          '7-Day Average',
+          avgMins == null ? '—' : formatHhMm(avgMins),
+          avgMins == null ? 'needs 7 nights' : 'rolling',
+          kSleep,
+        )),
       ]),
       const SizedBox(height: 10),
       Row(children: [
@@ -448,7 +455,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         Expanded(child: _sleepStat(
           'Sleep Debt',
           debt == null ? '—' : formatHhMm(debt),
-          debt == null ? 'at or above avg' : 'vs 7-day avg',
+          avgMins == null ? 'needs 7 nights' : (debt == null ? 'at or above avg' : 'vs 7-day avg'),
           debtCol,
         )),
       ]),

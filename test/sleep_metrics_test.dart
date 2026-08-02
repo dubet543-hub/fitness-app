@@ -109,11 +109,10 @@ void main() {
       expect(averageSleepMinutes(steady, 6), 480);
     });
 
-    test('divides by the nights actually in the window, not a fixed 7', () {
-      // Row 0 sees only one 8h night, so the average is that night's value —
-      // not diluted by dividing a single night's total by 7.
-      expect(averageSleepMinutes(steady, 0), 480);
-      expect(averageSleepMinutes(steady, 3), 480);
+    test('is null — no average yet — until a full 7-night window exists', () {
+      expect(averageSleepMinutes(steady, 0), isNull);
+      expect(averageSleepMinutes(steady, 3), isNull);
+      expect(averageSleepMinutes(steady, 5), isNull);
     });
 
     test('window is the night plus the six before it, not the whole log', () {
@@ -140,8 +139,8 @@ void main() {
     });
 
     test('is safe on an empty log or out-of-range index', () {
-      expect(averageSleepMinutes([], 0), 0);
-      expect(averageSleepMinutes(steady, 99), 0);
+      expect(averageSleepMinutes([], 0), isNull);
+      expect(averageSleepMinutes(steady, 99), isNull);
     });
   });
 
@@ -199,6 +198,15 @@ void main() {
 
     test('is null on an empty log', () {
       expect(sleepDebtMinutes([], 0), isNull);
+    });
+
+    test('is null before a full 7-night average exists', () {
+      final nights = List.generate(
+        3,
+        (i) => nightFromLog(
+            d: '$i', timeToBed: hm(22, 0), latencyMinutes: 0, wokeUp: hm(6, 0)),
+      );
+      expect(sleepDebtMinutes(nights, 2), isNull);
     });
   });
 
