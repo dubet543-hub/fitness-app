@@ -64,4 +64,25 @@ const PRIVACY = [
 router.get('/terms', (_req, res) => res.type('html').send(page('Terms & Conditions', TERMS)));
 router.get('/privacy', (_req, res) => res.type('html').send(page('Privacy Policy', PRIVACY)));
 
+// Public, no-login-required pages for the two Play Store "Data safety"
+// deletion links. Content must match what auth.js's DELETE routes actually
+// do — DELETE /me/data wipes TrainingSession + BodyComposition (keeps the
+// account); DELETE /me additionally deletes the User record itself.
+const DELETE_DATA = [
+  { h: 'In the app', b: 'Open SolidCore AMS, go to Profile → Privacy &amp; Security, and tap "Delete my data." This is available any time you are signed in and takes effect immediately.' },
+  { h: 'Without the app', b: 'Email <a href="mailto:support@solidcoreats.com">support@solidcoreats.com</a> from the address registered to your account, with the subject "Delete my data." We verify the request and process it within 30 days.' },
+  { h: 'What gets deleted', b: 'All recorded training sessions, wellness/recovery check-ins (sleep, soreness, fatigue, mood), and body-composition history.' },
+  { h: 'What is kept', b: 'Your account itself (name, email, sign-in method) stays active so you can keep using the app and start logging fresh data immediately. Subscription/billing records are retained separately for financial record-keeping, as required by law.' },
+];
+
+const DELETE_ACCOUNT = [
+  { h: 'In the app', b: 'Open SolidCore AMS, go to Profile → Privacy &amp; Security, and tap "Delete account." This is permanent and cannot be undone.' },
+  { h: 'Without the app', b: 'Email <a href="mailto:support@solidcoreats.com">support@solidcoreats.com</a> from the address registered to your account, with the subject "Delete my account." We verify the request and process it within 30 days.' },
+  { h: 'What gets deleted', b: 'Your entire account (name, email, sign-in credentials), plus all recorded training sessions, wellness/recovery check-ins, and body-composition history.' },
+  { h: 'What is kept', b: 'Subscription/billing records are retained separately for financial record-keeping, as required by law. They are not linked to any of the personal or fitness data removed above once your account is deleted.' },
+];
+
+router.get('/delete-data', (_req, res) => res.type('html').send(page('Delete My Data — SolidCore AMS', DELETE_DATA)));
+router.get('/delete-account', (_req, res) => res.type('html').send(page('Delete My Account — SolidCore AMS', DELETE_ACCOUNT)));
+
 module.exports = router;
