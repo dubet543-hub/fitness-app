@@ -208,12 +208,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
   final Set<SkillSessionType> _sTypes    = {};
   final _sDurCtrl        = TextEditingController();
   int  _sRpe             = 5;
-  bool _sHasSub          = false;
-  final Set<SkillSessionType> _sSubTypes = {};
-  final _sSubDurCtrl     = TextEditingController();
-  int  _sSubRpe          = 5;
   final _sBallsCtrl      = TextEditingController();
-  final _sSubBallsCtrl   = TextEditingController();
   final _sMaxHRCtrl      = TextEditingController();
   final _sAvgHRCtrl      = TextEditingController();
 
@@ -230,7 +225,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
   void dispose() {
     for (final c in [
       _tPrimaryDurCtrl, _tDistCtrl, _tSprintsCtrl, _tMaxHRCtrl, _tAvgHRCtrl,
-      _sDurCtrl, _sSubDurCtrl, _sBallsCtrl, _sSubBallsCtrl, _sMaxHRCtrl, _sAvgHRCtrl,
+      _sDurCtrl, _sBallsCtrl, _sMaxHRCtrl, _sAvgHRCtrl,
     ]) { c.dispose(); }
     super.dispose();
   }
@@ -585,14 +580,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     if (_sTypes.isEmpty) { _snack("Select at least one skill type"); return; }
     final dur = int.tryParse(_sDurCtrl.text.trim()) ?? 0;
     if (dur <= 0) { _snack("Enter a valid duration"); return; }
-    if (_sHasSub && (int.tryParse(_sSubDurCtrl.text.trim()) ?? 0) <= 0) {
-      _snack("Enter subordinate skill session duration"); return;
-    }
 
     final capturedTypes = Set<SkillSessionType>.from(_sTypes);
-    final capturedSubTypes = Set<SkillSessionType>.from(_sSubTypes);
     final capturedRpe = _sRpe;
-    final capturedSubRpe = _sHasSub ? _sSubRpe : null;
     final now = DateTime.now();
 
     try {
@@ -602,13 +592,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
         'skillTypes': capturedTypes.map((e) => e.name).toList(),
         'skillDuration': dur,
         'skillRpe': capturedRpe,
-        'skillSubTypes': _sHasSub ? capturedSubTypes.map((e) => e.name).toList() : [],
-        'skillSubDuration': _sHasSub ? int.tryParse(_sSubDurCtrl.text.trim()) : null,
-        'skillSubRpe': capturedSubRpe,
         'ballsBowled': capturedTypes.contains(SkillSessionType.bowling) ? int.tryParse(_sBallsCtrl.text.trim()) : null,
-        'subBallsBowled': _sHasSub && capturedSubTypes.contains(SkillSessionType.bowling)
-            ? int.tryParse(_sSubBallsCtrl.text.trim())
-            : null,
         'skillMaxHR': int.tryParse(_sMaxHRCtrl.text.trim()),
         'skillAvgHR': int.tryParse(_sAvgHRCtrl.text.trim()),
       });
@@ -639,12 +623,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     _sTypes.clear();
     _sDurCtrl.clear();
     _sRpe = 5;
-    _sHasSub = false;
-    _sSubTypes.clear();
-    _sSubDurCtrl.clear();
-    _sSubRpe = 5;
     _sBallsCtrl.clear();
-    _sSubBallsCtrl.clear();
     _sMaxHRCtrl.clear();
     _sAvgHRCtrl.clear();
   }
@@ -729,13 +708,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             _TrainingLogTile(
               log: today[i],
               index: i + 1,
-              onDelete: () async {
-                final id = today[i].id;
-                if (id != null) {
-                  try { await ApiService.deleteSession(id); AthleteMetricsService.invalidate(); } catch (_) {}
-                }
-                await _loadSessions();
-              },
             ),
             if (i < today.length - 1) const SizedBox(height: 8),
           ],
@@ -906,7 +878,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
   Widget _buildSkillForm() {
     final showBowling    = _sTypes.contains(SkillSessionType.bowling);
-    final showSubBowling = _sHasSub && _sSubTypes.contains(SkillSessionType.bowling);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -941,66 +912,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             const SizedBox(width: 10),
             Expanded(child: _NumField(ctrl: _sAvgHRCtrl, label: "Avg HR")),
           ]),
-
-          // Subordinate skill session
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: kCard,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: _sHasSub ? kSuccess.withValues(alpha: 0.45) : kBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // FIX: Wrapped Column in Expanded to prevent Row overflow
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Subordinate Skill Session",
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                          Text("Additional skill practice in the same block",
-                              style: TextStyle(fontSize: 11, color: kTextSecondary)),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _sHasSub,
-                      activeThumbColor: kSuccess,
-                      onChanged: (v) => setState(() => _sHasSub = v),
-                    ),
-                  ],
-                ),
-                if (_sHasSub) ...[
-                  const SizedBox(height: 12),
-                  const _FieldLabel("Skill Type (Subordinate)"),
-                  const SizedBox(height: 8),
-                  _ChipSelector<SkillSessionType>(
-                    values: SkillSessionType.values,
-                    selected: _sSubTypes,
-                    label: (v) => v.label,
-                    onToggle: (v) => setState(() =>
-                        _sSubTypes.contains(v) ? _sSubTypes.remove(v) : _sSubTypes.add(v)),
-                  ),
-                  const SizedBox(height: 12),
-                  _NumField(ctrl: _sSubDurCtrl, label: "Duration (minutes)"),
-                  if (showSubBowling) ...[
-                    const SizedBox(height: 10),
-                    _NumField(ctrl: _sSubBallsCtrl, label: "Balls bowled"),
-                  ],
-                  const SizedBox(height: 12),
-                  const _FieldLabel("RPE — Subordinate Skill Session"),
-                  _RpeSlider(value: _sSubRpe, onChanged: (v) => setState(() => _sSubRpe = v)),
-                ],
-              ],
-            ),
-          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _submitSkill,
@@ -1052,8 +963,7 @@ class _DailyLimitNotice extends StatelessWidget {
 class _TrainingLogTile extends StatelessWidget {
   final TrainingLog  log;
   final int          index;
-  final VoidCallback onDelete;
-  const _TrainingLogTile({required this.log, required this.index, required this.onDelete});
+  const _TrainingLogTile({required this.log, required this.index});
 
   @override
   Widget build(BuildContext context) {
@@ -1089,12 +999,6 @@ class _TrainingLogTile extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded, size: 18, color: kTextSecondary),
-            onPressed: onDelete,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
           ),
         ],
       ),

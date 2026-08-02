@@ -292,6 +292,20 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+          if (widget.onOtpSignIn != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: widget.onOtpSignIn,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text('Forgot password?',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kAccent)),
+              ),
+            ),
           const SizedBox(height: 14),
 
           // ── Remember me ───────────────────────────────────────────

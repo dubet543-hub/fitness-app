@@ -80,6 +80,12 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
   String _fmt(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
+  String _fmt12(TimeOfDay t) {
+    final hour12 = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+    final period = t.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour12:${t.minute.toString().padLeft(2, '0')} $period';
+  }
+
   Future<void> _pickTime(_SleepClock which) async {
     final current = switch (which) {
       _SleepClock.bed      => _timeToBed,
@@ -90,15 +96,19 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
     final picked = await showTimePicker(
       context: context,
       initialTime: current,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: kAccent,
-            surface: kSurface,
-            onSurface: kTextPrimary,
+      initialEntryMode: TimePickerEntryMode.dial,
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: false),
+        child: Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: kAccent,
+              surface: kSurface,
+              onSurface: kTextPrimary,
+            ),
           ),
+          child: child!,
         ),
-        child: child!,
       ),
     );
     if (picked == null) return;
@@ -218,13 +228,13 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
             children: [
               Expanded(child: _TimePickerTile(
                 label: 'Time to Bed',
-                value: _fmt(_timeToBed),
+                value: _fmt12(_timeToBed),
                 onTap: () => _pickTime(_SleepClock.bed),
               )),
               const SizedBox(width: 12),
               Expanded(child: _TimePickerTile(
                 label: 'Fell Asleep',
-                value: _fmt(_sleepTime),
+                value: _fmt12(_sleepTime),
                 onTap: () => _pickTime(_SleepClock.asleep),
               )),
             ],
@@ -235,13 +245,13 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
             children: [
               Expanded(child: _TimePickerTile(
                 label: 'Wake-up Time',
-                value: _fmt(_wakeUpTime),
+                value: _fmt12(_wakeUpTime),
                 onTap: () => _pickTime(_SleepClock.wake),
               )),
               const SizedBox(width: 12),
               Expanded(child: _TimePickerTile(
                 label: 'Out of Bed',
-                value: _fmt(_outOfBedTime),
+                value: _fmt12(_outOfBedTime),
                 onTap: () => _pickTime(_SleepClock.outOfBed),
               )),
             ],
