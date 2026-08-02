@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "914527293028-72elqd6qa8t0fghi9qhulbr1qaqdnsb7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.solidcore.ams",
+            "certificate_hash": "035b85ef1712b9859252aff6af3607c2606d398e"
+          }
+        },
+        {
           "client_id": "914527293028-88iahokgu8gbl8l6rt9oq2ns77j5bm15.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
