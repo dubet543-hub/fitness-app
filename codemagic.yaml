@@ -6,23 +6,23 @@ workflows:
     integrations:
       app_store_connect: solidcore_asc # must match the integration name you create in Codemagic > Team settings > Integrations > App Store Connect
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.solidcore.ams
       vars:
         BUNDLE_ID: "com.solidcore.ams"
         XCODE_WORKSPACE: "ios/Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
       flutter: stable
     scripts:
+      - name: Set up keychain to be used for codesigning using Codemagic CLI 'keychain' command
+        script: |
+          keychain initialize
       - name: Fetch signing files
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create
-      - name: Set up keychain to be used for codesigning using Codemagic CLI 'keychain' command
+      - name: Set up signing certificate
         script: |
-          keychain initialize
+          keychain add-certificates
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
