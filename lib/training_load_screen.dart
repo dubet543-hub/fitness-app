@@ -197,7 +197,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
   final Set<PrimarySessionType>   _tPrimaryTypes = {};
   final _tPrimaryDurCtrl = TextEditingController();
   int  _tPrimaryRpe = 5;
-  String? _tSessionType; // "Match day", "Strength Program", etc.
   final _tDistCtrl       = TextEditingController();
   final _tSprintsCtrl    = TextEditingController();
   final _tMaxHRCtrl      = TextEditingController();
@@ -547,7 +546,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     try {
       await ApiService.submitSession({
         'date': now.toIso8601String(),
-        'sessionType': _tSessionType,
         'primaryTypes': capturedPrimaryTypes.map((e) => e.name).toList(),
         'primaryDuration': dur,
         'primaryRpe': capturedPrimaryRpe,
@@ -612,7 +610,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     _tPrimaryTypes.clear();
     _tPrimaryDurCtrl.clear();
     _tPrimaryRpe = 5;
-    _tSessionType = null;
     _tDistCtrl.clear();
     _tSprintsCtrl.clear();
     _tMaxHRCtrl.clear();
@@ -766,33 +763,6 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
           const _FieldLabel("RPE — Primary Session"),
           _RpeSlider(value: _tPrimaryRpe, onChanged: (v) => setState(() => _tPrimaryRpe = v)),
           const SizedBox(height: 14),
-          const _FieldLabel("Session Category"),
-          DropdownButton<String>(
-            value: _tSessionType,
-            isExpanded: true,
-            hint: Text("Select session category", style: TextStyle(color: kTextSecondary)),
-            items: [
-              'Match day',
-              'Strength Program',
-              'Power Program',
-              'Endurance Program',
-              'HIIT',
-              'Corrective Prehab Program',
-              'Core Program',
-              'Rest day'
-            ].map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() => _tSessionType = newValue);
-            },
-            style: TextStyle(color: kTextPrimary, fontSize: 14),
-            dropdownColor: kSurface,
-            underline: Container(height: 1, color: kBorder),
-          ),
           if (showExtra) ...[
             const SizedBox(height: 14),
             _NumField(ctrl: _tDistCtrl,    label: "Distance (metres) — Endurance / HIIT"),

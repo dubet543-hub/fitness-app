@@ -82,7 +82,7 @@ class TermsPage extends StatelessWidget {
     sections: [
       (
         heading: '1. Acceptance of Terms',
-        body: 'By downloading, accessing, or using the SolidCore application '
+        body: 'By downloading, accessing, or using the SOLIDCORE application '
             '("the App") you agree to be bound by these Terms & Conditions. '
             'Ticking the "I have read and agree" box at sign-in records your '
             'acceptance of these Terms and of the Privacy Policy. If you do not '
@@ -90,7 +90,7 @@ class TermsPage extends StatelessWidget {
       ),
       (
         heading: '2. Use of the App',
-        body: 'SolidCore is provided for general fitness, training, and '
+        body: 'SOLIDCORE is provided for general fitness, training, and '
             'informational purposes. You agree to use the App only for lawful '
             'purposes and not to misuse, reverse-engineer, or interfere with '
             'its normal operation.',
@@ -157,9 +157,19 @@ class TermsPage extends StatelessWidget {
       ),
       (
         heading: '9. Intellectual Property',
-        body: 'All content, trademarks, and software in the App are owned by or '
-            'licensed to SolidCoreATS and may not be copied or '
-            'redistributed without permission.',
+        body: 'The SOLIDCORE AMS application, including its source code, '
+            'design, branding, and proprietary software architecture, is '
+            'protected by intellectual property laws and belongs exclusively '
+            'to SOLIDCORE AMS.\n\n'
+            'SOLIDCORE AMS utilizes publicly available scientific formulas, '
+            'published research, and standardized calculation methods (such '
+            'as ACWR and the U.S. Navy Body Fat estimation method) to provide '
+            'athlete analytics. Unaffiliated scientific equations and '
+            'research methodologies belong to their respective authors or '
+            'exist within the public domain. Your license to use the app '
+            'grants no rights to copy, reverse-engineer, or commercially '
+            'reproduce the SOLIDCORE AMS software or its digital '
+            'implementation.',
       ),
       (
         heading: '10. Limitation of Liability',
@@ -199,7 +209,7 @@ class PrivacyPolicyPage extends StatelessWidget {
     sections: [
       (
         heading: '1. Overview',
-        body: 'This Privacy Policy explains how SolidCoreATS (operated '
+        body: 'This Privacy Policy explains how SOLIDCOREATS (operated '
             'by Tushar Dube) collects, uses, and protects your information when you use the App.',
       ),
       (
