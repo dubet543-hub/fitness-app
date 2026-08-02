@@ -245,7 +245,10 @@ class AthleteMetricsService {
     final trainByDay = List<double>.filled(dayCount, 0);
     final skillByDay = List<double>.filled(dayCount, 0);
     final totalByDay = List<double>.filled(dayCount, 0);
-    // Last wellness check-in / sleep log seen per day (later sessions win).
+    // Last wellness check-in seen per day wins. Sleep logs instead keep
+    // whichever entry has the most sleep detail (see sleepDetailScore) so a
+    // same-day duplicate never overwrites a fuller night's data with a
+    // sparser one.
     final wellnessByDay = <int, _ParsedSession>{};
     final sleepByDay = <int, _ParsedSession>{};
 
@@ -256,7 +259,12 @@ class AthleteMetricsService {
       skillByDay[idx] += p.skillLoad;
       totalByDay[idx] += p.totalLoad;
       if (p.hasWellness) wellnessByDay[idx] = p;
-      if (p.hasSleepTimes) sleepByDay[idx] = p;
+      if (p.hasSleepTimes) {
+        final existing = sleepByDay[idx];
+        if (existing == null || p.sleepDetailScore >= existing.sleepDetailScore) {
+          sleepByDay[idx] = p;
+        }
+      }
     }
 
     List<WorkPoint> series(List<double> loads) {
@@ -368,6 +376,16 @@ class _ParsedSession {
   bool get hasSleepTimes =>
       _clockMinutes(raw['sleepTimeToBed']) != null &&
       _clockMinutes(raw['sleepWakeUpTime']) != null;
+
+  /// How much sleep detail this entry actually carries: 0 when only bed/wake
+  /// were logged, up to 2 once fell-asleep and out-of-bed are also present.
+  /// Two wellness check-ins can land on the same local day (e.g. one logged
+  /// just after waking, another logged later that same day) — both describe
+  /// the same night, so the fuller one should win rather than whichever
+  /// happened to be submitted last.
+  int get sleepDetailScore =>
+      (_clockMinutes(raw['sleepFellAsleep']) != null ? 1 : 0) +
+      (_clockMinutes(raw['sleepOutOfBedTime']) != null ? 1 : 0);
 
   /// Wellness scores default to 3 (neutral) when unlogged — mirrors the
   /// backend's readinessPercent computation.
