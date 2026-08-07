@@ -17,6 +17,14 @@ workflows:
       - name: Set up keychain to be used for codesigning using Codemagic CLI 'keychain' command
         script: |
           keychain initialize
+      - name: Set up signing certificate
+        # Explicitly imports the certificate's private key into the build
+        # keychain. Archiving can succeed without this (Xcode resolves it a
+        # different way at that stage), but the later, separate
+        # `xcodebuild -exportArchive` invocation needs it actually present
+        # and trusted in the keychain, not just referenced by name.
+        script: |
+          keychain add-certificates
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
