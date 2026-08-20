@@ -66,7 +66,7 @@ router.put('/billing/plans/:key', async (req, res) => {
     const plan = await Plan.findOne({ key: req.params.key });
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
-    const { name, priceInr, durationDays, features, active, order } = req.body;
+    const { name, priceInr, durationDays, features, active, order, appleProductId } = req.body;
     if (features !== undefined) {
       const bad = badFeatures(features);
       if (bad.length) return res.status(400).json({ error: `Unknown features: ${bad.join(', ')}` });
@@ -78,6 +78,11 @@ router.put('/billing/plans/:key', async (req, res) => {
     if (features     !== undefined) plan.features     = features;
     if (active       !== undefined) plan.active       = !!active;
     if (order        !== undefined) plan.order        = Number(order);
+    // Empty string clears the mapping rather than tripping the unique index
+    // with multiple plans stored as "".
+    if (appleProductId !== undefined) {
+      plan.appleProductId = appleProductId ? String(appleProductId) : undefined;
+    }
     await plan.save();
     await audit(req.user._id, req.user._id, 'plan_updated', before, plan.toObject(),
       `Plan ${plan.key} edited`);

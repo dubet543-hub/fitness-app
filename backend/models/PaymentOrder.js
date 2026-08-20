@@ -8,7 +8,10 @@ const paymentOrderSchema = new mongoose.Schema({
   plan:      { type: String, required: true },           // Plan.key at purchase time
   planName:  { type: String },
   amountInr: { type: Number, required: true },           // rupees, as charged
-  orderId:   { type: String, required: true, unique: true }, // Razorpay order_id
+  provider:  { type: String, enum: ['razorpay', 'apple'], default: 'razorpay' },
+  // Razorpay order_id, or Apple's (stable) transaction_id — either way, the
+  // unique index is what makes a purchase impossible to replay/double-apply.
+  orderId:   { type: String, required: true, unique: true },
   status:    { type: String, enum: ['created', 'paid', 'failed'], default: 'created' },
   paymentId: { type: String },                           // Razorpay payment_id once paid
   createdAt: { type: Date, default: Date.now },

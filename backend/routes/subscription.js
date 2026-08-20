@@ -3,13 +3,14 @@ const Plan         = require('../models/Plan');
 const PaymentOrder = require('../models/PaymentOrder');
 const { authenticate } = require('../middleware/auth');
 const {
-  entitlementsFor, getOrCreateSubscription, audit, FEATURES,
+  entitlementsFor, getOrCreateSubscription, activatePlan, FEATURES,
 } = require('../utils/entitlements');
 const {
   createOrder, verifySignature, paymentsConfigured, RazorpayConfigError,
 } = require('../utils/razorpay');
-
-const DAY = 86400000;
+const {
+  verifyReceipt, paymentsConfiguredApple, AppStoreConfigError,
+} = require('../utils/appstore');
 
 router.use(authenticate);
 
@@ -25,14 +26,20 @@ router.get('/me', async (req, res) => {
     res.json({
       entitlements,
       featureNames: FEATURES,
-      // Buy buttons only render when the server can actually take payments.
-      payments: { enabled: paymentsConfigured() },
+      // Buy buttons only render when the server can actually take payments —
+      // `enabled` is a back-compat alias for "at least one provider works".
+      payments: {
+        enabled: paymentsConfigured() || paymentsConfiguredApple(),
+        razorpay: paymentsConfigured(),
+        apple: paymentsConfiguredApple(),
+      },
       plans: plans.map((p) => ({
         key: p.key,
         name: p.name,
         priceInr: p.priceInr,
         durationDays: p.durationDays,
         features: p.features,
+        appleProductId: p.appleProductId || null,
       })),
     });
   } catch (err) {
@@ -112,22 +119,80 @@ router.post('/verify', async (req, res) => {
     order.paidAt = new Date();
     await order.save();
 
-    const sub = await getOrCreateSubscription(req.user._id);
-    const before = sub.toObject();
-    const now = new Date();
-    // Renewing the same plan before it lapses stacks on the current expiry;
-    // anything else (trial, upgrade, downgrade, expired) starts a fresh term.
-    const renewing = sub.status === 'active' && sub.plan === plan.key &&
-      sub.expiresAt && sub.expiresAt > now;
-    sub.plan = plan.key;
-    sub.status = 'active';
-    sub.startsAt = renewing ? sub.startsAt : now;
-    sub.expiresAt = new Date(
-      (renewing ? sub.expiresAt : now).getTime() + plan.durationDays * DAY);
-    sub.complimentary = false;
-    await sub.save();
-    await audit(req.user._id, req.user._id, 'purchase', before, sub.toObject(),
+    const sub = await activatePlan(req.user._id, req.user._id, plan,
       `Razorpay ${paymentId} — ${plan.name} ₹${order.amountInr}`);
+
+    res.json({
+      subscription: sub,
+      entitlements: await entitlementsFor(req.user._id),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/subscription/verify-apple { receipt, plan }
+// Apple's server is the source of truth for what was actually bought — the
+// `plan` param is only a hint for a clearer error message, never trusted for
+// activation. The receipt's own product id decides which plan gets applied.
+router.post('/verify-apple', async (req, res) => {
+  try {
+    const { receipt } = req.body;
+    if (!receipt) return res.status(400).json({ error: 'Missing receipt' });
+
+    let verified;
+    try {
+      verified = await verifyReceipt({ receiptData: receipt });
+    } catch (err) {
+      if (err instanceof AppStoreConfigError) {
+        console.warn('[payments]', err.message);
+        return res.status(503).json({ error: 'Payments are not available right now.' });
+      }
+      return res.status(400).json({ error: 'Could not verify this purchase with Apple.' });
+    }
+
+    const plan = await Plan.findOne({ appleProductId: verified.productId, active: true });
+    if (!plan) {
+      return res.status(400).json({ error: 'This purchase does not match a known plan.' });
+    }
+
+    // Apple's transaction id is stable across re-fetches of the same receipt,
+    // so the unique index on orderId is what makes this idempotent — a
+    // concurrent double-submit races here and one loses to the index.
+    const existing = await PaymentOrder.findOne({ orderId: verified.transactionId });
+    if (existing) {
+      return res.json({
+        subscription: await getOrCreateSubscription(req.user._id),
+        entitlements: await entitlementsFor(req.user._id),
+      });
+    }
+
+    let order;
+    try {
+      order = await PaymentOrder.create({
+        user: req.user._id,
+        plan: plan.key,
+        planName: plan.name,
+        amountInr: plan.priceInr,
+        provider: 'apple',
+        orderId: verified.transactionId,
+        status: 'paid',
+        paymentId: verified.transactionId,
+        paidAt: verified.purchaseDate,
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        // Lost the create race to a concurrent request — already processed.
+        return res.json({
+          subscription: await getOrCreateSubscription(req.user._id),
+          entitlements: await entitlementsFor(req.user._id),
+        });
+      }
+      throw err;
+    }
+
+    const sub = await activatePlan(req.user._id, req.user._id, plan,
+      `Apple IAP ${order.orderId} — ${plan.name} ₹${plan.priceInr}`);
 
     res.json({
       subscription: sub,

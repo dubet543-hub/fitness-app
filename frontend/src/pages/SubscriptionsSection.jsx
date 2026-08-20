@@ -287,7 +287,7 @@ function PlansAndSettings({ billing, reload, flash, fail }) {
     try {
       await api.put(`/admin/billing/plans/${p.key}`, {
         name: p.name, priceInr: Number(p.priceInr), durationDays: Number(p.durationDays),
-        features: p.features, active: p.active,
+        features: p.features, active: p.active, appleProductId: p.appleProductId || '',
       });
       flash(`${p.name} saved`); reload();
     } catch (e) { fail(e); }
@@ -333,6 +333,13 @@ function PlansAndSettings({ billing, reload, flash, fail }) {
                 onChange={(e) => patchPlan(p.key, { active: e.target.checked })} />
               Available
             </label>
+          </div>
+          <div className="flex flex-wrap items-end gap-3 mb-3">
+            <Field label="Apple App Store product id (iOS purchases)">
+              <input className={inputCls + ' w-72'} value={p.appleProductId || ''}
+                placeholder="e.g. com.solidcore.ams.plan.athlete_optimisation"
+                onChange={(e) => patchPlan(p.key, { appleProductId: e.target.value })} />
+            </Field>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
             {Object.entries(featureNames).map(([key, label]) => (

@@ -12,6 +12,9 @@ const planSchema = new mongoose.Schema({
   features:     { type: [String], default: [] },                // feature keys (utils/entitlements.js)
   active:       { type: Boolean, default: true },               // hidden from catalogue when false
   order:        { type: Number, default: 0 },                   // display order
+  // Matching Non-Renewing Subscription product id in App Store Connect, for
+  // the iOS purchase path. Blank hides the plan's Buy button on iOS.
+  appleProductId: { type: String, sparse: true, unique: true },
   updatedAt:    { type: Date, default: Date.now },
 });
 

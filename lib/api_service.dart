@@ -171,6 +171,22 @@ class ApiService {
     }
   }
 
+  /// POST /api/subscription/verify-apple — hands the StoreKit receipt to the
+  /// backend, which verifies it directly with Apple before activating a plan.
+  static Future<void> verifyApplePayment({
+    required String receipt,
+    required String plan,
+  }) async {
+    final res = await _send(http.post(
+      Uri.parse('$_baseUrl/subscription/verify-apple'),
+      headers: await _authHeaders(),
+      body: jsonEncode({'receipt': receipt, 'plan': plan}),
+    ));
+    if (res.statusCode != 200) {
+      throw Exception(_body(res)['error'] ?? 'Payment verification failed');
+    }
+  }
+
   // ── Token storage ──────────────────────────────────────────────────────
 
   static Future<void> saveToken(String token) async {

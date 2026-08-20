@@ -55,10 +55,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>SolidCore uses the camera for posture, running and bowling movement analysis.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>This app connects to the SolidCore backend running on your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>SolidCore may use the microphone while recording movement analysis videos.</string>
+	<string>SolidCore uses the microphone to record audio alongside movement analysis videos.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

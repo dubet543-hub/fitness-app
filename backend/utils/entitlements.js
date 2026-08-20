@@ -209,6 +209,39 @@ async function entitlementsFor(userId, now = new Date()) {
   return computeEntitlements(sub, plans, settings, now);
 }
 
+const DAY = 86400000;
+
+/**
+ * Activate/renew a paid plan on a user's subscription and audit the change.
+ * Shared by every payment provider's verify route so activation logic can
+ * never drift between them.
+ *
+ * Renewing the same plan before it lapses stacks on the current expiry;
+ * anything else (trial, upgrade, downgrade, expired) starts a fresh term.
+ *
+ * @param {string} userId
+ * @param {string} actorId  who caused this (usually same as userId; null for system)
+ * @param {object} plan     Plan document being purchased
+ * @param {string} note     audit note, e.g. "Razorpay <id> — <plan> ₹<amount>"
+ * @returns {object} the updated Subscription document
+ */
+async function activatePlan(userId, actorId, plan, note = '') {
+  const sub = await getOrCreateSubscription(userId);
+  const before = sub.toObject();
+  const now = new Date();
+  const renewing = sub.status === 'active' && sub.plan === plan.key &&
+    sub.expiresAt && sub.expiresAt > now;
+  sub.plan = plan.key;
+  sub.status = 'active';
+  sub.startsAt = renewing ? sub.startsAt : now;
+  sub.expiresAt = new Date(
+    (renewing ? sub.expiresAt : now).getTime() + plan.durationDays * DAY);
+  sub.complimentary = false;
+  await sub.save();
+  await audit(userId, actorId, 'purchase', before, sub.toObject(), note);
+  return sub;
+}
+
 module.exports = {
   FEATURES,
   ALL_FEATURES,
@@ -218,5 +251,6 @@ module.exports = {
   startTrial,
   getOrCreateSubscription,
   entitlementsFor,
+  activatePlan,
   audit,
 };

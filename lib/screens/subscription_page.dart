@@ -1,9 +1,19 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
 import '../services/entitlements.dart';
 import '../widgets/feature_gate.dart' show formatInr;
+
+/// Apple requires digital subscriptions bought inside an iOS app to go
+/// through StoreKit, not a third-party processor (Guideline 3.1.1) — so iOS
+/// buys through Apple IAP while Android keeps the existing Razorpay flow.
+bool _useAppleIap() => !kIsWeb && Platform.isIOS;
 
 /// Current plan status + the live plan catalogue. Prices, features, and plan
 /// names come from the backend, so admin edits show up here without an app
@@ -28,6 +38,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   String? _buyingPlan;   // plan key mid-checkout (spinner on that card)
   String? _pendingOrder; // Razorpay order id awaiting verification
 
+  final InAppPurchase _iap = InAppPurchase.instance;
+  StreamSubscription<List<PurchaseDetails>>? _iapSub;
+
   @override
   void initState() {
     super.initState();
@@ -35,12 +48,17 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
+    if (_useAppleIap()) {
+      _iapSub = _iap.purchaseStream.listen(_onIapUpdate,
+          onError: (_) {}); // errors surface per-purchase in the list itself
+    }
     _load();
   }
 
   @override
   void dispose() {
     _razorpay.clear();
+    _iapSub?.cancel();
     super.dispose();
   }
 
@@ -66,7 +84,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   // ── Purchase ──────────────────────────────────────────────────────────────
 
-  Future<void> _buy(PlanInfo plan) async {
+  Future<void> _buy(PlanInfo plan) {
+    return _useAppleIap() ? _buyApple(plan) : _buyRazorpay(plan);
+  }
+
+  Future<void> _buyRazorpay(PlanInfo plan) async {
     setState(() => _buyingPlan = plan.key);
     try {
       final order = await ApiService.createPlanOrder(plan.key);
@@ -149,6 +171,81 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     _snack('Continue in ${r.walletName ?? 'your wallet app'} to finish paying.');
   }
 
+  // ── Apple IAP purchase (iOS only) ───────────────────────────────────────
+
+  Future<void> _buyApple(PlanInfo plan) async {
+    final productId = plan.appleProductId;
+    if (productId == null || productId.isEmpty) {
+      _snack('This plan is not available on iOS yet.');
+      return;
+    }
+    setState(() => _buyingPlan = plan.key);
+    try {
+      if (!await _iap.isAvailable()) {
+        throw Exception('In-app purchases are not available on this device.');
+      }
+      final response = await _iap.queryProductDetails({productId});
+      if (response.productDetails.isEmpty) {
+        throw Exception('This plan is not available for purchase right now.');
+      }
+      final started = await _iap.buyNonConsumable(
+        purchaseParam: PurchaseParam(productDetails: response.productDetails.first),
+      );
+      if (!started) throw Exception('Could not start the purchase.');
+      // _buyingPlan stays set until the purchase stream resolves it below.
+    } catch (e) {
+      if (mounted) setState(() => _buyingPlan = null);
+      _snack(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _onIapUpdate(List<PurchaseDetails> purchases) async {
+    for (final p in purchases) {
+      switch (p.status) {
+        case PurchaseStatus.pending:
+          break;
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          await _verifyApplePurchase(p);
+          break;
+        case PurchaseStatus.canceled:
+          if (mounted) setState(() => _buyingPlan = null);
+          _snack('Payment cancelled.');
+          if (p.pendingCompletePurchase) await _iap.completePurchase(p);
+          break;
+        case PurchaseStatus.error:
+          if (mounted) setState(() => _buyingPlan = null);
+          _snack(p.error?.message ??
+              'Payment failed. You have not been charged beyond this attempt.');
+          if (p.pendingCompletePurchase) await _iap.completePurchase(p);
+          break;
+      }
+    }
+  }
+
+  Future<void> _verifyApplePurchase(PurchaseDetails p) async {
+    try {
+      final matches = _ent?.plans.where((pl) => pl.appleProductId == p.productID) ?? const [];
+      final planKey = matches.isEmpty ? '' : matches.first.key;
+      await ApiService.verifyApplePayment(
+        receipt: p.verificationData.serverVerificationData,
+        plan: planKey,
+      );
+      await _load();
+      _snack('Payment successful — your plan is active!', ok: true);
+    } catch (e) {
+      // Apple purchases have no separate human-readable payment id the way
+      // Razorpay does — the transaction is already inside the receipt/App
+      // Store purchase history, so point to support without inventing one.
+      _snack('Payment received but verification failed: '
+          '${e.toString().replaceFirst('Exception: ', '')} '
+          'Contact support if this persists.');
+    } finally {
+      if (mounted) setState(() => _buyingPlan = null);
+      if (p.pendingCompletePurchase) await _iap.completePurchase(p);
+    }
+  }
+
   // ── UI ────────────────────────────────────────────────────────────────────
 
   @override
@@ -207,17 +304,37 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     ),
                     const SizedBox(height: 14),
                   ],
+                  if (_useAppleIap() && _ent!.appleEnabled) ...[
+                    const SizedBox(height: 4),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => _iap.restorePurchases(),
+                        child: Text('Restore Purchases',
+                            style: TextStyle(fontSize: 13, color: kAccent)),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Text(
-                    _ent!.paymentsEnabled
-                        ? 'Payments are processed securely by Razorpay. Changing '
-                          'plans never deletes your data — locked features keep '
-                          'all their history, restored the moment you upgrade. '
-                          'For help, email support@solidcoreats.com.'
-                        : 'To start, change, or renew a plan, contact your '
+                    // The active provider on this platform, not the generic
+                    // paymentsEnabled flag — otherwise this can claim a
+                    // payment method is available while every Buy button on
+                    // the page above is actually hidden.
+                    !(_useAppleIap() ? _ent!.appleEnabled : _ent!.razorpayEnabled)
+                        ? 'To start, change, or renew a plan, contact your '
                           'SolidCore administrator or email '
                           'support@solidcoreats.com. Changing plans never '
-                          'deletes your data.',
+                          'deletes your data.'
+                        : _useAppleIap()
+                            ? 'Payments are processed securely by the App Store. '
+                              'Changing plans never deletes your data — locked '
+                              'features keep all their history, restored the '
+                              'moment you upgrade. For help, email '
+                              'support@solidcoreats.com.'
+                            : 'Payments are processed securely by Razorpay. Changing '
+                              'plans never deletes your data — locked features keep '
+                              'all their history, restored the moment you upgrade. '
+                              'For help, email support@solidcoreats.com.',
                     style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.55),
                   ),
                 ],
@@ -317,7 +434,11 @@ class _PlanCard extends StatelessWidget {
     final names = ent.featureNames;
 
     // Purchasable in every self-serve state; suspension is an admin hold.
-    final canBuy = ent.paymentsEnabled && ent.status != 'suspended';
+    // On iOS a plan also needs its Apple product configured before it's buyable.
+    final providerEnabled = _useAppleIap()
+        ? ent.appleEnabled && plan.appleProductId != null
+        : ent.razorpayEnabled;
+    final canBuy = providerEnabled && ent.status != 'suspended';
     final buyLabel = isCurrent
         ? 'Renew — ${formatInr(plan.priceInr)} for 1 more year'
         : 'Buy for ${formatInr(plan.priceInr)}/year';

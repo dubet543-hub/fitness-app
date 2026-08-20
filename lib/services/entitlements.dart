@@ -26,6 +26,9 @@ class PlanInfo {
   final int priceInr;
   final int durationDays;
   final List<String> features;
+  /// Matching Non-Renewing Subscription product id in App Store Connect.
+  /// Null hides this plan's Buy button on iOS.
+  final String? appleProductId;
 
   const PlanInfo({
     required this.key,
@@ -33,6 +36,7 @@ class PlanInfo {
     required this.priceInr,
     required this.durationDays,
     required this.features,
+    this.appleProductId,
   });
 
   factory PlanInfo.fromJson(Map<String, dynamic> j) => PlanInfo(
@@ -41,11 +45,13 @@ class PlanInfo {
         priceInr: (j['priceInr'] as num).toInt(),
         durationDays: (j['durationDays'] as num?)?.toInt() ?? 365,
         features: List<String>.from(j['features'] as List? ?? const []),
+        appleProductId: j['appleProductId'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
         'key': key, 'name': name, 'priceInr': priceInr,
         'durationDays': durationDays, 'features': features,
+        'appleProductId': appleProductId,
       };
 }
 
@@ -62,9 +68,12 @@ class Entitlements {
   final List<PlanInfo> plans;
   final Map<String, String> featureNames;
 
-  /// Whether the server can take card payments (Razorpay configured). Buy
-  /// buttons stay hidden when false.
+  /// Whether the server can take payments through at least one provider. Buy
+  /// buttons stay hidden when false. Prefer [razorpayEnabled]/[appleEnabled]
+  /// for platform-specific gating.
   final bool paymentsEnabled;
+  final bool razorpayEnabled;
+  final bool appleEnabled;
 
   const Entitlements({
     required this.status,
@@ -78,6 +87,8 @@ class Entitlements {
     required this.plans,
     required this.featureNames,
     this.paymentsEnabled = false,
+    this.razorpayEnabled = false,
+    this.appleEnabled = false,
   });
 
   bool has(String feature) => features.contains(feature);
@@ -98,6 +109,9 @@ class Entitlements {
 
   factory Entitlements.fromApi(Map<String, dynamic> body) {
     final e = body['entitlements'] as Map<String, dynamic>? ?? const {};
+    final payments = body['payments'] as Map?;
+    final razorpayEnabled = payments?['razorpay'] == true;
+    final appleEnabled = payments?['apple'] == true;
     DateTime? d(dynamic v) => v == null ? null : DateTime.tryParse(v.toString());
     return Entitlements(
       status: (e['status'] ?? 'none').toString(),
@@ -112,7 +126,9 @@ class Entitlements {
           .map((p) => PlanInfo.fromJson(p as Map<String, dynamic>))
           .toList(),
       featureNames: Map<String, String>.from(body['featureNames'] as Map? ?? const {}),
-      paymentsEnabled: (body['payments'] as Map?)?['enabled'] == true,
+      paymentsEnabled: payments?['enabled'] == true || razorpayEnabled || appleEnabled,
+      razorpayEnabled: razorpayEnabled,
+      appleEnabled: appleEnabled,
     );
   }
 }
