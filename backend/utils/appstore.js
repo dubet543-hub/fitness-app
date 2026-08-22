@@ -42,6 +42,15 @@ async function postReceipt(url, receiptData, secret) {
  */
 async function verifyReceipt({ receiptData }) {
   const secret = sharedSecret();
+  // TEMP diagnostic: shape of what the client actually sent, to distinguish
+  // a truncated/empty receipt from a StoreKit-2 JWS (three dot-separated
+  // base64url segments) being sent to this StoreKit-1-only endpoint.
+  console.log('[payments] receipt diagnostic:', {
+    length: receiptData?.length,
+    dotSegments: receiptData?.split('.').length,
+    head: receiptData?.slice(0, 24),
+    tail: receiptData?.slice(-24),
+  });
   let body = await postReceipt(PROD_URL, receiptData, secret);
   if (body.status === 21007) {
     body = await postReceipt(SANDBOX_URL, receiptData, secret);
