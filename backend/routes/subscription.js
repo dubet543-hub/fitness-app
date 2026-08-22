@@ -148,11 +148,13 @@ router.post('/verify-apple', async (req, res) => {
         console.warn('[payments]', err.message);
         return res.status(503).json({ error: 'Payments are not available right now.' });
       }
+      console.error('[payments] Apple receipt verification failed:', err.message);
       return res.status(400).json({ error: 'Could not verify this purchase with Apple.' });
     }
 
     const plan = await Plan.findOne({ appleProductId: verified.productId, active: true });
     if (!plan) {
+      console.error('[payments] No plan matches Apple productId:', verified.productId);
       return res.status(400).json({ error: 'This purchase does not match a known plan.' });
     }
 
