@@ -1,76 +1,98 @@
-// ── Apple App Store receipt verification ────────────────────────────────────
-// Classic `verifyReceipt` endpoint + an app-specific shared secret — no SDK
-// dependency, mirroring razorpay.js's plain-fetch approach.
+// ── Apple StoreKit 2 transaction verification ───────────────────────────────
+// The `in_app_purchase` Flutter plugin's `serverVerificationData` on modern
+// iOS is a StoreKit 2 signed JWS transaction (three dot-separated base64url
+// segments, header starting `eyJhbGci...`) — NOT the legacy base64 App Store
+// receipt blob. Sending it to the old /verifyReceipt REST endpoint fails with
+// status 21002 ("malformed receipt data") because that endpoint only ever
+// understood the old format. This verifies the JWS directly against Apple's
+// own signature instead, per Apple's official app-store-server-library.
+
+const fs = require('fs');
+const path = require('path');
+const {
+  SignedDataVerifier, VerificationException, VerificationStatus, Environment,
+} = require('@apple/app-store-server-library');
 
 class AppStoreConfigError extends Error {}
 
-const PROD_URL    = 'https://buy.itunes.apple.com/verifyReceipt';
-const SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
+const BUNDLE_ID = 'com.solidcore.ams';
+const ROOT_CA = fs.readFileSync(path.join(__dirname, '../certs/AppleRootCA-G3.cer'));
 
-function sharedSecret() {
-  const secret = process.env.APPLE_IAP_SHARED_SECRET;
-  if (!secret) {
-    throw new AppStoreConfigError('APPLE_IAP_SHARED_SECRET is not configured');
-  }
-  return secret;
-}
+let sandboxVerifier = null;
+let productionVerifier = null;
 
-/** True when Apple IAP receipt verification is configured. */
-function paymentsConfiguredApple() {
+function sharedSecretConfigured() {
+  // Historical name from the legacy receipt-verification env var; kept so
+  // existing Render config doesn't need renaming. Its presence is still the
+  // signal that Apple IAP has been set up for this deployment.
   return !!process.env.APPLE_IAP_SHARED_SECRET;
 }
 
-async function postReceipt(url, receiptData, secret) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      'receipt-data': receiptData,
-      password: secret,
-      'exclude-old-transactions': true,
-    }),
-  });
-  return res.json();
+/** True when Apple IAP verification is configured. */
+function paymentsConfiguredApple() {
+  return sharedSecretConfigured();
+}
+
+function getSandboxVerifier() {
+  if (!sharedSecretConfigured()) {
+    throw new AppStoreConfigError('APPLE_IAP_SHARED_SECRET is not configured');
+  }
+  if (!sandboxVerifier) {
+    sandboxVerifier = new SignedDataVerifier(
+      [ROOT_CA], true, Environment.SANDBOX, BUNDLE_ID);
+  }
+  return sandboxVerifier;
 }
 
 /**
- * Verify a StoreKit receipt against Apple's servers and return the latest
- * transaction. Sandbox receipts submitted to the prod endpoint come back with
- * status 21007 — Apple's documented signal to retry against sandbox, which
- * happens for every TestFlight/sandbox purchase, so this retry is mandatory.
+ * Production verification needs the app's numeric App Store Connect id
+ * (Apple ID), which only exists once the app has a real App Store listing —
+ * set APPLE_APP_STORE_ID once that's available. Until then, production
+ * purchases simply can't be verified yet, which is fine pre-launch.
+ */
+function getProductionVerifier() {
+  const appAppleId = process.env.APPLE_APP_STORE_ID;
+  if (!appAppleId) return null;
+  if (!productionVerifier) {
+    productionVerifier = new SignedDataVerifier(
+      [ROOT_CA], true, Environment.PRODUCTION, BUNDLE_ID, appAppleId);
+  }
+  return productionVerifier;
+}
+
+/**
+ * Verify a StoreKit 2 signed transaction and return its key fields. Tries
+ * sandbox first (where all TestFlight/development purchases live) and falls
+ * back to production — mirroring the old 21007 sandbox/prod retry, just for
+ * the new format.
  * @returns {{transactionId: string, productId: string, purchaseDate: Date}}
  */
-async function verifyReceipt({ receiptData }) {
-  const secret = sharedSecret();
-  // TEMP diagnostic: shape of what the client actually sent, to distinguish
-  // a truncated/empty receipt from a StoreKit-2 JWS (three dot-separated
-  // base64url segments) being sent to this StoreKit-1-only endpoint.
-  console.log('[payments] receipt diagnostic:', {
-    length: receiptData?.length,
-    dotSegments: receiptData?.split('.').length,
-    head: receiptData?.slice(0, 24),
-    tail: receiptData?.slice(-24),
-  });
-  let body = await postReceipt(PROD_URL, receiptData, secret);
-  if (body.status === 21007) {
-    body = await postReceipt(SANDBOX_URL, receiptData, secret);
-  }
-  if (body.status !== 0) {
-    throw new Error(`Apple receipt verification failed (status ${body.status})`);
+async function verifyTransaction({ signedTransaction }) {
+  let decoded;
+  try {
+    decoded = await getSandboxVerifier().verifyAndDecodeTransaction(signedTransaction);
+  } catch (err) {
+    if (!(err instanceof VerificationException) ||
+        err.status !== VerificationStatus.INVALID_ENVIRONMENT) {
+      throw err;
+    }
+    const prodVerifier = getProductionVerifier();
+    if (!prodVerifier) {
+      throw new Error('Production Apple purchases are not verifiable yet '
+        + '(APPLE_APP_STORE_ID not configured)');
+    }
+    decoded = await prodVerifier.verifyAndDecodeTransaction(signedTransaction);
   }
 
-  const transactions = body.latest_receipt_info || body.receipt?.in_app || [];
-  if (!transactions.length) {
-    throw new Error('Receipt contained no transactions');
+  if (!decoded.transactionId || !decoded.productId) {
+    throw new Error('Verified transaction is missing required fields');
   }
-  const latest = transactions.reduce((a, b) =>
-    Number(b.purchase_date_ms) > Number(a.purchase_date_ms) ? b : a);
 
   return {
-    transactionId: latest.transaction_id,
-    productId: latest.product_id,
-    purchaseDate: new Date(Number(latest.purchase_date_ms)),
+    transactionId: decoded.transactionId,
+    productId: decoded.productId,
+    purchaseDate: new Date(decoded.purchaseDate),
   };
 }
 
-module.exports = { verifyReceipt, paymentsConfiguredApple, AppStoreConfigError };
+module.exports = { verifyTransaction, paymentsConfiguredApple, AppStoreConfigError };

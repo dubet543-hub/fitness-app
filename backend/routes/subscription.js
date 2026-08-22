@@ -9,7 +9,7 @@ const {
   createOrder, verifySignature, paymentsConfigured, RazorpayConfigError,
 } = require('../utils/razorpay');
 const {
-  verifyReceipt, paymentsConfiguredApple, AppStoreConfigError,
+  verifyTransaction, paymentsConfiguredApple, AppStoreConfigError,
 } = require('../utils/appstore');
 
 router.use(authenticate);
@@ -142,13 +142,13 @@ router.post('/verify-apple', async (req, res) => {
 
     let verified;
     try {
-      verified = await verifyReceipt({ receiptData: receipt });
+      verified = await verifyTransaction({ signedTransaction: receipt });
     } catch (err) {
       if (err instanceof AppStoreConfigError) {
         console.warn('[payments]', err.message);
         return res.status(503).json({ error: 'Payments are not available right now.' });
       }
-      console.error('[payments] Apple receipt verification failed:', err.message);
+      console.error('[payments] Apple transaction verification failed:', err.message);
       return res.status(400).json({ error: 'Could not verify this purchase with Apple.' });
     }
 
