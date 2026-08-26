@@ -49,18 +49,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
     setState(() => _eveningReminder = v);
   }
 
-  /// Applies to the wellness reminders above and the home tab's wake alarm.
+  /// Applies to the wellness reminders above.
   Future<void> _setAlarmSound(bool v) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(NotificationService.soundPrefKey, v);
     await NotificationService.scheduleMorning(enabled: _morningReminder, sound: v);
     await NotificationService.scheduleEvening(enabled: _eveningReminder, sound: v);
-    await NotificationService.scheduleWakeAlarm(
-      enabled: prefs.getBool('wake_alarm_on') ?? true,
-      hour:    prefs.getInt('wake_alarm_hour') ?? 8,
-      minute:  prefs.getInt('wake_alarm_minute') ?? 30,
-      sound:   v,
-    );
     await NotificationService.scheduleSessionReminder(enabled: sessionReminders, sound: v);
     setState(() => _alarmSound = v);
   }
@@ -103,7 +97,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ),
             _ToggleItem(
               title: 'Alarm sound',
-              subtitle: 'Play a sound with the wake alarm & wellness reminders',
+              subtitle: 'Play a sound with wellness reminders',
               value: _alarmSound,
               onChanged: _setAlarmSound,
             ),

@@ -10,7 +10,7 @@ class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 
   /// SharedPreferences key for the global alarm-sound on/off toggle, shared
-  /// by the wellness reminders and the home tab's wake alarm.
+  /// by the wellness reminders.
   static const soundPrefKey = 'notif_sound';
 
   // Android ties a channel's sound to the channel forever once it's first
@@ -21,7 +21,11 @@ class NotificationService {
   static const _channelName = 'Wellness Reminders';
   static const int _morningId = 101;
   static const int _eveningId = 102;
-  static const int _wakeAlarmId = 103;
+  // 103 was the removed wake-alarm feature's id — cancelled below on every
+  // startup so a device that had it scheduled before this update doesn't
+  // keep firing it forever (AlarmManager entries outlive the app code that
+  // scheduled them).
+  static const int _removedWakeAlarmId = 103;
   static const int _sessionId = 104;
 
   static Future<void> init() async {
@@ -83,16 +87,11 @@ class NotificationService {
       enabled: prefs.getBool('notif_evening') ?? true,
       sound: sound,
     );
-    await scheduleWakeAlarm(
-      enabled: prefs.getBool('wake_alarm_on') ?? true,
-      hour: prefs.getInt('wake_alarm_hour') ?? 8,
-      minute: prefs.getInt('wake_alarm_minute') ?? 30,
-      sound: sound,
-    );
     await scheduleSessionReminder(
       enabled: prefs.getBool('notif_session') ?? true,
       sound: sound,
     );
+    await _plugin.cancel(_removedWakeAlarmId);
   }
 
   static Future<void> scheduleMorning({bool enabled = true, bool sound = true}) async {
@@ -119,27 +118,6 @@ class NotificationService {
       'Evening Load Reminder',
       "Don't forget to log today's training & skill Load before the day ends.",
       _nextInstanceOf(20, 0),
-      sound: sound,
-    );
-  }
-
-  /// Daily wake alarm set from the home screen's Tonight's Sleep card.
-  /// Repeats at the same clock time each day, like the other reminders.
-  static Future<void> scheduleWakeAlarm({
-    required bool enabled,
-    int hour = 8,
-    int minute = 30,
-    bool sound = true,
-  }) async {
-    if (!enabled) {
-      await _plugin.cancel(_wakeAlarmId);
-      return;
-    }
-    await _zonedSchedule(
-      _wakeAlarmId,
-      'Wake up',
-      'Time to get up — log last night’s sleep while it is fresh.',
-      _nextInstanceOf(hour, minute),
       sound: sound,
     );
   }
