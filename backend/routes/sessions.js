@@ -66,12 +66,17 @@ router.get('/:id', async (req, res) => {
 // PUT /api/sessions/:id — edit an existing session
 router.put('/:id', async (req, res) => {
   try {
-    const session = await TrainingSession.findOneAndUpdate(
-      { _id: req.params.id, athlete: req.user._id },
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
+    const session = await TrainingSession.findOne({
+      _id: req.params.id, athlete: req.user._id,
+    });
     if (!session) return res.status(404).json({ error: 'Not found' });
+    // findOneAndUpdate would skip the pre('save') hook entirely, leaving
+    // totalLoad/primaryLoad/scaledGrade/readinessPercent (and sleep metrics)
+    // stuck at their pre-edit values — exactly what the home ring and every
+    // other dashboard view actually reads. Going through save() instead
+    // guarantees they recompute from the edited fields, same as on create.
+    Object.assign(session, req.body);
+    await session.save();
     res.json(session);
   } catch (err) {
     res.status(400).json({ error: err.message });
