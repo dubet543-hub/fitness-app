@@ -41,7 +41,15 @@ class NotificationService {
 
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.requestNotificationsPermission();
+    // Each Android permission request is independently guarded — one denial
+    // or plugin exception (both real on some OEM ROMs) must not stop the
+    // others, and must never prevent scheduleAll() below from running. Before
+    // this was one unguarded call away from silently disabling every
+    // reminder on Android with no error, while iOS's simpler init path never
+    // touches any of these and so was unaffected.
+    try {
+      await androidPlugin?.requestNotificationsPermission();
+    } catch (_) {}
 
     // Android 12+ revokes exact-alarm scheduling by default, and OEM battery
     // managers (Xiaomi/vivo/Oppo/etc.) kill backgrounded apps outright unless
