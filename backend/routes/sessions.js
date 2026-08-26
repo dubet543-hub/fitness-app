@@ -63,6 +63,21 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// PUT /api/sessions/:id — edit an existing session
+router.put('/:id', async (req, res) => {
+  try {
+    const session = await TrainingSession.findOneAndUpdate(
+      { _id: req.params.id, athlete: req.user._id },
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    if (!session) return res.status(404).json({ error: 'Not found' });
+    res.json(session);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // DELETE /api/sessions/:id
 router.delete('/:id', async (req, res) => {
   try {

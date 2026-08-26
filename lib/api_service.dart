@@ -387,6 +387,19 @@ class ApiService {
     return _body(res);
   }
 
+  /// PUT /api/sessions/:id — edit an existing training/skill session.
+  static Future<Map<String, dynamic>> updateSession(
+      String id, Map<String, dynamic> payload) async {
+    final res = await _send(http.put(
+      Uri.parse('$_baseUrl/sessions/$id'),
+      headers: await _authHeaders(),
+      body: jsonEncode(payload),
+    ));
+    if (res.statusCode != 200)
+      throw Exception(_body(res)['error'] ?? 'Failed to update session');
+    return _body(res);
+  }
+
   /// GET /api/sessions — fetch own sessions with optional date range.
   static Future<List<Map<String, dynamic>>> fetchSessions({
     DateTime? from,

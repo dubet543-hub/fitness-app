@@ -198,6 +198,9 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
   // (or a slow network prompting a second tap) firing two separate POSTs for
   // the same still-unlocked form, which was creating duplicate sessions.
   bool _submittingTraining = false;
+  // Non-null while the form is editing an existing session rather than
+  // logging a new one — set by tapping a today-tile's edit icon.
+  TrainingLog? _editingTraining;
   final Set<PrimarySessionType>   _tPrimaryTypes = {};
   final _tPrimaryDurCtrl = TextEditingController();
   int  _tPrimaryRpe = 5;
@@ -209,6 +212,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
   // ── Skill form ─────────────────────────────────────────────────────────────
   bool _showSkillForm = false;
   bool _submittingSkill = false; // same double-submit guard as training, above
+  SkillLog? _editingSkill; // same edit-mode flag as training, above
   final Set<SkillSessionType> _sTypes    = {};
   final _sDurCtrl        = TextEditingController();
   int  _sRpe             = 5;
@@ -537,7 +541,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
   Future<void> _submitTraining() async {
     if (_submittingTraining) return; // already saving this exact tap's request
-    if (_todayTraining.length >= _maxTrainingPerDay) {
+    final editing = _editingTraining;
+    // Editing replaces an already-counted session rather than adding a new
+    // one, so the daily cap only applies when there's nothing being edited.
+    if (editing == null && _todayTraining.length >= _maxTrainingPerDay) {
       _snack("Daily limit reached — max $_maxTrainingPerDay training sessions per day");
       return;
     }
@@ -551,12 +558,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
     setState(() => _submittingTraining = true);
     try {
-      await ApiService.submitSession({
-        // UTC + offset marker — a bare local ISO string has no timezone info,
-        // so the backend's `new Date(str)` cast parses it as if it were
-        // already UTC, silently shifting the stored instant by the device's
-        // offset (and occasionally into the wrong calendar day).
-        'date': now.toUtc().toIso8601String(),
+      final payload = {
         'primaryTypes': capturedPrimaryTypes.map((e) => e.name).toList(),
         'primaryDuration': dur,
         'primaryRpe': capturedPrimaryRpe,
@@ -568,12 +570,24 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
         'sprints': int.tryParse(_tSprintsCtrl.text.trim()),
         'maxHR': int.tryParse(_tMaxHRCtrl.text.trim()),
         'avgHR': int.tryParse(_tAvgHRCtrl.text.trim()),
-      });
+      };
+      if (editing != null) {
+        await ApiService.updateSession(editing.id!, payload);
+      } else {
+        await ApiService.submitSession({
+          // UTC + offset marker — a bare local ISO string has no timezone
+          // info, so the backend's `new Date(str)` cast parses it as if it
+          // were already UTC, silently shifting the stored instant by the
+          // device's offset (and occasionally into the wrong calendar day).
+          'date': now.toUtc().toIso8601String(),
+          ...payload,
+        });
+      }
       AthleteMetricsService.invalidate(); // dashboard recomputes with this session
       _clearTrainingForm();
       setState(() => _showTrainingForm = false);
       await _loadSessions();
-      _snack("Training session logged!");
+      _snack(editing != null ? "Training session updated!" : "Training session logged!");
     } catch (err) {
       _snack("Failed to save training session: $err");
     } finally {
@@ -585,7 +599,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
   Future<void> _submitSkill() async {
     if (_submittingSkill) return; // already saving this exact tap's request
-    if (_todaySkills.length >= _maxSkillPerDay) {
+    final editing = _editingSkill;
+    // Editing replaces an already-counted session rather than adding a new
+    // one, so the daily cap only applies when there's nothing being edited.
+    if (editing == null && _todaySkills.length >= _maxSkillPerDay) {
       _snack("Daily limit reached — max $_maxSkillPerDay skill sessions per day");
       return;
     }
@@ -599,8 +616,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
     setState(() => _submittingSkill = true);
     try {
-      await ApiService.submitSession({
-        'date': now.toUtc().toIso8601String(),
+      final payload = {
         'hasSkill': true,
         'skillTypes': capturedTypes.map((e) => e.name).toList(),
         'skillDuration': dur,
@@ -608,12 +624,20 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
         'ballsBowled': capturedTypes.contains(SkillSessionType.bowling) ? int.tryParse(_sBallsCtrl.text.trim()) : null,
         'skillMaxHR': int.tryParse(_sMaxHRCtrl.text.trim()),
         'skillAvgHR': int.tryParse(_sAvgHRCtrl.text.trim()),
-      });
+      };
+      if (editing != null) {
+        await ApiService.updateSession(editing.id!, payload);
+      } else {
+        await ApiService.submitSession({
+          'date': now.toUtc().toIso8601String(),
+          ...payload,
+        });
+      }
       AthleteMetricsService.invalidate(); // dashboard recomputes with this session
       _clearSkillForm();
       setState(() => _showSkillForm = false);
       await _loadSessions();
-      _snack("Skill session logged!");
+      _snack(editing != null ? "Skill session updated!" : "Skill session logged!");
     } catch (err) {
       _snack("Failed to save skill session: $err");
     } finally {
@@ -631,6 +655,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     _tSprintsCtrl.clear();
     _tMaxHRCtrl.clear();
     _tAvgHRCtrl.clear();
+    _editingTraining = null;
   }
 
   void _clearSkillForm() {
@@ -640,6 +665,37 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     _sBallsCtrl.clear();
     _sMaxHRCtrl.clear();
     _sAvgHRCtrl.clear();
+    _editingSkill = null;
+  }
+
+  /// Opens the training form pre-filled with an existing session's values,
+  /// so submitting saves changes to it instead of logging a new one.
+  void _startEditTraining(TrainingLog log) {
+    setState(() {
+      _editingTraining = log;
+      _tPrimaryTypes..clear()..addAll(log.primaryTypes);
+      _tPrimaryDurCtrl.text = log.primaryDuration.toString();
+      _tPrimaryRpe = log.primaryRpe;
+      _tDistCtrl.text = log.distance?.toString() ?? '';
+      _tSprintsCtrl.text = log.sprints?.toString() ?? '';
+      _tMaxHRCtrl.text = log.maxHR?.toString() ?? '';
+      _tAvgHRCtrl.text = log.avgHR?.toString() ?? '';
+      _showTrainingForm = true;
+    });
+  }
+
+  /// Same as [_startEditTraining], for the skill session form.
+  void _startEditSkill(SkillLog log) {
+    setState(() {
+      _editingSkill = log;
+      _sTypes..clear()..addAll(log.types);
+      _sDurCtrl.text = log.duration.toString();
+      _sRpe = log.rpe;
+      _sBallsCtrl.text = log.ballsBowled?.toString() ?? '';
+      _sMaxHRCtrl.text = log.maxHR?.toString() ?? '';
+      _sAvgHRCtrl.text = log.avgHR?.toString() ?? '';
+      _showSkillForm = true;
+    });
   }
 
   void _snack(String msg) =>
@@ -722,15 +778,16 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             _TrainingLogTile(
               log: today[i],
               index: i + 1,
+              onEdit: () => _startEditTraining(today[i]),
             ),
             if (i < today.length - 1) const SizedBox(height: 8),
           ],
           if (today.isNotEmpty) const SizedBox(height: 12),
-          if (_showTrainingForm && !capped) ...[
+          if (_showTrainingForm && (!capped || _editingTraining != null)) ...[
             _buildTrainingForm(),
             const SizedBox(height: 12),
           ],
-          if (capped)
+          if (capped && _editingTraining == null)
             _DailyLimitNotice(text: "Daily training limit reached ($_maxTrainingPerDay sessions).")
           else
             OutlinedButton.icon(
@@ -798,8 +855,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             icon: _submittingTraining
                 ? SizedBox(width: 18, height: 18,
                     child: CircularProgressIndicator(color: kTextPrimary, strokeWidth: 2))
-                : const Icon(Icons.fitness_center_rounded, size: 18),
-            label: Text(_submittingTraining ? "Logging…" : "Log Training Session"),
+                : Icon(_editingTraining != null ? Icons.check_rounded : Icons.fitness_center_rounded, size: 18),
+            label: Text(_submittingTraining
+                ? "Saving…"
+                : _editingTraining != null ? "Save Changes" : "Log Training Session"),
             style: ElevatedButton.styleFrom(
               backgroundColor: kAccent,
               foregroundColor: kTextPrimary,
@@ -829,22 +888,16 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             _SkillLogTile(
               log: today[i],
               index: i + 1,
-              onDelete: () async {
-                final id = today[i].id;
-                if (id != null) {
-                  try { await ApiService.deleteSession(id); AthleteMetricsService.invalidate(); } catch (_) {}
-                }
-                await _loadSessions();
-              },
+              onEdit: () => _startEditSkill(today[i]),
             ),
             if (i < today.length - 1) const SizedBox(height: 8),
           ],
           if (today.isNotEmpty) const SizedBox(height: 12),
-          if (_showSkillForm && !capped) ...[
+          if (_showSkillForm && (!capped || _editingSkill != null)) ...[
             _buildSkillForm(),
             const SizedBox(height: 12),
           ],
-          if (capped)
+          if (capped && _editingSkill == null)
             _DailyLimitNotice(text: "Daily skill limit reached ($_maxSkillPerDay sessions).")
           else
             OutlinedButton.icon(
@@ -908,8 +961,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             icon: _submittingSkill
                 ? SizedBox(width: 18, height: 18,
                     child: CircularProgressIndicator(color: kTextPrimary, strokeWidth: 2))
-                : const Icon(Icons.sports_cricket_rounded, size: 18),
-            label: Text(_submittingSkill ? "Logging…" : "Log Skill Session"),
+                : Icon(_editingSkill != null ? Icons.check_rounded : Icons.sports_cricket_rounded, size: 18),
+            label: Text(_submittingSkill
+                ? "Saving…"
+                : _editingSkill != null ? "Save Changes" : "Log Skill Session"),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF16A34A),
               foregroundColor: kTextPrimary,
@@ -956,7 +1011,8 @@ class _DailyLimitNotice extends StatelessWidget {
 class _TrainingLogTile extends StatelessWidget {
   final TrainingLog  log;
   final int          index;
-  const _TrainingLogTile({required this.log, required this.index});
+  final VoidCallback onEdit;
+  const _TrainingLogTile({required this.log, required this.index, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -993,6 +1049,12 @@ class _TrainingLogTile extends StatelessWidget {
               ],
             ),
           ),
+          IconButton(
+            icon: Icon(Icons.edit_outlined, size: 18, color: kTextSecondary),
+            onPressed: onEdit,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
         ],
       ),
     );
@@ -1004,8 +1066,8 @@ class _TrainingLogTile extends StatelessWidget {
 class _SkillLogTile extends StatelessWidget {
   final SkillLog     log;
   final int          index;
-  final VoidCallback onDelete;
-  const _SkillLogTile({required this.log, required this.index, required this.onDelete});
+  final VoidCallback onEdit;
+  const _SkillLogTile({required this.log, required this.index, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -1043,8 +1105,8 @@ class _SkillLogTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline_rounded, size: 18, color: kTextSecondary),
-            onPressed: onDelete,
+            icon: Icon(Icons.edit_outlined, size: 18, color: kTextSecondary),
+            onPressed: onEdit,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
