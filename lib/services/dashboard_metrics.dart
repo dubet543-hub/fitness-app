@@ -344,6 +344,11 @@ class AthleteMetricsService {
         fellAsleep: asleep,
         wokeUp: wake,
         outOfBed: outOfBed,
+        // Without this, sleepMinutes/efficiency were recomputed from raw
+        // clock times alone, silently dropping any logged disturbance time
+        // everywhere sleep data is displayed (Sleep Monitor, dashboard card)
+        // even though the wellness log's own preview subtracted it correctly.
+        awakeMinutes: p._num('sleepDisturbanceMinutes').round(),
       ));
     }
 
