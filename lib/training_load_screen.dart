@@ -545,7 +545,11 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
     try {
       await ApiService.submitSession({
-        'date': now.toIso8601String(),
+        // UTC + offset marker — a bare local ISO string has no timezone info,
+        // so the backend's `new Date(str)` cast parses it as if it were
+        // already UTC, silently shifting the stored instant by the device's
+        // offset (and occasionally into the wrong calendar day).
+        'date': now.toUtc().toIso8601String(),
         'primaryTypes': capturedPrimaryTypes.map((e) => e.name).toList(),
         'primaryDuration': dur,
         'primaryRpe': capturedPrimaryRpe,
@@ -585,7 +589,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
     try {
       await ApiService.submitSession({
-        'date': now.toIso8601String(),
+        'date': now.toUtc().toIso8601String(),
         'hasSkill': true,
         'skillTypes': capturedTypes.map((e) => e.name).toList(),
         'skillDuration': dur,

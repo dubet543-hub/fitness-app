@@ -46,6 +46,17 @@ class _HomeTabState extends State<HomeTab> {
   void initState() {
     super.initState();
     _loadMetrics();
+    // The Home tab is kept alive in an IndexedStack rather than rebuilt on
+    // tab switch, so without this it would only pick up a just-logged
+    // session on the next app relaunch — this makes the ring update the
+    // moment a training/wellness log screen saves.
+    AthleteMetricsService.revision.addListener(_loadMetrics);
+  }
+
+  @override
+  void dispose() {
+    AthleteMetricsService.revision.removeListener(_loadMetrics);
+    super.dispose();
   }
 
   Future<void> _loadMetrics() async {

@@ -202,6 +202,12 @@ class AthleteMetricsService {
   static AthleteMetrics? _cache;
   static Future<AthleteMetrics>? _inflight;
 
+  /// Ticks on every [invalidate]. Long-lived listeners — e.g. the Home tab,
+  /// kept alive in an IndexedStack rather than rebuilt on tab switch — use
+  /// this to refresh themselves the moment a session is logged, instead of
+  /// waiting for their own next unrelated rebuild.
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
   /// Loads (or returns the cached) metrics bundle for the signed-in athlete.
   static Future<AthleteMetrics> load({bool refresh = false}) {
     if (!refresh && _cache != null) return Future.value(_cache);
@@ -215,6 +221,7 @@ class AthleteMetricsService {
   /// Call after logging/deleting a session so the next screen recomputes.
   static void invalidate() {
     _cache = null;
+    revision.value++;
   }
 
   static Future<AthleteMetrics> _compute() async {
