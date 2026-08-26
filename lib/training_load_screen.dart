@@ -194,6 +194,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
   // ── Training form ──────────────────────────────────────────────────────────
   bool _showTrainingForm = false;
+  // True while a training submit is in flight — guards against a double-tap
+  // (or a slow network prompting a second tap) firing two separate POSTs for
+  // the same still-unlocked form, which was creating duplicate sessions.
+  bool _submittingTraining = false;
   final Set<PrimarySessionType>   _tPrimaryTypes = {};
   final _tPrimaryDurCtrl = TextEditingController();
   int  _tPrimaryRpe = 5;
@@ -204,6 +208,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
 
   // ── Skill form ─────────────────────────────────────────────────────────────
   bool _showSkillForm = false;
+  bool _submittingSkill = false; // same double-submit guard as training, above
   final Set<SkillSessionType> _sTypes    = {};
   final _sDurCtrl        = TextEditingController();
   int  _sRpe             = 5;
@@ -531,6 +536,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
   static const int _maxSkillPerDay    = 2;
 
   Future<void> _submitTraining() async {
+    if (_submittingTraining) return; // already saving this exact tap's request
     if (_todayTraining.length >= _maxTrainingPerDay) {
       _snack("Daily limit reached — max $_maxTrainingPerDay training sessions per day");
       return;
@@ -543,6 +549,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     final capturedPrimaryRpe = _tPrimaryRpe;
     final now = DateTime.now();
 
+    setState(() => _submittingTraining = true);
     try {
       await ApiService.submitSession({
         // UTC + offset marker — a bare local ISO string has no timezone info,
@@ -569,12 +576,15 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
       _snack("Training session logged!");
     } catch (err) {
       _snack("Failed to save training session: $err");
+    } finally {
+      if (mounted) setState(() => _submittingTraining = false);
     }
   }
 
   // ── Submit: Skill ─────────────────────────────────────────────────────────
 
   Future<void> _submitSkill() async {
+    if (_submittingSkill) return; // already saving this exact tap's request
     if (_todaySkills.length >= _maxSkillPerDay) {
       _snack("Daily limit reached — max $_maxSkillPerDay skill sessions per day");
       return;
@@ -587,6 +597,7 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
     final capturedRpe = _sRpe;
     final now = DateTime.now();
 
+    setState(() => _submittingSkill = true);
     try {
       await ApiService.submitSession({
         'date': now.toUtc().toIso8601String(),
@@ -605,6 +616,8 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
       _snack("Skill session logged!");
     } catch (err) {
       _snack("Failed to save skill session: $err");
+    } finally {
+      if (mounted) setState(() => _submittingSkill = false);
     }
   }
 
@@ -781,9 +794,12 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
           ]),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: _submitTraining,
-            icon: const Icon(Icons.fitness_center_rounded, size: 18),
-            label: const Text("Log Training Session"),
+            onPressed: _submittingTraining ? null : _submitTraining,
+            icon: _submittingTraining
+                ? SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(color: kTextPrimary, strokeWidth: 2))
+                : const Icon(Icons.fitness_center_rounded, size: 18),
+            label: Text(_submittingTraining ? "Logging…" : "Log Training Session"),
             style: ElevatedButton.styleFrom(
               backgroundColor: kAccent,
               foregroundColor: kTextPrimary,
@@ -888,9 +904,12 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
           ]),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: _submitSkill,
-            icon: const Icon(Icons.sports_cricket_rounded, size: 18),
-            label: const Text("Log Skill Session"),
+            onPressed: _submittingSkill ? null : _submitSkill,
+            icon: _submittingSkill
+                ? SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(color: kTextPrimary, strokeWidth: 2))
+                : const Icon(Icons.sports_cricket_rounded, size: 18),
+            label: Text(_submittingSkill ? "Logging…" : "Log Skill Session"),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF16A34A),
               foregroundColor: kTextPrimary,
