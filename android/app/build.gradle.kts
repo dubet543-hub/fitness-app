@@ -59,6 +59,15 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
+            // R8 shrinking was already on (via Flutter's Gradle plugin
+            // default) with no rules file telling it what Flutter's own
+            // Play Store integration and the native SDKs need kept — the
+            // cause of "installs fine, crashes instantly, but only from the
+            // Play Store" on real devices. See proguard-rules.pro for why.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
