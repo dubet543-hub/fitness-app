@@ -9,24 +9,17 @@ import 'package:timezone/timezone.dart' as tz;
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 
-  /// SharedPreferences key for the global alarm-sound on/off toggle, shared
-  /// by the wellness reminders.
-  static const soundPrefKey = 'notif_sound';
-
-  // Android ties a channel's sound to the channel forever once it's first
-  // created, so "sound on/off" needs two distinct channels to actually
-  // change behavior rather than one channel with a mutable `sound` field.
+  // Both reminders always play sound — there's no separate toggle for it.
   static const _channelIdSound = 'wellness_reminders';
-  static const _channelIdSilent = 'wellness_reminders_silent';
   static const _channelName = 'Wellness Reminders';
   static const int _morningId = 101;
   static const int _eveningId = 102;
-  // 103 was the removed wake-alarm feature's id — cancelled below on every
-  // startup so a device that had it scheduled before this update doesn't
-  // keep firing it forever (AlarmManager entries outlive the app code that
-  // scheduled them).
+  // 103 and 104 were the removed wake-alarm and session-reminder features'
+  // ids — cancelled below on every startup so a device that had either
+  // scheduled before this update doesn't keep firing it forever
+  // (AlarmManager entries outlive the app code that scheduled them).
   static const int _removedWakeAlarmId = 103;
-  static const int _sessionId = 104;
+  static const int _removedSessionReminderId = 104;
 
   static Future<void> init() async {
     tz.initializeTimeZones();
@@ -72,31 +65,24 @@ class NotificationService {
     await scheduleAll();
   }
 
-  /// Re-arms all reminders from their last saved settings. Needed on every
+  /// Re-arms both reminders from their last saved settings. Needed on every
   /// app start (not just when a toggle is touched) because Android/OEM
   /// battery managers can force-stop the app, which silently wipes every
   /// AlarmManager entry the app had registered.
   static Future<void> scheduleAll() async {
     final prefs = await SharedPreferences.getInstance();
-    final sound = prefs.getBool(soundPrefKey) ?? true;
-    await scheduleMorning(
-      enabled: prefs.getBool('notif_morning') ?? true,
-      sound: sound,
-    );
-    await scheduleEvening(
-      enabled: prefs.getBool('notif_evening') ?? true,
-      sound: sound,
-    );
-    await scheduleSessionReminder(
-      enabled: prefs.getBool('notif_session') ?? true,
-      sound: sound,
-    );
-    await _plugin.cancel(_removedWakeAlarmId);
+    await scheduleMorning(enabled: prefs.getBool('notif_morning') ?? true);
+    await scheduleEvening(enabled: prefs.getBool('notif_evening') ?? true);
+    try { await _plugin.cancel(_removedWakeAlarmId); } catch (_) {}
+    try { await _plugin.cancel(_removedSessionReminderId); } catch (_) {}
   }
 
-  static Future<void> scheduleMorning({bool enabled = true, bool sound = true}) async {
+  static Future<void> scheduleMorning({bool enabled = true}) async {
     if (!enabled) {
-      await _plugin.cancel(_morningId);
+      // Guarded like every other plugin call in this file — a cancel
+      // failure here must not stop scheduleAll() from reaching the
+      // reminders still to come.
+      try { await _plugin.cancel(_morningId); } catch (_) {}
       return;
     }
     await _zonedSchedule(
@@ -104,13 +90,12 @@ class NotificationService {
       'Morning Wellness Check-in',
       'Log your Sleep data & Overall Recovery Metrics to stay on top of recovery.',
       _nextInstanceOf(7, 30),
-      sound: sound,
     );
   }
 
-  static Future<void> scheduleEvening({bool enabled = true, bool sound = true}) async {
+  static Future<void> scheduleEvening({bool enabled = true}) async {
     if (!enabled) {
-      await _plugin.cancel(_eveningId);
+      try { await _plugin.cancel(_eveningId); } catch (_) {}
       return;
     }
     await _zonedSchedule(
@@ -118,25 +103,15 @@ class NotificationService {
       'Evening Load Reminder',
       "Don't forget to log today's training & skill Load before the day ends.",
       _nextInstanceOf(20, 0),
-      sound: sound,
     );
   }
 
-  /// Daily reminder to log a training/skill session, enabled by default so
-  /// it works out of the box without the user having to visit settings.
-  static Future<void> scheduleSessionReminder({bool enabled = true, bool sound = true}) async {
-    if (!enabled) {
-      await _plugin.cancel(_sessionId);
-      return;
-    }
-    await _zonedSchedule(
-      _sessionId,
-      'Session Reminder',
-      "Don't forget to log today's training session.",
-      _nextInstanceOf(18, 0),
-      sound: sound,
-    );
-  }
+  // TEMPORARY — for on-device verification only (sound, channel, permission
+  // all work end-to-end); remove once the notification fixes are confirmed
+  // on real Android hardware.
+  static Future<void> showTestNotification() =>
+      _plugin.show(999, 'Test Notification',
+          'If you can see and hear this, notifications are working.', _details);
 
   /// Schedules with exact timing, falling back to an inexact (OS-batched,
   /// within-~15-min) alarm if exact scheduling is rejected — e.g. the user
@@ -147,16 +122,15 @@ class NotificationService {
     int id,
     String title,
     String body,
-    tz.TZDateTime when, {
-    required bool sound,
-  }) async {
+    tz.TZDateTime when,
+  ) async {
     try {
       await _plugin.zonedSchedule(
         id,
         title,
         body,
         when,
-        _details(sound: sound),
+        _details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -168,7 +142,7 @@ class NotificationService {
         title,
         body,
         when,
-        _details(sound: sound),
+        _details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -177,21 +151,21 @@ class NotificationService {
     }
   }
 
-  static NotificationDetails _details({bool sound = true}) => NotificationDetails(
-        android: AndroidNotificationDetails(
-          sound ? _channelIdSound : _channelIdSilent,
-          sound ? _channelName : '$_channelName (Silent)',
-          channelDescription: 'Daily reminders to log your wellness metrics',
-          importance: Importance.high,
-          priority: Priority.high,
-          playSound: sound,
-          sound: sound ? const RawResourceAndroidNotificationSound('alarm_sound') : null,
-        ),
-        iOS: DarwinNotificationDetails(
-          presentSound: sound,
-          sound: sound ? 'alarm_sound.wav' : null,
-        ),
-      );
+  static final NotificationDetails _details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      _channelIdSound,
+      _channelName,
+      channelDescription: 'Daily reminders to log your wellness metrics',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('alarm_sound'),
+    ),
+    iOS: const DarwinNotificationDetails(
+      presentSound: true,
+      sound: 'alarm_sound.wav',
+    ),
+  );
 
   static tz.TZDateTime _nextInstanceOf(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);

@@ -161,18 +161,21 @@ class _WMState extends State<WorkloadMonitorScreen>
                   accentColor:  kSky,
                   sectionTitle: 'Training Session Exertion',
                   barColor:     kSky,
+                  range:        _range,
                 ),
                 _SectionView(
                   data:         _skill,
                   accentColor:  kSuccess,
                   sectionTitle: 'Skill Session Exertion',
                   barColor:     kSuccess,
+                  range:        _range,
                 ),
                 _SectionView(
                   data:         _total,
                   accentColor:  kViolet,
                   sectionTitle: 'Daily Total Load & Exertion',
                   barColor:     kViolet,
+                  range:        _range,
                 ),
               ],
             ),
@@ -237,13 +240,21 @@ class _SectionView extends StatelessWidget {
   final List<WorkPoint> data;
   final Color accentColor, barColor;
   final String sectionTitle;
+  final String range;
 
   const _SectionView({
     required this.data,
     required this.accentColor,
     required this.sectionTitle,
     required this.barColor,
+    required this.range,
   });
+
+  // ACWR/trend charts need weeks of history to mean anything — with only a
+  // single day (or a week) of points the gauge just reads "No Data" and the
+  // trend lines are one or two dots, so they're hidden for these ranges
+  // rather than shown empty/meaningless.
+  bool get _hideTrends => range == 'today' || range == 'yesterday' || range == '1w';
 
   WorkPoint get _last => data.last;
 
@@ -416,6 +427,7 @@ class _SectionView extends StatelessWidget {
               ],
             ),
           ),
+          if (!_hideTrends) ...[
           const SizedBox(height: 14),
 
           // ── ACWR Gauge ─────────────────────────────────────────────────────
@@ -516,6 +528,7 @@ class _SectionView extends StatelessWidget {
               ],
             ),
           ),
+          ],
           const SizedBox(height: 32),
         ],
       ),
