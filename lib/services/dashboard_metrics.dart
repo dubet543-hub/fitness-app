@@ -79,8 +79,8 @@ class CombinedLoadTarget {
 // ─── Headline metrics for the home dashboard rings ──────────────────────────
 
 class HomeMetrics {
-  final double performancePct;         // 0–1  (composite: readiness + load balance)
-  final double recoveryPct;            // 0–1  (7-day avg readiness)
+  final double performancePct;         // 0–1  (today's readiness vs. exertion, asymmetric penalty)
+  final double recoveryPct;            // 0–1  (today's readiness check-in)
   final double todayExertion;          // 0–10 (latest daily-total exertion)
   final List<double> performanceTrend; // recent composite %, oldest → newest
   const HomeMetrics({
@@ -91,14 +91,21 @@ class HomeMetrics {
   });
 }
 
-/// ACWR "optimality" on a 0–1 scale: peaks at the ~1.05 sweet spot and falls off
-/// as the acute:chronic ratio drifts toward detraining (<0.8) or spikes (>1.3).
-double loadBalance(double acwr) =>
-    (1.0 - (acwr - 1.05).abs() / 1.05).clamp(0.0, 1.0);
-
-/// Composite performance = 60% recovery readiness + 40% training-load balance.
-double compositePerformance(double readiness, double acwr) =>
-    (0.6 * readiness + 0.4 * loadBalance(acwr)).clamp(0.0, 1.0);
+/// Daily performance — ATS spreadsheet formula: an asymmetric penalty on the
+/// gap between normalized exertion and readiness.
+///   norm_exertion = (exertion − 2) / 8          — exertion's 2–10 range to 0–1
+///   delta         = norm_exertion − readiness   — positive = overreaching
+///   penalty       = 1.3·delta²  if delta > 0    — overreaching costs more…
+///                 = 0.8·delta²  otherwise       — …than underreaching
+///   result        = max(0, 1 − penalty)
+/// Overreaching (pushed harder than today's readiness supports) is penalised
+/// more steeply than underreaching (readiness banked but not spent).
+double dailyPerformancePct(double readiness, double exertion) {
+  final normExertion = (exertion - 2.0) / 8.0;
+  final delta = normExertion - readiness;
+  final penalty = delta > 0 ? 1.3 * delta * delta : 0.8 * delta * delta;
+  return (1.0 - penalty).clamp(0.0, 1.0);
+}
 
 // ─── The athlete's computed metrics bundle ──────────────────────────────────
 
@@ -131,11 +138,10 @@ class AthleteMetrics {
 
   /// The three headline ring metrics — same windows/formulas the stats tabs use.
   HomeMetrics homeMetrics() {
-    // Recovery — 7-day average readiness (matches the Recovery tab headline).
-    final last7 = recovery.sublist(max(0, recovery.length - 7));
-    final rec = last7.isEmpty
-        ? 0.0
-        : last7.map((r) => r.readinessPct).reduce((a, b) => a + b) / last7.length;
+    // Readiness — today's wellness check-in (matches the stats "Today" tab).
+    // Feeds both the Recovery ring and the composite Performance ring. Falls
+    // back to 0 until the first check-in is logged.
+    final todayReadiness = recovery.isEmpty ? 0.0 : recovery.last.readinessPct;
 
     // Today — today's daily-total exertion (the series is padded through
     // today, so `last` is today). A day with nothing logged reads 0, not the
@@ -144,28 +150,29 @@ class AthleteMetrics {
     final todayExertion =
         total.isEmpty || total.last.load <= 0 ? 0.0 : total.last.exertion;
 
-    // Performance — composite using the same 7-day readiness and latest ACWR.
-    final latestAcwr = total.isEmpty ? 0.0 : total.last.acwr;
-    final performance =
-        recovery.isEmpty ? 0.0 : compositePerformance(rec, latestAcwr);
+    // Performance — today's readiness vs. today's exertion (dailyPerformancePct).
+    // Uses the raw exertion getter (2.0 floor on a rest day), not the
+    // display-zeroed `todayExertion` above — the sheet's exertion never drops
+    // below 2.
+    final todayRawExertion = total.isEmpty ? 2.0 : total.last.exertion;
+    final performance = recovery.isEmpty
+        ? 0.0
+        : dailyPerformancePct(todayReadiness, todayRawExertion);
 
-    // Trend — rolling 7-day-readiness composite per check-in day, each point
-    // pairing that day's readiness window with that day's ACWR. The last
-    // point equals the performancePct ring only when the latest check-in is
-    // today (its ACWR then being today's); on days with no fresh check-in the
-    // ring reflects "now" while the sparkline ends at the last logged day.
-    final acwrByDay = {for (final t in total) _dayKey(t.date): t.acwr};
+    // Trend — the same formula per check-in day, each point pairing that
+    // day's own readiness with that day's own exertion. The last point
+    // equals the performancePct ring whenever the latest check-in is today.
+    final exertionByDay = {for (final t in total) _dayKey(t.date): t.exertion};
     final trend = <double>[];
     for (var i = max(0, recovery.length - 8); i < recovery.length; i++) {
-      final win = recovery.sublist(max(0, i - 6), i + 1);
-      final r = win.map((e) => e.readinessPct).reduce((a, b) => a + b) / win.length;
-      final acwr = acwrByDay[_dayKey(recovery[i].date)] ?? latestAcwr;
-      trend.add((compositePerformance(r, acwr) * 100).roundToDouble());
+      final r = recovery[i].readinessPct;
+      final ex = exertionByDay[_dayKey(recovery[i].date)] ?? todayRawExertion;
+      trend.add((dailyPerformancePct(r, ex) * 100).roundToDouble());
     }
 
     return HomeMetrics(
       performancePct: performance,
-      recoveryPct: rec,
+      recoveryPct: todayReadiness,
       todayExertion: todayExertion,
       performanceTrend: trend,
     );

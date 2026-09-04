@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../api_service.dart';
 import '../core/theme.dart';
 import '../posture_screen.dart';
 import '../running_analysis_screen.dart';
@@ -6,6 +7,11 @@ import '../bowling_analysis_screen.dart';
 import '../services/entitlements.dart';
 import '../services/local_log_store.dart';
 import '../widgets/feature_gate.dart';
+
+/// Client-side kill switch: Bio Lab is held back from the general release
+/// while it's finished, but must keep working for the Play Store review
+/// account so store review isn't blocked on it. Remove once Bio Lab ships.
+const _bioLabPreviewEmails = {'playreview@solidcoreats.com'};
 
 class ExploreTab extends StatefulWidget {
   const ExploreTab({super.key});
@@ -19,6 +25,7 @@ class _ExploreTabState extends State<ExploreTab> {
   DateTime? _runningNext;
   DateTime? _bowlingNext;
   bool _loading = true;
+  bool _bioLabOpen = false;
 
   @override
   void initState() {
@@ -30,11 +37,14 @@ class _ExploreTabState extends State<ExploreTab> {
     final posture = await LocalLogStore.postureNextAvailable();
     final running = await LocalLogStore.runningNextAvailable();
     final bowling = await LocalLogStore.bowlingNextAvailable();
+    final user = await ApiService.getCachedUser();
+    final open = _bioLabPreviewEmails.contains(user?.email.toLowerCase());
     if (!mounted) return;
     setState(() {
       _postureNext = posture;
       _runningNext = running;
       _bowlingNext = bowling;
+      _bioLabOpen = open;
       _loading = false;
     });
   }
@@ -169,44 +179,103 @@ class _ExploreTabState extends State<ExploreTab> {
             // ── Tools ───────────────────────────────────────────
             const _SectionLabel('ANALYSIS TOOLS'),
             const SizedBox(height: 14),
-            _MotionToolCard(
-              icon: Icons.accessibility_new_rounded,
-              title: 'Posture',
-              subtitle: 'Body alignment & postural symmetry check',
-              tags: const ['Pose AI', 'Alignment'],
-              accentColor: kSky,
-              nextAvailable: _postureNext,
-              locked: !_loading && _isLocked(_postureNext),
-              onTap: () => _openTool(_postureNext, () => PostureGuideScreen(), FeatureKeys.posture),
-            ),
-            const SizedBox(height: 12),
-            _MotionToolCard(
-              icon: Icons.directions_run_rounded,
-              title: 'Running',
-              subtitle: 'Gait, cadence & running form analysis',
-              tags: const ['Pose AI', 'Gait'],
-              accentColor: kOrange,
-              nextAvailable: _runningNext,
-              locked: !_loading && _isLocked(_runningNext),
-              onTap: () => _openTool(_runningNext, () => const RunningAnalysisScreen(), FeatureKeys.running),
-            ),
-            const SizedBox(height: 12),
-            _MotionToolCard(
-              icon: Icons.sports_cricket_rounded,
-              title: 'Bowling',
-              subtitle: 'Fast & spin action biomechanics',
-              tags: const ['Pose AI', 'Technique'],
-              accentColor: kSleep,
-              nextAvailable: _bowlingNext,
-              locked: !_loading && _isLocked(_bowlingNext),
-              onTap: () => _openTool(_bowlingNext, () => const BowlingAnalysisScreen(), FeatureKeys.bowling),
-            ),
+            if (_loading)
+              const SizedBox.shrink()
+            else if (!_bioLabOpen)
+              const _ComingSoonBanner()
+            else ...[
+              _MotionToolCard(
+                icon: Icons.accessibility_new_rounded,
+                title: 'Posture',
+                subtitle: 'Body alignment & postural symmetry check',
+                tags: const ['Pose AI', 'Alignment'],
+                accentColor: kSky,
+                nextAvailable: _postureNext,
+                locked: _isLocked(_postureNext),
+                onTap: () => _openTool(_postureNext, () => PostureGuideScreen(), FeatureKeys.posture),
+              ),
+              const SizedBox(height: 12),
+              _MotionToolCard(
+                icon: Icons.directions_run_rounded,
+                title: 'Running',
+                subtitle: 'Gait, cadence & running form analysis',
+                tags: const ['Pose AI', 'Gait'],
+                accentColor: kOrange,
+                nextAvailable: _runningNext,
+                locked: _isLocked(_runningNext),
+                onTap: () => _openTool(_runningNext, () => const RunningAnalysisScreen(), FeatureKeys.running),
+              ),
+              const SizedBox(height: 12),
+              _MotionToolCard(
+                icon: Icons.sports_cricket_rounded,
+                title: 'Bowling',
+                subtitle: 'Fast & spin action biomechanics',
+                tags: const ['Pose AI', 'Technique'],
+                accentColor: kSleep,
+                nextAvailable: _bowlingNext,
+                locked: _isLocked(_bowlingNext),
+                onTap: () => _openTool(_bowlingNext, () => const BowlingAnalysisScreen(), FeatureKeys.bowling),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
+}
+
+/// Shown instead of the tool cards while Bio Lab is held back from general
+/// release. Same hero visual language as the header above, so it reads as
+/// a teaser rather than an error state.
+class _ComingSoonBanner extends StatelessWidget {
+  const _ComingSoonBanner();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [kSleep.withValues(alpha: 0.20), kCard],
+      ),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: kBorder),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: kSleep.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.auto_awesome_rounded, color: kSleep, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Something big is coming',
+                style: TextStyle(color: kTextPrimary, fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Posture, running and bowling analysis are getting a full rebuild — '
+          'sharper pose tracking, clearer breakdowns, faster results. '
+          'Bio Lab reopens soon.',
+          style: TextStyle(color: kTextSecondary, fontSize: 12.5, height: 1.5),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SectionLabel extends StatelessWidget {

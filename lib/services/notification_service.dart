@@ -30,7 +30,13 @@ class NotificationService {
       tz.setLocalLocation(tz.UTC);
     }
 
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // A status-bar icon must be a plain white silhouette — Android renders
+    // anything else (like the full-color @mipmap/ic_launcher this used to
+    // point at) as a blank/near-invisible square, which is why "Test
+    // Notification" showed no icon even though the notification itself was
+    // delivered fine. @drawable/ic_stat_notify is a generated white cutout
+    // of the app mark, sized per density (see res/drawable-*/ic_stat_notify.png).
+    const android = AndroidInitializationSettings('@drawable/ic_stat_notify');
     const ios = DarwinInitializationSettings();
     await _plugin.initialize(
       const InitializationSettings(android: android, iOS: ios),

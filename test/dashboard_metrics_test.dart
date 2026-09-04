@@ -318,24 +318,35 @@ void main() {
     );
     final h = m.homeMetrics();
 
-    test('recoveryPct = mean readiness of the last ≤7 check-ins', () {
-      // (0.75 + 0.25 + 0.50)/3 = 1.5/3 = 0.5
+    test("recoveryPct = today's readiness check-in", () {
+      // 22/07 ("today"): scores all 3 → readiness (5−3)/4 = 0.50
       expect(h.recoveryPct, closeTo(0.5, 1e-12));
     });
 
-    test('performancePct = 0.6·readiness + 0.4·loadBalance(latest acwr)', () {
-      // Day loads [100, 200, 150]:
-      //   a0 = 100/7, a1 = 300/7, a2 = 450/7
-      //   c0 = 100/7
-      //   c1 = (300/7)(2/29) + (100/7)(27/29) = 3300/203
-      //   c2 = (450/7)(2/29) + (3300/203)(27/29)
-      //      = (26100 + 89100)/5887 = 115200/5887 = 19.568540853
-      //   acwr_2 = (450/7)/(115200/5887) = 2649150/806400 = 3.28515625
-      expect(m.total.last.acwr, closeTo(3.28515625, 1e-9));
-      // loadBalance(3.28515625) = 1 − |3.28515625 − 1.05|/1.05
-      //   = 1 − 2.23515625/1.05 = 1 − 2.128720238 → clamps to 0
-      // performance = 0.6·0.5 + 0.4·0 = 0.3
-      expect(h.performancePct, closeTo(0.3, 1e-9));
+    test("recoveryPct tracks today alone, not the 7-day mean", () {
+      // Two bad days then a strong "today": the ring shows today's 0.75,
+      // not the (0.25 + 0.25 + 0.75)/3 = 0.416… weekly average.
+      final m2 = AthleteMetricsService.computeFromSessions(
+        [
+          session('2026-07-20T08:00:00',
+              totalLoad: 100, sleep: 4, wellness: 4, soreness: 4, fatigue: 4),
+          session('2026-07-21T08:00:00',
+              totalLoad: 100, sleep: 4, wellness: 4, soreness: 4, fatigue: 4),
+          session('2026-07-22T08:00:00',
+              totalLoad: 100, sleep: 2, wellness: 2, soreness: 2, fatigue: 2),
+        ],
+        now: DateTime(2026, 7, 22, 12),
+      );
+      expect(m2.homeMetrics().recoveryPct, closeTo(0.75, 1e-12));
+    });
+
+    test('performancePct = dailyPerformancePct(today readiness, today exertion)', () {
+      // 22/07 ("today"): readiness = 0.50, load 150 → exertion 4.893196331657212
+      //   normExertion = (4.893196331657212 − 2)/8 = 0.361649541457151
+      //   delta = 0.361649541457151 − 0.50 = −0.138350458542849 (underreaching)
+      //   penalty = 0.8·delta² = 0.8 × 0.019140847… = 0.015312678…
+      //   performance = 1 − 0.015312678… = 0.984687320…
+      expect(h.performancePct, closeTo(0.9846873204967869, 1e-9));
     });
 
     test('todayExertion = exertion of the latest daily total', () {
@@ -344,42 +355,43 @@ void main() {
       expect(h.todayExertion, closeTo(4.893196331657212, 1e-9));
     });
 
-    test('trend is the rolling composite; last element equals the ring', () {
-      // Per check-in day, r = mean readiness of the trailing ≤7 check-ins,
-      // acwr = that day's total-series acwr:
-      //   20/07: r = 0.75, acwr_0 = a0/c0 = 1 (seed)
-      //          loadBalance(1) = 1 − 0.05/1.05 = 0.952380952
-      //          comp = 0.6·0.75 + 0.4·0.952380952
-      //               = 0.45 + 0.380952381 = 0.830952381 → ×100 → 83
-      //   21/07: r = (0.75+0.25)/2 = 0.5
-      //          acwr_1 = (300/7)/(3300/203) = 29/11 = 2.636363636
-      //          loadBalance = 1 − 1.586363636/1.05 < 0 → 0
-      //          comp = 0.6·0.5 = 0.3 → 30
-      //   22/07: r = (0.75+0.25+0.5)/3 = 0.5, acwr_2 = 3.28515625 → lb 0
-      //          comp = 0.3 → 30
-      expect(h.performanceTrend, [83.0, 30.0, 30.0]);
+    test('trend is dailyPerformancePct per check-in day; last element equals the ring', () {
+      // Per check-in day, r = that day's own readiness, ex = that day's own
+      // total-series exertion (load [100, 200, 150] → exertion
+      // [4.2928038…, 5.3588969…, 4.8931963…]):
+      //   20/07: r=0.75, ex=4.2928038… → perf 0.8282087… → ×100 round → 83
+      //   21/07: r=0.25, ex=5.3588969… → perf 0.9624909… → ×100 round → 96
+      //   22/07: r=0.50, ex=4.8931963… → perf 0.9846873… → ×100 round → 98
+      expect(h.performanceTrend, [83.0, 96.0, 98.0]);
       // The last trend point must be the ring value: performancePct×100
-      // rounded = round(30.0) = 30.
+      // rounded = round(98.46873…) = 98.
       expect(h.performanceTrend.last,
           (h.performancePct * 100).roundToDouble());
     });
   });
 
   group('pure helper functions (backend parity)', () {
-    test('loadBalance peaks at 1.05 and clamps to [0,1]', () {
-      expect(loadBalance(1.05), 1.0);
-      // 1 − |0.525 − 1.05|/1.05 = 1 − 0.525/1.05 = 1 − 0.5 = 0.5
-      expect(loadBalance(0.525), closeTo(0.5, 1e-12));
-      // 1 − |0 − 1.05|/1.05 = 0 exactly at acwr 0
-      expect(loadBalance(0.0), closeTo(0.0, 1e-12));
-      // 1 − |2.1 − 1.05|/1.05 = 0; anything further clamps at 0
-      expect(loadBalance(3.0), 0.0);
+    test('dailyPerformancePct = 1.0 when exertion exactly matches readiness', () {
+      // norm_exertion = (10−2)/8 = 1.0; delta = 1.0 − 1.0 = 0 → penalty 0.
+      expect(dailyPerformancePct(1.0, 10.0), 1.0);
+      // norm_exertion = (2−2)/8 = 0; delta = 0 − 0 = 0 → penalty 0.
+      expect(dailyPerformancePct(0.0, 2.0), 1.0);
     });
 
-    test('compositePerformance = 0.6·readiness + 0.4·balance, clamped', () {
-      expect(compositePerformance(1.0, 1.05), 1.0);
-      // 0.6·0.5 + 0.4·0 = 0.3
-      expect(compositePerformance(0.5, 0.0), closeTo(0.3, 1e-12));
+    test('dailyPerformancePct penalises overreaching harder than underreaching', () {
+      // Same |gap| = 0.2 either side of a norm_exertion of 0.5 (exertion 6.0):
+      //   underreaching (readiness 0.7 > exertion): delta = 0.5−0.7 = −0.2
+      //     penalty = 0.8·0.2² = 0.032 → performance 0.968
+      expect(dailyPerformancePct(0.7, 6.0), closeTo(0.968, 1e-12));
+      //   overreaching (readiness 0.3 < exertion): delta = 0.5−0.3 = 0.2
+      //     penalty = 1.3·0.2² = 0.052 → performance 0.948
+      expect(dailyPerformancePct(0.3, 6.0), closeTo(0.948, 1e-12));
+    });
+
+    test('dailyPerformancePct clamps at 0 for an extreme gap', () {
+      // norm_exertion = (10−2)/8 = 1.0; delta = 1.0 − 0.0 = 1.0 (fully overreaching)
+      // penalty = 1.3·1.0² = 1.3 → 1 − 1.3 = −0.3 → clamps to 0.
+      expect(dailyPerformancePct(0.0, 10.0), 0.0);
     });
 
     test('WorkPoint.exertion matches backend exertion()', () {

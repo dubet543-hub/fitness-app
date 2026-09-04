@@ -164,7 +164,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       ]),
       const SizedBox(height: 4),
-      Text('Bars = Load  ·  Pink line = Exertion',
+      Text('Colored line = Load  ·  Pink line = Exertion',
           style: TextStyle(fontSize: 10, color: kTextSecondary)),
       const SizedBox(height: 10),
       SizedBox(
@@ -214,7 +214,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
           ]),
           const SizedBox(height: 12),
           SizedBox(
-            height: 72,
+            height: 92,
             child: CustomPaint(
               painter: _AcwrSparkPainter(data: data, color: color),
               size: Size.infinite,
@@ -828,7 +828,38 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   }
 }
 
-// ── Load vs Exertion Painter (bars = load, line = exertion 0–10) ──────────────
+/// Draws a horizontal-ish dashed line from [a] to [b] — used for threshold
+/// gridlines so they read as reference marks rather than data.
+void _drawDashedLine(Canvas canvas, Offset a, Offset b, Paint paint) {
+  const dash = 4.0, gap = 3.0;
+  final total = (b - a).distance;
+  final dir = (b - a) / total;
+  var covered = 0.0;
+  while (covered < total) {
+    final segEnd = min(covered + dash, total);
+    canvas.drawLine(a + dir * covered, a + dir * segEnd, paint);
+    covered += dash + gap;
+  }
+}
+
+// ── Smooth-line helper ───────────────────────────────────────────────────────
+
+/// Catmull-Rom → cubic Bézier smoothing: an open path threading every point in
+/// [pts] with soft curves instead of straight segments. Needs at least 2 points.
+Path _smoothLinePath(List<Offset> pts) {
+  final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+  for (int i = 0; i < pts.length - 1; i++) {
+    final p0 = i > 0 ? pts[i - 1] : pts[0];
+    final p1 = pts[i], p2 = pts[i + 1];
+    final p3 = i < pts.length - 2 ? pts[i + 2] : pts[pts.length - 1];
+    final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
+    final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
+    path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
+  }
+  return path;
+}
+
+// ── Load vs Exertion Painter (smooth line = load, smooth line = exertion 0–10) ─
 
 class _LoadExertionPainter extends CustomPainter {
   final List<_WP> data;
@@ -842,8 +873,8 @@ class _LoadExertionPainter extends CustomPainter {
     const bPad = 18.0, tPad = 12.0;
     final chartH = size.height - bPad - tPad;
     final slotW = size.width / n;
-    final barW = min(slotW * 0.55, 26.0);
-    final maxBar = data.fold(0.0, (p, w) => w.load > p ? w.load : p).clamp(1.0, 1e9);
+    double xAt(int i) => i * slotW + slotW / 2;
+    final maxLoad = data.fold(0.0, (p, w) => w.load > p ? w.load : p).clamp(1.0, 1e9);
 
     // Track background
     canvas.drawRRect(
@@ -851,37 +882,55 @@ class _LoadExertionPainter extends CustomPainter {
       Paint()..color = kTextPrimary.withValues(alpha: 0.04),
     );
 
-    // Bars = load
-    final bp = Paint()..color = barColor.withValues(alpha: 0.75);
-    for (int i = 0; i < n; i++) {
-      final x = i * slotW + (slotW - barW) / 2;
-      final bh = (data[i].load / maxBar) * chartH * 0.82;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, size.height - bPad - bh, barW, bh), const Radius.circular(3)),
-        bp,
+    double loadY(double v)  => tPad + chartH * (1 - (v / maxLoad).clamp(0, 1) * 0.82);
+    double exertY(double v) => tPad + chartH * (1 - v.clamp(0, 10) / 10.0);
+    final loadPts  = List.generate(n, (i) => Offset(xAt(i), loadY(data[i].load)));
+    final exertPts = List.generate(n, (i) => Offset(xAt(i), exertY(data[i].exertion)));
+
+    // Smooth line + area fill = load
+    if (n >= 2) {
+      final line = _smoothLinePath(loadPts);
+      final fill = Path.from(line)
+        ..lineTo(loadPts.last.dx, size.height - bPad)
+        ..lineTo(loadPts.first.dx, size.height - bPad)
+        ..close();
+      canvas.drawPath(
+        fill,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [barColor.withValues(alpha: 0.22), barColor.withValues(alpha: 0.0)],
+          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+      );
+      canvas.drawPath(
+        line,
+        Paint()
+          ..color = barColor
+          ..strokeWidth = 2.0
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
       );
     }
-
-    // Line = exertion on a fixed 0–10 scale
-    double lineY(double v) => tPad + chartH * (1 - v.clamp(0, 10) / 10.0);
-    final lp = Paint()
-      ..color = Colors.pinkAccent
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path();
-    for (int i = 0; i < n; i++) {
-      final x = i * slotW + slotW / 2;
-      final y = lineY(data[i].exertion);
-      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    for (final p in loadPts) {
+      canvas.drawCircle(p, 2.0, Paint()..color = barColor);
     }
-    canvas.drawPath(path, lp);
-    for (int i = 0; i < n; i++) {
-      canvas.drawCircle(
-        Offset(i * slotW + slotW / 2, lineY(data[i].exertion)), 2.0,
-        Paint()..color = Colors.pinkAccent);
+
+    // Smooth line = exertion on a fixed 0–10 scale
+    if (n >= 2) {
+      canvas.drawPath(
+        _smoothLinePath(exertPts),
+        Paint()
+          ..color = Colors.pinkAccent
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+    for (final p in exertPts) {
+      canvas.drawCircle(p, 2.0, Paint()..color = Colors.pinkAccent);
     }
 
     // Date labels
@@ -892,7 +941,7 @@ class _LoadExertionPainter extends CustomPainter {
             style: TextStyle(color: kTextMuted, fontSize: 7.5)),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(i * slotW + slotW / 2 - tp.width / 2, size.height - bPad + 4));
+      tp.paint(canvas, Offset(xAt(i) - tp.width / 2, size.height - bPad + 4));
     }
   }
 
@@ -925,51 +974,73 @@ class _AcwrSparkPainter extends CustomPainter {
     band(0.8, 1.3, kSuccess.withValues(alpha: 0.07));
     band(0.0, 0.8, kInfo.withValues(alpha: 0.06));
 
-    // Threshold lines
-    for (final v in [0.8, 1.3, 1.5]) {
-      canvas.drawLine(Offset(0, yAt(v)), Offset(w, yAt(v)),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.09)..strokeWidth = 0.5);
+    // Threshold lines — dashed, colour-matched to the zone they bound, at a
+    // visible weight (the old flat 0.09-alpha grey line was nearly invisible).
+    const thresholds = [(0.8, kInfo), (1.3, kWarn), (1.5, kDanger)];
+    for (final (v, c) in thresholds) {
+      _drawDashedLine(canvas, Offset(0, yAt(v)), Offset(w, yAt(v)),
+          Paint()..color = c.withValues(alpha: 0.55)..strokeWidth = 1.0);
     }
 
     final vals = data.map((p) => p.acwr.clamp(vMin, vMax)).toList();
     final pts  = List.generate(n, (i) => Offset(xAt(i), yAt(vals[i])));
 
-    // Area fill
-    final fill = Path()..moveTo(pts.first.dx, h)..lineTo(pts.first.dx, pts.first.dy);
-    for (int i = 0; i < n - 1; i++) {
-      final p0 = i > 0 ? pts[i - 1] : pts[0];
-      final p1 = pts[i], p2 = pts[i + 1];
-      final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-      final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-      final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-      fill.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-    }
-    fill..lineTo(pts.last.dx, h)..close();
+    // Line + area fill
+    final line = _smoothLinePath(pts);
+    final fill = Path.from(line)..lineTo(pts.last.dx, h)..lineTo(pts.first.dx, h)..close();
     canvas.drawPath(fill, Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter, end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.20), color.withValues(alpha: 0.0)],
+        colors: [color.withValues(alpha: 0.38), color.withValues(alpha: 0.04)],
       ).createShader(Rect.fromLTWH(0, 0, w, h)));
-
-    // Line
-    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
-    for (int i = 0; i < n - 1; i++) {
-      final p0 = i > 0 ? pts[i - 1] : pts[0];
-      final p1 = pts[i], p2 = pts[i + 1];
-      final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-      final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-      final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-      path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-    }
-    canvas.drawPath(path, Paint()
-      ..color = color..strokeWidth = 2.0
+    canvas.drawPath(line, Paint()
+      ..color = color..strokeWidth = 2.2
       ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+
+    // Value tags for all three boundaries, colour-matched to their line.
+    // Alternating left/right keeps 1.3 and 1.5 (close together) from
+    // overlapping. Drawn last, each in an opaque chip, so they stay legible
+    // over the zone bands, the gridlines and the curve.
+    for (final (i, (v, c)) in thresholds.indexed) {
+      final onLeft = i.isEven;
+      final tp = TextPainter(
+        text: TextSpan(text: v.toStringAsFixed(1),
+            style: TextStyle(color: c, fontSize: 9, fontWeight: FontWeight.w800)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final boxW = tp.width + 6;
+      final top = (yAt(v) - tp.height / 2).clamp(0.0, h - tp.height);
+      final left = onLeft ? 2.0 : w - boxW - 2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left, top, boxW, tp.height), const Radius.circular(3)),
+        Paint()..color = kCard.withValues(alpha: 0.94),
+      );
+      tp.paint(canvas, Offset(left + 3, top));
+    }
 
     // Last dot
     canvas.drawCircle(pts.last, 4.5, Paint()..color = color);
     canvas.drawCircle(pts.last, 4.5, Paint()
       ..color = kTextPrimary.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke..strokeWidth = 1.0);
+
+    // Current ACWR value, in a pill beside the last dot
+    final valTp = TextPainter(
+      text: TextSpan(text: data.last.acwr.toStringAsFixed(2),
+          style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    const padX = 4.0, padY = 2.0;
+    final boxW = valTp.width + padX * 2, boxH = valTp.height + padY * 2;
+    var boxL = pts.last.dx - boxW - 6;
+    if (boxL < 0) boxL = pts.last.dx + 6;
+    var boxT = pts.last.dy - boxH / 2;
+    boxT = boxT.clamp(0.0, h - boxH);
+    final box = RRect.fromRectAndRadius(
+        Rect.fromLTWH(boxL, boxT, boxW, boxH), const Radius.circular(4));
+    canvas.drawRRect(box, Paint()..color = color.withValues(alpha: 0.14));
+    valTp.paint(canvas, Offset(boxL + padX, boxT + padY));
   }
 
   @override
@@ -1153,16 +1224,7 @@ class _CumulativeScorePainter extends CustomPainter {
     final pts = List.generate(n, (i) => Offset(xAt(i), yAt(totals[i].toDouble())));
 
     // Smooth line
-    final path = Path()..moveTo(pts[0].dx, pts[0].dy);
-    for (int i = 0; i < n - 1; i++) {
-      final p0 = i > 0 ? pts[i - 1] : pts[0];
-      final p1 = pts[i], p2 = pts[i + 1];
-      final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-      final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-      final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-      path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-    }
-    canvas.drawPath(path, Paint()
+    canvas.drawPath(_smoothLinePath(pts), Paint()
       ..color = kViolet..strokeWidth = 2.2
       ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
 
