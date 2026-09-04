@@ -36,8 +36,10 @@ class NotificationService {
       const InitializationSettings(android: android, iOS: ios),
     );
 
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     // Each Android permission request is independently guarded — one denial
     // or plugin exception (both real on some OEM ROMs) must not stop the
     // others, and must never prevent scheduleAll() below from running. Before
@@ -71,10 +73,20 @@ class NotificationService {
   /// AlarmManager entry the app had registered.
   static Future<void> scheduleAll() async {
     final prefs = await SharedPreferences.getInstance();
-    await scheduleMorning(enabled: prefs.getBool('notif_morning') ?? true);
-    await scheduleEvening(enabled: prefs.getBool('notif_evening') ?? true);
-    try { await _plugin.cancel(_removedWakeAlarmId); } catch (_) {}
-    try { await _plugin.cancel(_removedSessionReminderId); } catch (_) {}
+    // A device/OEM-specific failure scheduling one alarm must not prevent the
+    // other daily reminder from being registered.
+    try {
+      await scheduleMorning(enabled: prefs.getBool('notif_morning') ?? true);
+    } catch (_) {}
+    try {
+      await scheduleEvening(enabled: prefs.getBool('notif_evening') ?? true);
+    } catch (_) {}
+    try {
+      await _plugin.cancel(_removedWakeAlarmId);
+    } catch (_) {}
+    try {
+      await _plugin.cancel(_removedSessionReminderId);
+    } catch (_) {}
   }
 
   static Future<void> scheduleMorning({bool enabled = true}) async {
@@ -82,7 +94,9 @@ class NotificationService {
       // Guarded like every other plugin call in this file — a cancel
       // failure here must not stop scheduleAll() from reaching the
       // reminders still to come.
-      try { await _plugin.cancel(_morningId); } catch (_) {}
+      try {
+        await _plugin.cancel(_morningId);
+      } catch (_) {}
       return;
     }
     await _zonedSchedule(
@@ -95,7 +109,9 @@ class NotificationService {
 
   static Future<void> scheduleEvening({bool enabled = true}) async {
     if (!enabled) {
-      try { await _plugin.cancel(_eveningId); } catch (_) {}
+      try {
+        await _plugin.cancel(_eveningId);
+      } catch (_) {}
       return;
     }
     await _zonedSchedule(
@@ -109,9 +125,12 @@ class NotificationService {
   // TEMPORARY — for on-device verification only (sound, channel, permission
   // all work end-to-end); remove once the notification fixes are confirmed
   // on real Android hardware.
-  static Future<void> showTestNotification() =>
-      _plugin.show(999, 'Test Notification',
-          'If you can see and hear this, notifications are working.', _details);
+  static Future<void> showTestNotification() => _plugin.show(
+    999,
+    'Test Notification',
+    'If you can see and hear this, notifications are working.',
+    _details,
+  );
 
   /// Schedules with exact timing, falling back to an inexact (OS-batched,
   /// within-~15-min) alarm if exact scheduling is rejected — e.g. the user
@@ -169,8 +188,14 @@ class NotificationService {
 
   static tz.TZDateTime _nextInstanceOf(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);
-    var scheduled =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    var scheduled = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }

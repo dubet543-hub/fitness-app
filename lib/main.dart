@@ -12,10 +12,17 @@ void main() async {
     await dotenv.load(fileName: '.env');
   } catch (_) {}
   await ApiService.loadConfig();
-  try {
-    await NotificationService.init();
-  } catch (_) {}
   runApp(const FitnessApp());
+
+  // Android permission dialogs require a resumed Activity. Calling the
+  // notification plugin before runApp() can make POST_NOTIFICATIONS (and the
+  // exact-alarm settings intent) fail silently on Android while still working
+  // on iOS. Wait until the first frame so the Activity is ready.
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    try {
+      await NotificationService.init();
+    } catch (_) {}
+  });
 }
 
 class FitnessApp extends StatelessWidget {
