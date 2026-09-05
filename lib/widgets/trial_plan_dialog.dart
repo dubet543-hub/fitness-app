@@ -94,7 +94,11 @@ class TrialPlanDialog {
                   style: TextStyle(fontSize: 12.5, color: kTextSecondary, height: 1.5)),
               const SizedBox(height: 16),
 
-              for (final plan in ent.plans.take(2)) ...[
+              // Bio Lab is held back from general release (see the
+              // ExploreTab preview gate and subscription_page.dart) — don't
+              // nudge trial users toward a plan for a feature set they can't
+              // actually use yet.
+              for (final plan in ent.plans.where((p) => p.key != 'solidcore_bio_lab').take(2)) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                   margin: const EdgeInsets.only(bottom: 8),

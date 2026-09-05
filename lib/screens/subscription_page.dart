@@ -294,7 +294,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
                           letterSpacing: 1.4, color: kTextSecondary)),
                   const SizedBox(height: 10),
-                  for (final plan in _ent!.plans) ...[
+                  // Bio Lab is held back from general release (see the
+                  // ExploreTab preview gate) — don't sell a plan for a
+                  // feature set almost nobody can use yet. Athletes already
+                  // on this plan keep their entitlements; it just isn't
+                  // offered as something new to buy.
+                  for (final plan in _ent!.plans.where((p) => p.key != 'solidcore_bio_lab')) ...[
                     _PlanCard(
                       plan: plan,
                       ent: _ent!,

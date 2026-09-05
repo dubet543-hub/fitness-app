@@ -59,15 +59,25 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
-            // R8 shrinking was already on (via Flutter's Gradle plugin
+            // R8 code shrinking was already on (via Flutter's Gradle plugin
             // default) with no rules file telling it what Flutter's own
             // Play Store integration and the native SDKs need kept — the
             // cause of "installs fine, crashes instantly, but only from the
             // Play Store" on real devices. See proguard-rules.pro for why.
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Resource shrinking, however, is turned OFF. The notification
+            // sound (raw/alarm_sound) and small icon (drawable/ic_stat_notify)
+            // are only ever referenced dynamically by name string from
+            // flutter_local_notifications, which the shrinker's static
+            // analysis can't see — so it stripped them and every notification
+            // failed at runtime (invalid_sound, then a NPE in setSmallIcon),
+            // release builds only. It saves ~1 MB on a 110 MB app; not worth
+            // the repeated production breakage.
+            isShrinkResources = false
         }
     }
 }

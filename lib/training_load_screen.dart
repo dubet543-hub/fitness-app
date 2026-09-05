@@ -828,8 +828,14 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             values: PrimarySessionType.values,
             selected: _tPrimaryTypes,
             label: (v) => v.label,
-            onToggle: (v) => setState(() =>
-                _tPrimaryTypes.contains(v) ? _tPrimaryTypes.remove(v) : _tPrimaryTypes.add(v)),
+            // Single-select: a training session is one type at a time, so
+            // picking a new one replaces whatever was picked before instead
+            // of piling up (the Set only ever held one PrimarySessionType by
+            // convention, but toggling by add/remove let a second tap leave
+            // both selected).
+            onToggle: (v) => setState(() => _tPrimaryTypes
+              ..clear()
+              ..add(v)),
           ),
           const SizedBox(height: 14),
           _NumField(ctrl: _tPrimaryDurCtrl, label: "Duration (minutes)"),
@@ -937,8 +943,10 @@ class _TrainingLoadScreenState extends State<TrainingLoadScreen> {
             values: SkillSessionType.values,
             selected: _sTypes,
             label: (v) => v.label,
-            onToggle: (v) => setState(() =>
-                _sTypes.contains(v) ? _sTypes.remove(v) : _sTypes.add(v)),
+            // Single-select, same reasoning as the primary training chips.
+            onToggle: (v) => setState(() => _sTypes
+              ..clear()
+              ..add(v)),
           ),
           const SizedBox(height: 14),
           _NumField(ctrl: _sDurCtrl, label: "Duration (minutes)"),

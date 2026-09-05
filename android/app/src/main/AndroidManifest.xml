@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -51,6 +52,27 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Nothing in this app uses WorkManager directly — it's only present
+             as a transitive dependency of some AndroidX/plugin library, but it
+             still self-initializes eagerly at process start via this
+             ContentProvider and tries to create its SQLite database right
+             then. On some OEM ROMs (confirmed on Vivo/Funtouch, Android 12)
+             that database creation throws and crashes the app before Flutter
+             even starts — "Failed to create an instance of
+             androidx.work.impl.WorkDatabase". Removing WorkManager's
+             auto-init here means it only initializes lazily if something
+             actually calls a WorkManager API, which nothing here does. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

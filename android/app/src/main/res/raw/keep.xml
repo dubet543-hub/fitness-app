@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  alarm_sound.wav is only ever referenced dynamically, by name string, via
+  flutter_local_notifications' RawResourceAndroidNotificationSound('alarm_sound')
+  — never as a direct @raw/alarm_sound / R.raw.alarm_sound reference. The
+  release build's resource shrinker only tracks static references, so without
+  this it treats the file as unused and strips it, and every notification then
+  fails at runtime with PlatformException(invalid_sound, ...) — reproducing
+  only in release builds, since shrinking is off in debug.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/alarm_sound" />

@@ -46,8 +46,22 @@
 -dontwarn proguard.annotation.KeepClassMembers
 -dontwarn proguard.annotation.Keep
 
-# ── flutter_local_notifications' receivers (also declared in the manifest) ──
--keep class com.dexterous.flutterlocalnotifications.** { *; }
+# ── flutter_local_notifications + the Gson it uses to persist scheduled ─────
+# reminders. Without -keepattributes Signature, R8 drops the generic type
+# info Gson's TypeToken needs, and loading the scheduled-notification cache
+# throws (getSuperclassTypeParameter) — the immediate show() works but every
+# scheduled morning/evening reminder silently fails.
+-keep class com.dexterous.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes InnerClasses,EnclosingMethod
+-dontwarn com.google.errorprone.annotations.**
+-keep class com.google.gson.** { *; }
+-dontwarn com.google.gson.**
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class * extends com.google.gson.reflect.TypeToken
+-keep public class * implements java.lang.reflect.Type
 
 # ── in_app_purchase (Play Billing) ───────────────────────────────────────────
 -keep class com.android.billingclient.** { *; }
