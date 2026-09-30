@@ -116,7 +116,7 @@ router.get('/athletes/:id/body-composition', async (req, res) => {
       .limit(Number(limit));
     res.json({
       latest:  history[0] || null,
-      history, // newest → oldest
+      history: history.slice(1), // older entries only; latest is returned separately
       synced:  history.length > 0,
     });
   } catch (err) {

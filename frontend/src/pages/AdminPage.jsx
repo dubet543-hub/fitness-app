@@ -4,7 +4,6 @@ import NavBar from '../components/NavBar';
 import StatCard from '../components/StatCard';
 import Badge from '../components/Badge';
 import SessionModal from '../components/SessionModal';
-import WorkloadMonitorPage from './WorkloadMonitorPage';
 import { api } from '../api';
 import { buildDailyRecords, buildFlutterSeries, computeRollingACWR, computeStats, dayKey } from '../utils/acwr';
 import { monitorSeriesForAthlete } from '../utils/flutterWorkloadMonitorData';
@@ -17,14 +16,11 @@ import {
   gradeBF, gradeFFMI, gradeSMM, gradeSMI, gradeRelASM, gradeMBR, gradeAppendicular, gradeAxial,
 } from '../utils/bodyComposition';
 
-const SECTIONS = ['Overview', 'Athletes', 'Sessions', 'Analytics', 'Workload Monitor', 'Subscriptions', 'Create Athlete'];
+const SECTIONS = ['Athletes', 'Sessions', 'Analytics', 'Recovery', 'Subscriptions', 'Create Athlete'];
 
 export default function AdminPage() {
-  const [section, setSection]         = useState('Overview');
+  const [section, setSection]         = useState('Athletes');
   const [sideOpen, setSideOpen]       = useState(false);
-
-  // Overview
-  const [dash, setDash]               = useState(null);
 
   // Athletes
   const [athletes, setAthletes]       = useState([]);
@@ -45,6 +41,12 @@ export default function AdminPage() {
   const [analSessions, setAnalSess]   = useState([]);
   const [analBody, setAnalBody]       = useState(null); // body-composition { latest, history, synced }
 
+  // Recovery
+  const [recAthId, setRecAthId]       = useState('');
+  const [recFrom, setRecFrom]         = useState('');
+  const [recTo, setRecTo]             = useState('');
+  const [recSessions, setRecSess]     = useState([]);
+
   // Create athlete form
   const [form, setForm]               = useState({ name: '', email: '', password: '', sport: '' });
   const [formErr, setFormErr]         = useState('');
@@ -53,17 +55,14 @@ export default function AdminPage() {
 
   // ── Load data per section ──────────────────────────────────────────────
   useEffect(() => {
-    // Several sections (Athletes, Sessions, Analytics, Workload Monitor, Create
+    // Several sections (Athletes, Sessions, Analytics, Recovery, Create
     // Athlete) render an athlete dropdown, so always keep the list loaded —
     // otherwise navigating straight to Analytics shows an empty "Select athlete".
     loadAthletes();
-    if (section === 'Overview') loadDash();
     if (section === 'Sessions') loadSessions();
+    if (section === 'Recovery') loadRecovery(recAthId, recFrom, recTo);
   }, [section]);
 
-  async function loadDash() {
-    try { setDash(await api.get('/admin/dashboard')); } catch {}
-  }
   async function loadAthletes() {
     try { setAthletes(await api.get('/admin/athletes')); } catch {}
   }
@@ -92,6 +91,14 @@ export default function AdminPage() {
     if (!id) { setAnalSess([]); setAnalBody(null); return; }
     try { setAnalSess(await api.get(`/admin/athletes/${id}/sessions?limit=200`)); } catch { setAnalSess([]); }
     try { setAnalBody(await api.get(`/admin/athletes/${id}/body-composition`)); } catch { setAnalBody(null); }
+  }
+  async function loadRecovery(id, f, t) {
+    try {
+      let url = id ? `/admin/athletes/${id}/sessions?limit=300` : '/admin/sessions?limit=300';
+      if (f) url += `&from=${f}`;
+      if (t) url += `&to=${t}`;
+      setRecSess(await api.get(url));
+    } catch { setRecSess([]); }
   }
 
   async function toggleActive(ath) {
@@ -140,9 +147,6 @@ export default function AdminPage() {
   );
 
   // ── Render sections ────────────────────────────────────────────────────
-  const sessPerDay = dash?.sessionsPerDay || [];
-  const recentSess = dash?.recentSessions || [];
-
   return (
     <div className="min-h-screen bg-bg">
       <NavBar />
@@ -162,44 +166,6 @@ export default function AdminPage() {
           </button>
 
           <h2 className="text-xl font-bold text-tp">{section}</h2>
-
-          {/* ── Overview ── */}
-          {section === 'Overview' && dash && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <StatCard label="Total Athletes">{dash.totalAthletes}</StatCard>
-                <StatCard label="Total Sessions">{dash.totalSessions}</StatCard>
-                <StatCard label="Avg Load" sub="AU">{dash.avgLoad}</StatCard>
-              </div>
-              <ChartCard title="Sessions per Day (last 30d)">
-                <Bar
-                  data={{
-                    labels: sessPerDay.map(d => d._id),
-                    datasets: [{ data: sessPerDay.map(d => d.count), backgroundColor: '#FF6B35', borderRadius: 4 }],
-                  }}
-                  options={CHART_OPTS}
-                />
-              </ChartCard>
-              <div className="bg-surface border border-bdr rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-bdr text-sm font-semibold text-tp">Recent Sessions (7d)</div>
-                <div className="overflow-x-auto">
-                  <table>
-                    <thead><tr>{['Athlete','Date','Load','Readiness'].map(h => <th key={h}>{h}</th>)}</tr></thead>
-                    <tbody>
-                      {recentSess.slice(0, 20).map(s => (
-                        <tr key={s._id}>
-                          <td className="text-tp">{s.athlete?.name || '—'}</td>
-                          <td className="text-ts whitespace-nowrap">{fmtDate(s.date)}</td>
-                          <td className="font-mono">{fmtNum(s.totalLoad)}</td>
-                          <td>{s.readinessPercent != null ? <Badge color={readinessColor(s.readinessPercent)}>{s.readinessPercent.toFixed(0)}%</Badge> : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* ── Athletes ── */}
           {section === 'Athletes' && !selectedAthlete && (
@@ -356,7 +322,7 @@ export default function AdminPage() {
           {/* ── Analytics ── */}
           {section === 'Analytics' && (
             <div className="space-y-6">
-              <div className="flex gap-2 items-center">
+              <div className="bg-surface border border-bdr rounded-xl p-4 flex gap-2 items-center">
                 <label className="text-sm text-ts">Athlete:</label>
                 <select
                   value={analAthId}
@@ -367,6 +333,7 @@ export default function AdminPage() {
                   {athletes.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
                 </select>
               </div>
+              {/* Body composition profile on top, workload/charts below — same layout as Workload Monitor */}
               {analAthId && <BodyCompositionCard data={analBody} />}
               {analSessions.length > 0 && (
                 <AthCharts
@@ -376,12 +343,23 @@ export default function AdminPage() {
                 />
               )}
               {analAthId && analSessions.length === 0 && <p className="text-ts text-sm">No sessions found.</p>}
+              {!analAthId && <p className="text-ts text-sm">Select an athlete to view their analytics.</p>}
             </div>
           )}
 
-          {/* ── Workload Monitor ── */}
-          {section === 'Workload Monitor' && (
-            <WorkloadMonitorPage athletes={athletes} />
+          {/* ── Recovery ── */}
+          {section === 'Recovery' && (
+            <RecoverySection
+              athletes={athletes}
+              recAthId={recAthId}
+              setRecAthId={setRecAthId}
+              recFrom={recFrom}
+              setRecFrom={setRecFrom}
+              recTo={recTo}
+              setRecTo={setRecTo}
+              recSessions={recSessions}
+              onApply={() => loadRecovery(recAthId, recFrom, recTo)}
+            />
           )}
 
           {/* ── Create Athlete ── */}
@@ -423,6 +401,120 @@ export default function AdminPage() {
       </div>
 
       <SessionModal session={selSession} onClose={() => setSelSession(null)} />
+    </div>
+  );
+}
+
+// ── Recovery — wellness/sleep data the athlete fills in-app ────────────────
+function RecoverySection({ athletes, recAthId, setRecAthId, recFrom, setRecFrom, recTo, setRecTo, recSessions, onApply }) {
+  const rows = useMemo(
+    () => [...recSessions].sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [recSessions],
+  );
+  const chartRows = useMemo(
+    () => [...recSessions].sort((a, b) => new Date(a.date) - new Date(b.date)),
+    [recSessions],
+  );
+
+  const avg = (key) => {
+    const vals = recSessions.map(s => s[key]).filter(v => v != null);
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
+  const avgSleep      = avg('sleep');
+  const avgWellness   = avg('wellness');
+  const avgSoreness   = avg('soreness');
+  const avgFatigue    = avg('fatigue');
+  const avgDuration   = avg('sleepDuration');
+  const avgEfficiency = avg('sleepEfficiency');
+  const avgReadiness  = avg('readinessPercent');
+
+  const clear = () => { setRecAthId(''); setRecFrom(''); setRecTo(''); onApply(); };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-surface border border-bdr rounded-xl p-4 flex gap-2 flex-wrap items-center">
+        <label className="text-sm text-ts">Athlete:</label>
+        <select value={recAthId} onChange={e => setRecAthId(e.target.value)} className="!w-auto text-xs">
+          <option value="">All athletes</option>
+          {athletes.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
+        </select>
+        <input type="date" value={recFrom} onChange={e => setRecFrom(e.target.value)} className="!w-auto text-xs" />
+        <span className="text-ts text-xs self-center">to</span>
+        <input type="date" value={recTo} onChange={e => setRecTo(e.target.value)} className="!w-auto text-xs" />
+        <button onClick={onApply} className="bg-accent hover:bg-orange-600 text-white text-xs px-4 py-2 rounded-lg font-semibold transition">Apply</button>
+        <button onClick={clear} className="border border-bdr text-ts hover:text-tp text-xs px-3 py-2 rounded-lg transition">Clear</button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <StatCard label="Sleep" sub="1 best – 5 worst">{avgSleep != null ? avgSleep.toFixed(1) : '—'}</StatCard>
+        <StatCard label="Wellness" sub="1 best – 5 worst">{avgWellness != null ? avgWellness.toFixed(1) : '—'}</StatCard>
+        <StatCard label="Soreness" sub="1 best – 5 worst">{avgSoreness != null ? avgSoreness.toFixed(1) : '—'}</StatCard>
+        <StatCard label="Fatigue" sub="1 best – 5 worst">{avgFatigue != null ? avgFatigue.toFixed(1) : '—'}</StatCard>
+        <StatCard label="Sleep Duration" sub="hours">{avgDuration != null ? avgDuration.toFixed(1) : '—'}</StatCard>
+        <StatCard label="Sleep Efficiency" sub="%">{avgEfficiency != null ? avgEfficiency.toFixed(0) : '—'}</StatCard>
+        <StatCard label="Readiness" sub="%">{avgReadiness != null ? avgReadiness.toFixed(0) : '—'}</StatCard>
+      </div>
+
+      {chartRows.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ChartCard title="Wellness Ratings (1 best – 5 worst)">
+            <Line
+              data={{
+                labels: chartRows.map(s => fmtDate(s.date)),
+                datasets: [
+                  { label: 'Sleep',    data: chartRows.map(s => s.sleep ?? null),    borderColor: '#818CF8', tension: .35, pointRadius: 2, spanGaps: true },
+                  { label: 'Wellness', data: chartRows.map(s => s.wellness ?? null), borderColor: '#34D399', tension: .35, pointRadius: 2, spanGaps: true },
+                  { label: 'Soreness', data: chartRows.map(s => s.soreness ?? null), borderColor: '#FBBF24', tension: .35, pointRadius: 2, spanGaps: true },
+                  { label: 'Fatigue',  data: chartRows.map(s => s.fatigue ?? null),  borderColor: '#F87171', tension: .35, pointRadius: 2, spanGaps: true },
+                ],
+              }}
+              options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, legend: { display: true } } }}
+            />
+          </ChartCard>
+          <ChartCard title="Sleep Duration (hrs) & Efficiency (%)">
+            <Line
+              data={{
+                labels: chartRows.map(s => fmtDate(s.date)),
+                datasets: [
+                  { label: 'Duration (hrs)', data: chartRows.map(s => s.sleepDuration ?? null), borderColor: '#38BDF8', backgroundColor: 'rgba(56,189,248,.1)', tension: .35, pointRadius: 2, fill: true, spanGaps: true },
+                  { label: 'Efficiency (%)', data: chartRows.map(s => s.sleepEfficiency ?? null), borderColor: '#FF6B35', tension: .35, pointRadius: 2, spanGaps: true },
+                ],
+              }}
+              options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, legend: { display: true } } }}
+            />
+          </ChartCard>
+        </div>
+      )}
+
+      <div className="bg-surface border border-bdr rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-bdr text-sm font-semibold text-tp">Recovery Log</div>
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                {[...(recAthId ? [] : ['Athlete']), 'Date', 'Sleep', 'Wellness', 'Soreness', 'Fatigue', 'Sleep Dur.', 'Sleep Eff.', 'Readiness'].map(h => <th key={h}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(s => (
+                <tr key={s._id}>
+                  {!recAthId && <td className="text-tp">{s.athlete?.name || '—'}</td>}
+                  <td className="whitespace-nowrap text-tp">{fmtDate(s.date)}</td>
+                  <td className="font-mono">{s.sleep ?? '—'}</td>
+                  <td className="font-mono">{s.wellness ?? '—'}</td>
+                  <td className="font-mono">{s.soreness ?? '—'}</td>
+                  <td className="font-mono">{s.fatigue ?? '—'}</td>
+                  <td className="font-mono">{s.sleepDuration != null ? `${s.sleepDuration.toFixed(1)}h` : '—'}</td>
+                  <td className="font-mono">{s.sleepEfficiency != null ? `${Math.round(s.sleepEfficiency)}%` : '—'}</td>
+                  <td>{s.readinessPercent != null ? <Badge color={readinessColor(s.readinessPercent)}>{s.readinessPercent.toFixed(0)}%</Badge> : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length === 0 && <div className="py-12 text-center text-ts text-sm">No recovery data found.</div>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -803,8 +895,8 @@ function BodyCompositionCard({ data }) {
         </ol>
       </div>
 
-      {/* History */}
-      {data?.history?.length > 1 && (
+      {/* History (older measurements; latest is shown above) */}
+      {data?.history?.length > 0 && (
         <div className="bg-surface border border-bdr rounded-xl p-5">
           <div className="text-[11px] text-ts uppercase tracking-wider mb-3">History</div>
           <div className="overflow-x-auto">
