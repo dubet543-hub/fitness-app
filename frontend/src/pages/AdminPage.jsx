@@ -5,6 +5,7 @@ import StatCard from '../components/StatCard';
 import Badge from '../components/Badge';
 import SessionModal from '../components/SessionModal';
 import { api } from '../api';
+import { downloadAthleteReport } from '../utils/pdfReport';
 import { buildDailyRecords, buildFlutterSeries, computeRollingACWR, computeStats, dayKey } from '../utils/acwr';
 import { monitorSeriesForAthlete } from '../utils/flutterWorkloadMonitorData';
 import { fmtDate, fmtNum } from '../utils/fmt';
@@ -26,6 +27,7 @@ export default function AdminPage() {
   const [athletes, setAthletes]       = useState([]);
   const [selectedAthlete, setSelAth]  = useState(null);
   const [athDetail, setAthDetail]     = useState(null); // { sessions, summary }
+  const [reportBusy, setReportBusy]   = useState(false);
   const [athFrom, setAthFrom]         = useState('');
   const [athTo, setAthTo]             = useState('');
 
@@ -86,6 +88,17 @@ export default function AdminPage() {
       ]);
       setAthDetail({ sessions, summary });
     } catch {}
+  }
+  async function downloadReport(athlete) {
+    if (!athDetail) return;
+    setReportBusy(true);
+    try {
+      let bodyComposition = null;
+      try { bodyComposition = await api.get(`/admin/athletes/${athlete._id}/body-composition`); } catch {}
+      downloadAthleteReport(athlete, { sessions: athDetail.sessions, bodyComposition });
+    } finally {
+      setReportBusy(false);
+    }
   }
   async function loadAnalytics(id) {
     if (!id) { setAnalSess([]); setAnalBody(null); return; }
@@ -202,12 +215,19 @@ export default function AdminPage() {
           {/* ── Athlete Detail ── */}
           {section === 'Athletes' && selectedAthlete && (
             <div className="space-y-6">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <button onClick={() => { setSelAth(null); setAthDetail(null); }} className="text-xs border border-bdr px-3 py-1.5 rounded-lg text-ts hover:text-tp transition">← Back</button>
                 <div>
                   <div className="font-semibold text-tp">{selectedAthlete.name}</div>
                   <div className="text-xs text-ts">{selectedAthlete.email} · {selectedAthlete.sport || 'General'}</div>
                 </div>
+                <button
+                  onClick={() => downloadReport(selectedAthlete)}
+                  disabled={!athDetail || reportBusy}
+                  className="ml-auto text-xs border border-bdr px-3 py-1.5 rounded-lg text-ts hover:text-tp disabled:opacity-50 transition"
+                >
+                  {reportBusy ? 'Preparing PDF…' : '⬇ Download PDF'}
+                </button>
               </div>
 
               {/* Date filter */}
