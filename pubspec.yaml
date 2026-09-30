@@ -2,7 +2,7 @@ name: fitness_app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+9
+version: 1.0.0+10
 
 environment:
   sdk: ^3.11.5
@@ -16,7 +16,7 @@ dependencies:
   google_sign_in: ^6.2.1
 
   camera: ^0.10.5+5
-  google_mlkit_pose_detection: ^0.14.1
+  google_mlkit_pose_detection: ^0.15.0
 
   http: ^1.2.0
   shared_preferences: ^2.3.0
