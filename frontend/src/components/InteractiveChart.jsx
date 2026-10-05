@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Chart } from 'react-chartjs-2';
 import { Icon, downloadCsv } from './ui';
+import { chartTheme, STATUS } from '../utils/adminCharts';
 
 // Interactive admin chart.
 //  • HTML tooltip — full date first, then every series at that point (value
@@ -88,7 +89,7 @@ const interactPlugin = {
     const x = act[0].element.x;
     const { ctx, chartArea } = chart;
     ctx.save();
-    ctx.strokeStyle = 'rgba(237, 237, 239, 0.28)';
+    ctx.strokeStyle = chartTheme().crosshair;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(Math.round(x) + 0.5, chartArea.top);
@@ -254,7 +255,7 @@ export default function InteractiveChart({
         <Chart ref={ref} type={type} data={data} options={merged} plugins={[interactPlugin]} />
         {expandable && (
           <button type="button" onClick={() => open(null)} aria-label={`Open ${name} in a larger view`} title="Open chart"
-                  className="absolute top-0 right-0 w-9 h-9 rounded-md flex items-center justify-center bg-bg/80 border border-bdr text-ts
+                  className="absolute top-0 right-0 w-11 h-11 sm:w-9 sm:h-9 rounded-md flex items-center justify-center bg-bg/80 border border-bdr text-ts
                              opacity-70 group-hover/chart:opacity-100 focus:opacity-100 hover:text-tp transition-opacity">
             <Icon name="expand" className="w-4 h-4" />
           </button>
@@ -331,7 +332,7 @@ function ChartViewer({ type, data, options, titles, horizontal, initialIndex, on
         ...options?.plugins,
         tooltip: { ...options?.plugins?.tooltip, enabled: false, external: externalTooltip(titles, unitOf) },
         adminInteract: { selected: sel, horizontal, cursor: 'pointer' },
-        viewerBg: { color: '#111113' },
+        viewerBg: { color: chartTheme().canvas },
       },
     };
   }, [options, sel, titles, horizontal]);
@@ -390,7 +391,7 @@ function ChartViewer({ type, data, options, titles, horizontal, initialIndex, on
                 color: ds.tipColor || (typeof ds.borderColor === 'string' && ds.type !== 'bar' ? ds.borderColor : typeof ds.backgroundColor === 'string' ? ds.backgroundColor : '#8E8E93'),
                 on: !hidden[i], onToggle: series.length > 1 ? () => setHidden(h => ({ ...h, [i]: !h[i] })) : undefined,
               })),
-              ...(thresholds.length ? [{ key: 'zones', label: 'Zone lines', kind: 'dash', color: '#0ca30c', on: thresholdsOn,
+              ...(thresholds.length ? [{ key: 'zones', label: 'Zone lines', kind: 'dash', color: STATUS.good, on: thresholdsOn,
                 onToggle: () => setHidden(h => ({ ...h, ...Object.fromEntries(thresholds.map(t => [t.i, thresholdsOn])) })) }] : []),
             ]} />
           )}

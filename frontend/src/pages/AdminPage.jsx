@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import Badge, { readinessColor } from '../components/Badge';
+
 import SessionModal from '../components/SessionModal';
 import WorkloadMonitor, { exertionStatus } from '../components/WorkloadMonitor';
 import InteractiveChart, { LegendToggle } from '../components/InteractiveChart';
@@ -15,7 +15,7 @@ import './admin.css';
 import { downloadAthleteReport } from '../utils/pdfReport';
 import { dayKey } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
-import { SINGLE, STATUS, LOAD_RAMP, shortDate, chartOptions, lineDataset, barDataset } from '../utils/adminCharts';
+import { SERIES, STATUS, loadRamp, themeName, setChartTheme, shortDate, chartOptions, lineDataset, barDataset } from '../utils/adminCharts';
 import SubscriptionsSection from './SubscriptionsSection';
 import {
   computeBCA, interpret,
@@ -40,8 +40,15 @@ const ATHLETE_SORT = {
   acwr: a => a.cond?.acwr ?? null, readiness: a => a.cond?.readiness ?? a.lastReadiness,
   last: a => (a.lastSession ? +new Date(a.lastSession) : null), status: a => (a.active ? 1 : 0),
 };
-// Body-composition progress lines: categorical slots 1 and 3 (validated pair).
-const SERIES_BC = { bf: '#d95926', smm: '#3987e5' };
+// Body-composition progress lines use the validated series slots 2 and 1.
+const SERIES_BC = { get bf() { return SERIES.acute; }, get smm() { return SERIES.load; } };
+
+const THEME_KEY = 'sc_admin_theme';
+const THEMES = [
+  { value: 'light', label: 'Light', icon: 'sun' },
+  { value: 'dark', label: 'Dark', icon: 'moon' },
+  { value: 'system', label: 'System', icon: 'monitor' },
+];
 const ROSTER_WINDOW_DAYS = 42; // 28-day chronic load + two weeks of warm-up
 
 const greeting = () => {
@@ -118,7 +125,6 @@ function FilterChip({ label, onClear }) {
 }
 
 const errMsg = (e, what) => `Couldn't load ${what}${e?.message ? ` — ${e.message}` : ''}.`;
-const readinessBadge = v => (v == null ? '—' : <Badge color={readinessColor(v)}>{v.toFixed(0)}%</Badge>);
 const sessionTypes = s => [...(s.primaryTypes || []), ...(s.skillTypes || [])].join(', ') || '—';
 const inRange = (date, from, to) => {
   const k = dayKey(date);
@@ -133,6 +139,25 @@ function AdminShell() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const user = getUser();
+
+  // Theme: Light / Dark / System, remembered per browser (falls back to System).
+  const [themePref, setThemePref] = useState(() => { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch { return 'system'; } });
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return undefined;
+    const h = e => setSystemDark(e.matches);
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
+  }, []);
+  const theme = themePref === 'system' ? (systemDark ? 'dark' : 'light') : themePref;
+  setChartTheme(theme); // set before children render so every chart reads the right palette
+  useEffect(() => { try { localStorage.setItem(THEME_KEY, themePref); } catch { /* private mode */ } }, [themePref]);
+  useEffect(() => {
+    document.documentElement.dataset.adminTheme = theme;
+    return () => { delete document.documentElement.dataset.adminTheme; };
+  }, [theme]);
+
   const section = NAV.some(n => n.id === params.get('section')) ? params.get('section') : 'athletes';
   const athleteParam = params.get('athlete') || '';
   const filterParam = params.get('filter') || 'all';
@@ -175,7 +200,7 @@ function AdminShell() {
     const byAth = new Map();
     (recent || []).forEach(r => { const id = r.athlete?._id || r.athlete; byAth.set(id, [...(byAth.get(id) || []), r]); });
     return athletes.map(a => ({ ...a, cond: recent ? athleteCondition(a, byAth.get(a._id) || []) : null }));
-  }, [athletes, recent]);
+  }, [athletes, recent, theme]);
   const atRisk = roster.filter(a => a.active && a.cond?.key === 'risk').length;
 
   const mainRef = useRef(null);
@@ -206,7 +231,7 @@ function AdminShell() {
       </div>
       <div className="px-3 pt-4">
         <button onClick={() => { setFindOpen(true); setSideOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 min-h-[40px] rounded-md bg-bg border border-bdr text-sm text-ts hover:text-tp hover:border-[#3a3a40] transition-colors">
+                className="w-full flex items-center gap-2.5 px-3 min-h-[40px] rounded-md bg-bg border border-bdr text-sm text-ts hover:text-tp hover:border-[rgb(var(--c-bdr-strong))] transition-colors">
           <Icon name="search" className="w-4 h-4" />
           <span className="flex-1 text-left">Find athlete</span>
           <kbd className="text-[11px] font-semibold border border-bdr rounded px-1.5 py-0.5">Ctrl K</kbd>
@@ -235,7 +260,23 @@ function AdminShell() {
           );
         })}
       </nav>
-      <div className="px-4 py-4 border-t border-bdr flex items-center gap-3">
+      <div className="px-4 pt-4 border-t border-bdr">
+        <div className="label-caps mb-1.5" id="theme-label">Appearance</div>
+        <div role="radiogroup" aria-labelledby="theme-label" className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-bg border border-bdr">
+          {THEMES.map(t => {
+            const on = themePref === t.value;
+            return (
+              <button key={t.value} type="button" role="radio" aria-checked={on} onClick={() => setThemePref(t.value)}
+                      title={t.value === 'system' ? 'Follow this device’s setting' : `${t.label} theme`}
+                      className={`flex items-center justify-center gap-1.5 h-11 sm:h-8 rounded-md text-xs font-semibold transition-colors
+                        ${on ? 'bg-surface text-tp ring-1 ring-bdr shadow-sm' : 'text-ts hover:text-tp'}`}>
+                <Icon name={t.icon} className="w-3.5 h-3.5" />{t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="px-4 py-4 flex items-center gap-3">
         <Avatar name={user?.name || 'Admin'} size="w-9 h-9 text-xs" />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-tp truncate">{user?.name || 'Admin'}</div>
@@ -252,7 +293,7 @@ function AdminShell() {
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="admin-root min-h-dvh text-tp">
+    <div className="admin-root min-h-dvh text-tp" data-theme={theme}>
       <a href="#admin-main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 bg-accent text-white text-sm font-semibold px-4 py-2 rounded-md">
         Skip to content
       </a>
@@ -454,7 +495,7 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
   const nonZero = boardData.flatMap(r => r.days.map(d => d.load)).filter(v => v > 0).sort((x, y) => x - y);
   const q = p => nonZero[Math.min(nonZero.length - 1, Math.floor(p * nonZero.length))] ?? 0;
   const cuts = [q(1 / 6), q(2 / 6), q(3 / 6), q(4 / 6), q(5 / 6)];
-  const shade = v => (v <= 0 ? null : LOAD_RAMP[cuts.filter(c => v > c).length]);
+  const shade = v => (v <= 0 ? null : loadRamp()[cuts.filter(c => v > c).length]);
   const dayHeads = boardData[0]?.days || dailyLoads([], BOARD_DAYS);
 
   return (
@@ -486,11 +527,11 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 items-start">
         {/* Team load board */}
-        <Card title="Team load board" subtitle={`Daily training load, last ${BOARD_DAYS} days · darker = lighter day, brighter = heavier day`}
+        <Card title="Team load board" subtitle={`Daily training load, last ${BOARD_DAYS} days · ${themeName() === 'light' ? 'paler = lighter day, darker = heavier day' : 'dimmer = lighter day, brighter = heavier day'}`}
               className="xl:col-span-3" bodyClassName="p-5"
               actions={
                 <div className="hidden sm:flex items-center gap-1.5 text-xs text-ts" aria-hidden="true">
-                  Less {LOAD_RAMP.map(c => <span key={c} className="w-3 h-3 rounded-[2px]" style={{ background: c }} />)} More
+                  Less {loadRamp().map(c => <span key={c} className="w-3 h-3 rounded-[2px]" style={{ background: c }} />)} More
                 </div>
               }>
           {!ready ? <Skeleton className="h-56 w-full" /> : boardRows.length === 0 ? (
@@ -503,7 +544,7 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
                   <div className="chart-tip-title">{hover.d.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
                   <div className="text-[13px] font-semibold text-tp">{hover.a.name}</div>
                   <div className="chart-tip-row">
-                    <span className="chart-tip-box" style={{ background: shade(hover.d.load) || '#2c2c31' }} />
+                    <span className="chart-tip-box" style={{ background: shade(hover.d.load) || 'rgb(var(--c-off))' }} />
                     <span className="chart-tip-val">{hover.d.load ? `${Math.round(hover.d.load)} AU` : 'Rest day'}</span>
                     {hover.n > 0 && <span className="chart-tip-lab">{hover.n} session{hover.n === 1 ? '' : 's'}</span>}
                   </div>
@@ -823,7 +864,7 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
           <InteractiveChart type="line" height="h-60" title="Readiness trend" subtitle="Readiness % from each wellness check-in"
             pickLabel="Open this session"
             data={{ labels: sorted.map(s => shortDate(s.date)),
-                    datasets: [{ ...lineDataset('Readiness', sorted.map(s => (s.readinessPercent == null ? null : Math.round(s.readinessPercent))), SINGLE, { fill: true }), unit: '%', pointRadius: 2 }] }}
+                    datasets: [{ ...lineDataset('Readiness', sorted.map(s => (s.readinessPercent == null ? null : Math.round(s.readinessPercent))), SERIES.load, { fill: true }), unit: '%', pointRadius: 2 }] }}
             titles={sorted.map(s => `${fullDate(s.date)} · ${sessionTypes(s)}`)}
             options={chartOptions({ yMin: 0, yMax: 100 })}
             onPick={onSession ? i => onSession(sorted[i]) : undefined} />
@@ -834,8 +875,8 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
           <div style={{ height: Math.max(140, mix.length * 36 + 30) }}><InteractiveChart type="bar" horizontal height="h-full" title="Training mix" subtitle="Number of sessions logged per training type"
             pickLabel={i => `Filter the session log to ${mix[i][0]}`}
             data={{ labels: mix.map(([t]) => t),
-                    datasets: [{ ...barDataset('sessions', mix.map(([, n]) => n), SINGLE, { horizontal: true }),
-                                 backgroundColor: ctx => (activeIdx < 0 || ctx.dataIndex === activeIdx ? SINGLE : `${SINGLE}55`), tipColor: SINGLE }] }}
+                    datasets: [{ ...barDataset('sessions', mix.map(([, n]) => n), SERIES.load, { horizontal: true }),
+                                 backgroundColor: ctx => (activeIdx < 0 || ctx.dataIndex === activeIdx ? SERIES.load : `${SERIES.load}55`), tipColor: SERIES.load }] }}
             titles={mix.map(([t]) => t)}
             options={{ ...chartOptions({ horizontal: true, yMin: 0 }), maintainAspectRatio: false }}
             onPick={onType ? i => onType(mix[i][0]) : undefined}
@@ -924,8 +965,8 @@ function SessionsSection({ athletes, onSession }) {
               <InteractiveChart type="bar" height="h-48" title="Load per day" subtitle="Total load logged each day across the athletes in view, in AU"
                 pickLabel="List this day’s sessions"
                 data={{ labels: daily.map(d => shortDate(keyToDate(d.key))),
-                        datasets: [{ ...barDataset('Total load', daily.map(d => Math.round(d.load)), SINGLE), unit: 'AU', tipColor: SINGLE,
-                                     backgroundColor: ctx => (dayIdx < 0 || ctx.dataIndex === dayIdx ? SINGLE : `${SINGLE}55`) }] }}
+                        datasets: [{ ...barDataset('Total load', daily.map(d => Math.round(d.load)), SERIES.load), unit: 'AU', tipColor: SERIES.load,
+                                     backgroundColor: ctx => (dayIdx < 0 || ctx.dataIndex === dayIdx ? SERIES.load : `${SERIES.load}55`) }] }}
                 titles={daily.map(d => `${fullDate(keyToDate(d.key))} · ${d.n} session${d.n === 1 ? '' : 's'}`)}
                 options={chartOptions({ xTicks: 10 })}
                 onPick={i => setDay(daily[i].key)}
@@ -971,7 +1012,7 @@ function SessionsSection({ athletes, onSession }) {
                           <div className="flex items-center gap-3">
                             <span className="num text-[16px] text-tp w-10 text-right">{fmtNum(s.totalLoad)}</span>
                             <span className="flex-1 h-1.5 rounded-full bg-card overflow-hidden" aria-hidden="true">
-                              <span className="block h-full rounded-full" style={{ width: `${((s.totalLoad || 0) / maxLoad) * 100}%`, background: SINGLE }} />
+                              <span className="block h-full rounded-full" style={{ width: `${((s.totalLoad || 0) / maxLoad) * 100}%`, background: SERIES.load }} />
                             </span>
                           </div>
                         </td>
@@ -1039,7 +1080,7 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession }) {
                     <div className="text-sm font-semibold text-tp truncate">{a.name}</div>
                     <div className="text-xs text-ts truncate mt-0.5">{a.sport || 'General'} · {relativeDay(a.lastSession)}</div>
                   </div>
-                  {a.cond ? <ConditionChip condition={a.active ? a.cond : { ...CONDITION.nodata, label: 'Inactive' }} /> : readinessBadge(a.lastReadiness)}
+                  {a.cond ? <ConditionChip condition={a.active ? a.cond : { ...CONDITION.nodata, label: 'Inactive' }} /> : <ToneNum value={a.lastReadiness != null ? Math.round(a.lastReadiness) : null} suffix="%" color={readinessTone(a.lastReadiness)} />}
                   <Icon name="chevron" className="w-4 h-4 text-ts group-hover:text-tp" />
                 </button>
               ))}
@@ -1256,7 +1297,7 @@ function MiniTrend({ title, daily, field, opts, dec, tall = false, unit = '', se
         <InteractiveChart type="line" height={tall ? 'h-48' : 'h-36'} group="recovery" title={`${title} trend`}
           subtitle={unit ? `Daily ${title.toLowerCase()} (${unit})` : `Daily ${title.toLowerCase()} rating · 1 = best, 5 = worst`}
           pickLabel="Show this day’s check-ins"
-          data={{ labels: daily.map(d => shortDate(keyToDate(d.date))), datasets: [{ ...lineDataset(title, pts, SINGLE), unit }] }}
+          data={{ labels: daily.map(d => shortDate(keyToDate(d.date))), datasets: [{ ...lineDataset(title, pts, SERIES.load), unit }] }}
           titles={daily.map(d => fullDate(keyToDate(d.date)))}
           options={chartOptions({ xTicks: tall ? 6 : 3, ...opts })}
           selected={selected} onPick={onPick} tooltip={false} onHover={setHi} />
@@ -1311,8 +1352,8 @@ function CreateAthlete({ onCreated }) {
   return (
     <Card className="max-w-lg" bodyClassName="p-6">
       <form onSubmit={submit} className="space-y-4" noValidate>
-        {err && <div role="alert" className="bg-red-500/10 border border-red-500/40 rounded-lg px-4 py-3 text-red-300 text-sm">{err}</div>}
-        {ok && <div role="status" className="flex items-center gap-2 bg-green-500/10 border border-green-500/40 rounded-lg px-4 py-3 text-green-300 text-sm"><Icon name="check" />{ok}</div>}
+        {err && <div role="alert" className="bg-red-500/10 border border-red-500/40 rounded-lg px-4 py-3 text-[rgb(var(--c-danger))] text-sm">{err}</div>}
+        {ok && <div role="status" className="flex items-center gap-2 bg-green-500/10 border border-green-500/40 rounded-lg px-4 py-3 text-[rgb(var(--c-success))] text-sm"><Icon name="check" />{ok}</div>}
         {fields.map(fl => (
           <Field key={fl.key} label={<>{fl.label} <span className="text-accent">*</span></>} htmlFor={`new-${fl.key}`}>
             <input id={`new-${fl.key}`} type={fl.type} placeholder={fl.placeholder} autoComplete={fl.auto} required
@@ -1320,7 +1361,7 @@ function CreateAthlete({ onCreated }) {
                    onBlur={() => setTouched(t => ({ ...t, [fl.key]: true }))}
                    value={form[fl.key]} onChange={e => setForm(f => ({ ...f, [fl.key]: e.target.value }))}
                    className={`h-11 ${fieldError(fl.key) ? '!border-red-500/70' : ''}`} />
-            {fieldError(fl.key) && <span id={`new-${fl.key}-err`} className="text-xs text-red-300">{fieldError(fl.key)}</span>}
+            {fieldError(fl.key) && <span id={`new-${fl.key}-err`} className="text-xs text-[rgb(var(--c-danger))]">{fieldError(fl.key)}</span>}
           </Field>
         ))}
         <Field label={<>Temporary password <span className="text-accent">*</span></>} htmlFor="new-password">
@@ -1335,7 +1376,7 @@ function CreateAthlete({ onCreated }) {
               <Icon name={showPw ? 'eyeOff' : 'eye'} />
             </button>
           </div>
-          <span id="new-password-help" className={`text-xs ${fieldError('password') ? 'text-red-300' : 'text-ts'}`}>
+          <span id="new-password-help" className={`text-xs ${fieldError('password') ? 'text-[rgb(var(--c-danger))]' : 'text-ts'}`}>
             {fieldError('password') || 'At least 6 characters. Share it with the athlete; they can change it from the app.'}
           </span>
         </Field>
@@ -1354,12 +1395,13 @@ function CreateAthlete({ onCreated }) {
 // ── Body composition — mirrors the mobile app's analysis view ──────────────
 function GradePill({ grade }) {
   return (
-    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
-          style={{ color: grade.color, backgroundColor: `${grade.color}22` }}>
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-tp whitespace-nowrap">
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: grade.color }} aria-hidden="true" />
       {grade.label}
     </span>
   );
 }
+
 
 function BodyCompositionCard({ data }) {
   const [hoverLayer, setHoverLayer] = useState(null);
@@ -1402,7 +1444,7 @@ function BodyCompositionCard({ data }) {
     { label: 'Organs',            pct: pctOf(r.essentialOrgans),   kg: r.essentialOrgans, color: '#A78BFA' },
     { label: 'Lean fluids',       pct: pctOf(r.nonMuscleFluid),    kg: r.nonMuscleFluid,  color: '#38BDF8' },
     { label: 'Skin & connective', pct: pctOf(r.skinConnective),    kg: r.skinConnective,  color: '#FBBF24' },
-    { label: 'Bone mineral',      pct: pctOf(r.bmc),               kg: r.bmc,             color: '#E6EDF3' },
+    { label: 'Bone mineral',      pct: pctOf(r.bmc),               kg: r.bmc,             color: '#9CA3AF' },
   ];
 
   const tableRows = [
@@ -1424,7 +1466,8 @@ function BodyCompositionCard({ data }) {
     <div className="space-y-4">
       <Card title={`Body composition · ${male ? 'Male' : 'Female'}`} subtitle={`Latest estimate ${fmtDate(latest.date)}${history.length ? ` · ${history.length} earlier` : ''}`}
             actions={
-              <span className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap" style={{ color: ip.overallColor, background: `${ip.overallColor}1A`, border: `1px solid ${ip.overallColor}55` }}>
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-tp whitespace-nowrap">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: ip.overallColor }} aria-hidden="true" />
                 {ip.overallLabel}
               </span>
             }>
@@ -1446,7 +1489,7 @@ function BodyCompositionCard({ data }) {
               <div key={l.label} style={{ width: `${l.pct}%`, background: l.color, opacity: hoverLayer && hoverLayer !== l.label ? 0.35 : 1 }}
                    title={`${l.label}: ${fmt(l.pct)}% · ${fmt(l.kg)} kg`}
                    onMouseEnter={() => setHoverLayer(l.label)} onMouseLeave={() => setHoverLayer(null)}
-                   className="flex items-center justify-center text-[11px] font-bold text-bg overflow-hidden transition-opacity cursor-default">
+                   className="flex items-center justify-center text-[11px] font-bold text-[#16161A] overflow-hidden transition-opacity cursor-default">
                 {l.pct >= 8 ? `${fmt(l.pct, 0)}%` : ''}
               </div>
             ))}
@@ -1466,8 +1509,13 @@ function BodyCompositionCard({ data }) {
               <tbody>
                 {tableRows.map(([label, pct, kg, color, bold]) => (
                   <tr key={label}>
-                    <td className={bold ? 'font-bold text-tp' : label.startsWith('  ') ? 'text-ts !pl-8' : 'text-tp'} style={color ? { color } : undefined}>{label.trim()}</td>
-                    <td className="text-right font-semibold" style={color ? { color } : undefined}>{fmt(pct, 2)}%</td>
+                    <td className={bold ? 'font-bold text-tp' : label.startsWith('  ') ? 'text-ts !pl-8' : 'text-tp'}>
+                      <span className="inline-flex items-center gap-2">
+                        {color && <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} aria-hidden="true" />}
+                        {label.trim()}
+                      </span>
+                    </td>
+                    <td className="text-right font-semibold text-tp">{fmt(pct, 2)}%</td>
                     <td className="text-right text-tp">{fmt(kg, 2)}</td>
                     <td className="text-right text-ts">{fmt(kg * 2.20462, 2)}</td>
                   </tr>

@@ -11,14 +11,12 @@ import { STATUS } from '../utils/adminCharts';
 // audit history. Everything here only rewrites subscription records — athlete
 // data is never touched, so downgrades lock features without deleting reports.
 
+// Colours are getters so they follow the console's light/dark theme.
+const st = (label, tone) => ({ label, get color() { return STATUS[tone]; } });
 const SUB_STATUS = {
-  trial:     { label: 'Free trial',   color: STATUS.info },
-  active:    { label: 'Active',       color: STATUS.good },
-  grace:     { label: 'Grace period', color: STATUS.warning },
-  suspended: { label: 'Suspended',    color: STATUS.serious },
-  cancelled: { label: 'Cancelled',    color: STATUS.critical },
-  expired:   { label: 'Expired',      color: STATUS.critical },
-  none:      { label: 'No plan',      color: STATUS.none },
+  trial: st('Free trial', 'info'), active: st('Active', 'good'), grace: st('Grace period', 'warning'),
+  suspended: st('Suspended', 'serious'), cancelled: st('Cancelled', 'critical'), expired: st('Expired', 'critical'),
+  none: st('No plan', 'none'),
 };
 
 const ACTION_LABEL = {
@@ -233,7 +231,7 @@ function AthleteAccess({ athlete, detail, plans, featureNames, act, busy }) {
               return (
                 <li key={key} className={`flex items-center gap-2 text-sm ${on ? 'text-tp' : 'text-ts/70'}`}>
                   <span className={`w-4 h-4 rounded-full flex items-center justify-center ${on ? 'text-white' : ''}`}
-                        style={{ background: on ? STATUS.good : 'transparent', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px #3a3a40' }}>
+                        style={{ background: on ? STATUS.good : 'transparent', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px rgb(var(--c-bdr-strong))' }}>
                     {on && <Icon name="check" className="w-2.5 h-2.5" strokeWidth={3.5} />}
                   </span>
                   {label}
@@ -258,9 +256,9 @@ function AthleteAccess({ athlete, detail, plans, featureNames, act, busy }) {
             const on = planKey === p.key;
             return (
               <button key={p.key} type="button" role="radio" aria-checked={on} onClick={() => setPlanKey(p.key)}
-                      className={`text-left rounded-lg border p-4 transition-colors ${on ? 'border-accent bg-accent/[0.06]' : 'border-bdr bg-bg hover:border-[#3a3a40]'}`}>
+                      className={`text-left rounded-lg border p-4 transition-colors ${on ? 'border-accent bg-accent/[0.06]' : 'border-bdr bg-bg hover:border-[rgb(var(--c-bdr-strong))]'}`}>
                 <div className="flex items-center gap-3">
-                  <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${on ? 'border-accent' : 'border-[#3a3a40]'}`}>
+                  <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${on ? 'border-accent' : 'border-[rgb(var(--c-bdr-strong))]'}`}>
                     {on && <span className="w-2 h-2 rounded-full bg-accent" />}
                   </span>
                   <span className="text-[15px] font-semibold text-tp flex-1">{p.name}</span>
@@ -342,7 +340,7 @@ function AthleteAccess({ athlete, detail, plans, featureNames, act, busy }) {
                                  ]} />
                     </td>
                     <td><span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: on ? STATUS.good : 'rgb(var(--c-ts))' }}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: on ? STATUS.good : '#55555b' }} />{on ? 'On' : 'Off'}
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: on ? STATUS.good : 'rgb(var(--c-bdr-strong))' }} />{on ? 'On' : 'Off'}
                     </span></td>
                   </tr>
                 );

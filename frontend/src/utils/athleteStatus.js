@@ -5,14 +5,21 @@
 import { buildSeries } from '../components/WorkloadMonitor';
 import { STATUS } from './adminCharts';
 
+// Colours are getters so they follow the console's light/dark theme.
+const level = (key, rank, label, status, icon) => ({ key, rank, label, icon, get color() { return STATUS[status]; } });
 export const CONDITION = {
-  risk:    { key: 'risk',    rank: 0, label: 'At risk',  color: STATUS.critical, icon: 'alert' },
-  monitor: { key: 'monitor', rank: 1, label: 'Monitor',  color: STATUS.warning,  icon: 'info' },
-  ready:   { key: 'ready',   rank: 2, label: 'Ready',    color: STATUS.good,     icon: 'check' },
-  nodata:  { key: 'nodata',  rank: 3, label: 'No data',  color: STATUS.none,     icon: 'info' },
+  risk:    level('risk', 0, 'At risk', 'critical', 'alert'),
+  monitor: level('monitor', 1, 'Monitor', 'warning', 'info'),
+  ready:   level('ready', 2, 'Ready', 'good', 'check'),
+  nodata:  level('nodata', 3, 'No data', 'none', 'info'),
 };
 
 const DAY = 864e5;
+// Copies a level plus extra fields while keeping `color` theme-live.
+export const withColor = (lvl, extra = {}) =>
+  Object.defineProperties({ ...extra, key: lvl.key, rank: lvl.rank, label: extra.label ?? lvl.label, icon: lvl.icon },
+    { color: { get: () => lvl.color, enumerable: true } });
+
 export const daysSince = d => (d ? Math.floor((Date.now() - new Date(d).getTime()) / DAY) : null);
 
 export function relativeDay(d) {
@@ -35,7 +42,7 @@ export function athleteCondition(athlete, sessions) {
   const acwr = latest?.acwr || 0;
   const z = latest?.z ?? 0;
 
-  if (!latest && readiness == null) return { ...CONDITION.nodata, reasons: ['No sessions logged yet'], acwr: null, readiness, z: null, idle };
+  if (!latest && readiness == null) return withColor(CONDITION.nodata, { reasons: ['No sessions logged yet'], acwr: null, readiness, z: null, idle });
 
   const risk = [], watch = [];
   if (acwr > 1.5) risk.push(`ACWR ${acwr.toFixed(2)} — load spike`);
@@ -46,6 +53,6 @@ export function athleteCondition(athlete, sessions) {
   if (Math.abs(z) > 2) watch.push(`Z-score ${z.toFixed(1)} — unusual load`);
   if (idle != null && idle >= 7) watch.push(`No session for ${idle} days`);
 
-  const level = risk.length ? CONDITION.risk : watch.length ? CONDITION.monitor : CONDITION.ready;
-  return { ...level, reasons: [...risk, ...watch], acwr: acwr || null, readiness, z, idle };
+  const lvl = risk.length ? CONDITION.risk : watch.length ? CONDITION.monitor : CONDITION.ready;
+  return withColor(lvl, { reasons: [...risk, ...watch], acwr: acwr || null, readiness, z, idle });
 }

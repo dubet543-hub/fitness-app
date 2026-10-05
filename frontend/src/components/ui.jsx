@@ -24,6 +24,8 @@ const ICONS = {
   body:     'M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 8h12M12 8v7M9 22l3-7 3 7',
   refresh:  'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
   expand:   'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
+  sun:      'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+  monitor:  'M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM8 21h8M12 16v5',
   arrowUp:  'M12 19V5M5 12l7-7 7 7',
   arrowDown:'M12 5v14M19 12l-7 7-7-7',
   sort:     'M7 15l5 5 5-5M7 9l5-5 5 5',
@@ -47,7 +49,7 @@ const BTN = {
   primary:   'bg-accent text-white hover:brightness-110 border border-accent',
   secondary: 'bg-card text-tp border border-bdr hover:border-ts/60',
   ghost:     'text-ts hover:text-tp hover:bg-card border border-transparent',
-  danger:    'text-red-300 border border-red-500/40 hover:bg-red-500/10',
+  danger:    'text-[rgb(var(--c-danger))] border border-red-500/40 hover:bg-red-500/10',
 };
 
 export function Button({ variant = 'secondary', icon, children, className = '', ...props }) {
@@ -152,7 +154,7 @@ export function EmptyState({ icon = 'chart', title, hint, action }) {
 export function ErrorBanner({ message, onRetry }) {
   if (!message) return null;
   return (
-    <div role="alert" className="flex items-center gap-3 bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 text-sm text-red-300">
+    <div role="alert" className="flex items-center gap-3 bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 text-sm text-[rgb(var(--c-danger))]">
       <Icon name="alert" className="w-4 h-4 shrink-0" />
       <span className="flex-1">{message}</span>
       {onRetry && <Button variant="danger" icon="refresh" onClick={onRetry}>Retry</Button>}
@@ -259,7 +261,7 @@ export function ToastProvider({ children }) {
         {toasts.map(t => (
           <div key={t.id} role="status"
                className="pointer-events-auto flex items-center gap-2.5 bg-card border border-bdr shadow-2xl rounded-lg pl-3 pr-4 py-3 text-sm text-tp max-w-sm">
-            <span className={t.tone === 'error' ? 'text-red-400' : 'text-green-400'}>
+            <span className={t.tone === 'error' ? 'text-[rgb(var(--c-danger))]' : 'text-[rgb(var(--c-success))]'}>
               <Icon name={t.tone === 'error' ? 'alert' : 'check'} />
             </span>
             {t.message}
@@ -368,7 +370,7 @@ export function Checkbox({ checked, onChange, label, hint, disabled }) {
       <span aria-hidden="true"
             className={`mt-0.5 w-[18px] h-[18px] shrink-0 rounded-[5px] border flex items-center justify-center transition-colors
               peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-bg
-              ${checked ? 'bg-accent border-accent text-white' : 'border-[#3a3a40] bg-bg'}`}>
+              ${checked ? 'bg-accent border-accent text-white' : 'border-[rgb(var(--c-bdr-strong))] bg-bg'}`}>
         {checked && <Icon name="check" className="w-3 h-3" strokeWidth={3} />}
       </span>
       <span className="min-w-0">
@@ -387,8 +389,8 @@ export function Switch({ checked, onChange, label }) {
       <input type="checkbox" role="switch" className="peer sr-only" checked={checked} onChange={e => onChange(e.target.checked)} />
       <span aria-hidden="true"
             className={`relative w-10 h-6 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent
-              ${checked ? 'bg-accent' : 'bg-[#2c2c31]'}`}>
-        <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : ''}`} />
+              ${checked ? 'bg-accent' : 'bg-[rgb(var(--c-off))]'}`}>
+        <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`} />
       </span>
     </label>
   );

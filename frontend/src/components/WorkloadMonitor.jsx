@@ -314,7 +314,7 @@ function DayDetail({ dateKey, point, sessions, onSession, onClose }) {
 
 function Panel({ title, sub, legend, children }) {
   return (
-    <div className="bg-card border border-bdr rounded-xl p-4">
+    <div className="panel rounded-xl p-4">
       <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
         <div>
           <div className="text-sm font-bold text-tp">{title}</div>
@@ -343,7 +343,7 @@ export function AcwrGauge({ value }) {
           {zonesInfo.map(zi => <div key={zi.name} title={zi.name} style={{ flex: zi.flex, background: zi.color }} />)}
         </div>
         {value > 0 && (
-          <span className="absolute -top-1 w-1.5 h-5 rounded-full bg-white shadow ring-2 ring-bg -translate-x-1/2 transition-[left] duration-300"
+          <span className="absolute -top-1 w-1.5 h-5 rounded-full bg-tp shadow ring-2 ring-surface -translate-x-1/2 transition-[left] duration-300"
                 style={{ left: `${pct}%` }} aria-hidden="true" />
         )}
       </div>

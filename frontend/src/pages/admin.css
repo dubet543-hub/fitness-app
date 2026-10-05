@@ -12,12 +12,40 @@
   --c-bdr: 34 34 38;       /* #222226 hairlines */
   --c-tp: 237 237 239;     /* #EDEDEF primary ink */
   --c-ts: 142 142 147;     /* #8E8E93 secondary ink */
+  --c-bdr-strong: 58 58 64; /* #3a3a40 control outlines */
+  --c-off: 44 44 49;       /* #2c2c31 off-state fills (switch track, rest days) */
+  --tip-bg: 14 14 16;
+  --shadow: 0 12px 32px -12px rgb(0 0 0 / .8);
+  --c-danger: 252 165 165;  /* text on dark: red-300 */
+  --c-success: 134 239 172; /* text on dark: green-300 */
 
+  color-scheme: dark;
   background: rgb(var(--c-bg));
   font-family: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Light theme — its own steps, not an inversion. Text pairs are ≥ 4.5:1 on the
+   white panels; the accent is a deeper orange so white button text and
+   orange links both stay readable. */
+.admin-root[data-theme="light"] {
+  --c-bg: 246 246 244;     /* #F6F6F4 page */
+  --c-surface: 255 255 255;/* #FFFFFF panels */
+  --c-card: 239 239 236;   /* #EFEFEC raised / hover */
+  --c-accent: 194 65 12;   /* #C2410C brand orange, AA on white */
+  --c-bdr: 227 227 223;    /* #E3E3DF hairlines */
+  --c-tp: 22 22 26;        /* #16161A primary ink */
+  --c-ts: 95 95 102;       /* #5F5F66 secondary ink */
+  --c-bdr-strong: 201 201 196;
+  --c-off: 226 226 222;
+  --tip-bg: 255 255 255;
+  --shadow: 0 14px 34px -14px rgb(20 20 30 / .28);
+  --c-danger: 185 28 28;    /* #B91C1C, 6.5:1 on white */
+  --c-success: 21 128 61;   /* #15803D, 5.0:1 on white */
+  color-scheme: light;
+}
+.admin-root[data-theme="light"] .card { box-shadow: 0 1px 2px rgb(20 20 30 / .04); }
 
 /* Condensed display face for headings and big numbers. */
 .admin-root .display {
@@ -54,13 +82,20 @@
   padding: 12px 16px; border-bottom: 1px solid rgb(var(--c-bdr));
 }
 .admin-root tbody tr { border-bottom: 1px solid rgb(var(--c-bdr) / 0.6); }
-.admin-root tbody tr:hover { background: rgb(255 255 255 / 0.02); }
+.admin-root tbody tr:hover { background: rgb(var(--c-tp) / 0.03); }
 .admin-root tbody td { padding: 12px 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
 
 .admin-root input, .admin-root select, .admin-root textarea {
   background: rgb(var(--c-bg)); border-color: rgb(var(--c-bdr)); border-radius: 8px; font-size: 14px;
+  color: rgb(var(--c-tp));
 }
-.admin-root input:hover, .admin-root select:hover { border-color: rgb(60 60 66); }
+.admin-root input::placeholder, .admin-root textarea::placeholder { color: rgb(var(--c-ts) / 0.8); }
+.admin-root select option { background: rgb(var(--c-surface)); color: rgb(var(--c-tp)); }
+
+/* Inner chart panels: a step up from the page in dark, white with a hairline in light. */
+.admin-root .panel { background: rgb(var(--c-card)); border: 1px solid rgb(var(--c-bdr)); }
+.admin-root[data-theme="light"] .panel { background: rgb(var(--c-surface)); }
+.admin-root input:hover, .admin-root select:hover { border-color: rgb(var(--c-bdr-strong)); }
 .admin-root input:focus, .admin-root select:focus, .admin-root textarea:focus { border-color: rgb(var(--c-accent)); }
 
 /* Load board cells — the sequential ramp lives in utils/adminCharts.js. */
@@ -73,8 +108,8 @@
   position: absolute; pointer-events: none; z-index: 5; opacity: 0;
   transition: opacity .12s ease-out, left .08s ease-out;
   min-width: 150px; padding: 10px 12px; border-radius: 8px;
-  background: rgb(14 14 16 / 0.96); border: 1px solid rgb(var(--c-bdr));
-  box-shadow: 0 12px 32px -12px rgb(0 0 0 / .8);
+  background: rgb(var(--tip-bg) / 0.97); border: 1px solid rgb(var(--c-bdr));
+  box-shadow: var(--shadow);
   font-size: 12px; color: rgb(var(--c-tp));
 }
 .admin-root .chart-tip-title { color: rgb(var(--c-ts)); font-weight: 500; margin-bottom: 6px; white-space: nowrap; }
@@ -84,3 +119,13 @@
 .admin-root .chart-tip-val { font-family: 'Barlow Condensed', 'Barlow', sans-serif; font-weight: 600; font-size: 15px; min-width: 44px; }
 .admin-root .chart-tip-lab { color: rgb(var(--c-ts)); }
 @media (prefers-reduced-motion: reduce) { .admin-root .chart-tip { transition: none; } }
+
+/* Page scrollbar follows the console theme (the athlete pages keep theirs). */
+html[data-admin-theme="light"] { background: #F6F6F4; }
+html[data-admin-theme="light"] ::-webkit-scrollbar-track { background: #F6F6F4; }
+html[data-admin-theme="light"] ::-webkit-scrollbar-thumb { background: #C9C9C4; }
+html[data-admin-theme="dark"] { background: #0A0A0B; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .admin-root, .admin-root .card, .admin-root aside { transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
+}
