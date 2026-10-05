@@ -156,7 +156,7 @@ function SectionView({ series, accent, title, group, sessions, picked, onPick, o
     : focus.load <= targetHigh ? { color: STATUS.good, label: `Load ${load} was inside this range`, icon: 'check' }
     : { color: STATUS.warning, label: `Load ${load} was above this range`, icon: 'alert' };
 
-  const pick = idx => onPick(idx == null ? null : (dayKey(series[idx].date) === picked ? null : dayKey(series[idx].date)));
+  const pick = idx => onPick(idx == null ? null : dayKey(series[idx].date));
   const toggle = k => setHidden(h => ({ ...h, [k]: !h[k] }));
   const daySessions = picked ? (sessions || []).filter(s => dayKey(s.date) === picked) : [];
 
@@ -261,8 +261,10 @@ function SectionView({ series, accent, title, group, sessions, picked, onPick, o
 function DayDetail({ dateKey, point, sessions, onSession, onClose }) {
   const [y, m, d] = dateKey.split('-').map(Number);
   const date = new Date(y, m - 1, d);
+  const ref = React.useRef(null);
+  useEffect(() => { ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [dateKey]);
   return (
-    <section className="rounded-xl border border-accent/40 bg-accent/[0.04] p-4" aria-label={`Details for ${fullDate(date)}`}>
+    <section ref={ref} className="rounded-xl border border-accent/40 bg-accent/[0.04] p-4 scroll-mt-6" aria-label={`Details for ${fullDate(date)}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="label-caps text-accent">Selected day</div>
@@ -374,7 +376,8 @@ function LoadHistoryChart({ series, group, selected, onPick, hidden }) {
   };
   return (
     <InteractiveChart type="bar" data={data} options={chartOptions()} group={group} titles={series.map(d => fullDate(d.date))}
-                      onPick={onPick} selected={selected} label="Load history chart" />
+                      onPick={onPick} selected={selected} title="Load history" subtitle="Daily load with 7-day acute and 28-day chronic, in AU"
+                      pickLabel="Show this day’s sessions" />
   );
 }
 
@@ -393,6 +396,8 @@ function AcwrTrendChart({ series, group, selected, onPick, zones }) {
   };
   return (
     <InteractiveChart type="line" data={data} options={chartOptions({ yMin: 0, yMax: 2.5 })} group={group}
-                      titles={series.map(d => fullDate(d.date))} onPick={onPick} selected={selected} label="ACWR trend chart" />
+                      titles={series.map(d => fullDate(d.date))} onPick={onPick} selected={selected}
+                      title="ACWR trend" subtitle="Acute ÷ chronic workload ratio · sweet spot 0.8–1.3, danger above 1.5"
+                      pickLabel="Show this day’s sessions" />
   );
 }

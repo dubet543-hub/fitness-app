@@ -756,7 +756,7 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay }) 
         <>
           <WorkloadMonitor athlete={athlete} sessions={sessions} onSession={onSession} initialDay={initialDay} />
           <TrendsRow sessions={sessions} onSession={onSession} activeType={typeFilter}
-                     onType={t => { setTypeFilter(cur => (cur === t ? '' : t)); setTimeout(() => logRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }} />
+                     onType={t => { setTypeFilter(t); setTimeout(() => logRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }} />
 
           <div ref={logRef} className="scroll-mt-6" />
           <Card title="Session log" subtitle={`${log.length} of ${sessions.length} sessions · select a row for full details`} bodyClassName="p-0"
@@ -820,7 +820,8 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card title="Readiness trend" subtitle={`Readiness % from each wellness check-in${onSession ? ' · click a point to open that session' : ''}`} className="lg:col-span-2">
         {hasReadiness ? (
-          <InteractiveChart type="line" height="h-60" label="Readiness trend chart"
+          <InteractiveChart type="line" height="h-60" title="Readiness trend" subtitle="Readiness % from each wellness check-in"
+            pickLabel="Open this session"
             data={{ labels: sorted.map(s => shortDate(s.date)),
                     datasets: [{ ...lineDataset('Readiness', sorted.map(s => (s.readinessPercent == null ? null : Math.round(s.readinessPercent))), SINGLE, { fill: true }), unit: '%', pointRadius: 2 }] }}
             titles={sorted.map(s => `${fullDate(s.date)} · ${sessionTypes(s)}`)}
@@ -830,7 +831,8 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
       </Card>
       <Card title="Training mix" subtitle={onType ? 'Sessions per type · click a bar to filter the log' : 'Sessions logged per type'}>
         {mix.length ? (
-          <div style={{ height: Math.max(140, mix.length * 36 + 30) }}><InteractiveChart type="bar" horizontal height="h-full" label="Training mix chart"
+          <div style={{ height: Math.max(140, mix.length * 36 + 30) }}><InteractiveChart type="bar" horizontal height="h-full" title="Training mix" subtitle="Number of sessions logged per training type"
+            pickLabel={i => `Filter the session log to ${mix[i][0]}`}
             data={{ labels: mix.map(([t]) => t),
                     datasets: [{ ...barDataset('sessions', mix.map(([, n]) => n), SINGLE, { horizontal: true }),
                                  backgroundColor: ctx => (activeIdx < 0 || ctx.dataIndex === activeIdx ? SINGLE : `${SINGLE}55`), tipColor: SINGLE }] }}
@@ -919,13 +921,14 @@ function SessionsSection({ athletes, onSession }) {
 
           {daily.length > 1 && (
             <Card title="Load per day" subtitle="Total load logged each day across the athletes in view · click a day to list its sessions">
-              <InteractiveChart type="bar" height="h-48" label="Load per day chart"
+              <InteractiveChart type="bar" height="h-48" title="Load per day" subtitle="Total load logged each day across the athletes in view, in AU"
+                pickLabel="List this day’s sessions"
                 data={{ labels: daily.map(d => shortDate(keyToDate(d.key))),
                         datasets: [{ ...barDataset('Total load', daily.map(d => Math.round(d.load)), SINGLE), unit: 'AU', tipColor: SINGLE,
                                      backgroundColor: ctx => (dayIdx < 0 || ctx.dataIndex === dayIdx ? SINGLE : `${SINGLE}55`) }] }}
                 titles={daily.map(d => `${fullDate(keyToDate(d.key))} · ${d.n} session${d.n === 1 ? '' : 's'}`)}
                 options={chartOptions({ xTicks: 10 })}
-                onPick={i => setDay(cur => (cur === daily[i].key ? null : daily[i].key))}
+                onPick={i => setDay(daily[i].key)}
                 selected={dayIdx >= 0 ? dayIdx : null} />
             </Card>
           )}
@@ -1117,7 +1120,10 @@ function RecoverySection({ athletes }) {
   }, [rows]);
 
   const dayIdx = day ? daily.findIndex(d => d.date === day) : -1;
-  const pickDay = i => { setDay(cur => (cur === daily[i].date ? null : daily[i].date)); };
+  const pickDay = i => {
+    setDay(daily[i].date);
+    setTimeout(() => logRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  };
 
   const perAthlete = useMemo(() => {
     const byAth = new Map();
@@ -1247,7 +1253,9 @@ function MiniTrend({ title, daily, field, opts, dec, tall = false, unit = '', se
         </div>
       </div>
       {vals.length ? (
-        <InteractiveChart type="line" height={tall ? 'h-48' : 'h-36'} group="recovery" label={`${title} trend`}
+        <InteractiveChart type="line" height={tall ? 'h-48' : 'h-36'} group="recovery" title={`${title} trend`}
+          subtitle={unit ? `Daily ${title.toLowerCase()} (${unit})` : `Daily ${title.toLowerCase()} rating · 1 = best, 5 = worst`}
+          pickLabel="Show this day’s check-ins"
           data={{ labels: daily.map(d => shortDate(keyToDate(d.date))), datasets: [{ ...lineDataset(title, pts, SINGLE), unit }] }}
           titles={daily.map(d => fullDate(keyToDate(d.date)))}
           options={chartOptions({ xTicks: tall ? 6 : 3, ...opts })}
@@ -1530,7 +1538,7 @@ function BodyCompositionCard({ data }) {
                     { key: 'smm', label: 'Skeletal muscle %', color: SERIES_BC.smm, on: !hiddenBc.smm, onToggle: () => setHiddenBc(h => ({ ...h, smm: !h.smm })) },
                   ]} />
                 </div>
-                <InteractiveChart type="line" height="h-56" label="Body composition progress chart"
+                <InteractiveChart type="line" height="h-56" title="Body composition progress" subtitle="Body fat and skeletal muscle as % of body weight"
                   data={{ labels: pts.map(p => shortDate(p.date)), datasets: [
                     { ...lineDataset('Body fat', pts.map(p => (p.bf == null ? null : Number(p.bf.toFixed(1)))), SERIES_BC.bf), unit: '%', pointRadius: 4, hidden: !!hiddenBc.bf },
                     { ...lineDataset('Skeletal muscle', pts.map(p => (p.smm == null ? null : Number(p.smm.toFixed(1)))), SERIES_BC.smm), unit: '%', pointRadius: 4, hidden: !!hiddenBc.smm },
