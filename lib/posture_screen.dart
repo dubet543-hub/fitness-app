@@ -28,89 +28,81 @@ class PostureGuideScreen extends StatefulWidget {
 class _PostureGuideScreenState extends State<PostureGuideScreen> {
   PostureMode _mode = PostureMode.frontal;
 
-  static List<_GuideItem> _frontalInstructions = [
+  static const List<_GuideItem> _frontalInstructions = [
     _GuideItem(
-      icon: Icons.accessibility_new,
-      color: kSuccess,
-      title: "Face the Camera",
+      icon: Icons.accessibility_new_rounded,
+      title: "Face the camera",
       subtitle: "Stand directly facing the phone",
     ),
     _GuideItem(
-      icon: Icons.straighten,
-      color: kSky,
-      title: "2–3 Metres Away",
+      icon: Icons.straighten_rounded,
+      title: "2–3 metres away",
       subtitle: "Full body from head to feet in frame",
     ),
     _GuideItem(
-      icon: Icons.crop_free,
-      color: kWarn,
-      title: "Arms at Sides",
+      icon: Icons.crop_free_rounded,
+      title: "Arms at sides",
       subtitle: "Relax arms naturally at your sides",
     ),
     _GuideItem(
       icon: Icons.wb_sunny_outlined,
-      color: kWarn,
-      title: "Good Lighting",
+      title: "Good lighting",
       subtitle: "Bright, even lighting — no shadows",
     ),
     _GuideItem(
-      icon: Icons.checkroom,
-      color: kViolet,
-      title: "Fitted Clothing",
+      icon: Icons.checkroom_rounded,
+      title: "Fitted clothing",
       subtitle: "Shorts and vest/t-shirt recommended",
     ),
     _GuideItem(
-      icon: Icons.stay_current_portrait,
-      color: Colors.pinkAccent,
-      title: "Stable Phone",
+      icon: Icons.stay_current_portrait_rounded,
+      title: "Stable phone",
       subtitle: "Place on surface at chest height",
     ),
   ];
 
-  static List<_GuideItem> _sagittalInstructions = [
+  static const List<_GuideItem> _sagittalInstructions = [
     _GuideItem(
-      icon: Icons.switch_left,
-      color: kSuccess,
-      title: "Stand Sideways",
-      subtitle: "LEFT side of body faces camera",
+      icon: Icons.switch_left_rounded,
+      title: "Stand sideways",
+      subtitle: "Left side of your body faces the camera",
     ),
     _GuideItem(
-      icon: Icons.straighten,
-      color: kSky,
-      title: "2–3 Metres Away",
+      icon: Icons.straighten_rounded,
+      title: "2–3 metres away",
       subtitle: "Full body from head to feet in frame",
     ),
     _GuideItem(
-      icon: Icons.crop_free,
-      color: kWarn,
-      title: "Look Straight Ahead",
+      icon: Icons.crop_free_rounded,
+      title: "Look straight ahead",
       subtitle: "Eyes level, chin neutral — no looking at phone",
     ),
     _GuideItem(
       icon: Icons.wb_sunny_outlined,
-      color: kWarn,
-      title: "Good Lighting",
+      title: "Good lighting",
       subtitle: "Bright, even lighting — no shadows",
     ),
     _GuideItem(
-      icon: Icons.checkroom,
-      color: kViolet,
-      title: "Fitted Clothing",
+      icon: Icons.checkroom_rounded,
+      title: "Fitted clothing",
       subtitle: "Shorts and vest/t-shirt for best results",
     ),
     _GuideItem(
-      icon: Icons.stay_current_portrait,
-      color: Colors.pinkAccent,
-      title: "Stable Phone",
+      icon: Icons.stay_current_portrait_rounded,
+      title: "Stable phone",
       subtitle: "Place on surface at hip height",
     ),
     _GuideItem(
       icon: Icons.front_hand_outlined,
-      color: kSuccess,
-      title: "Arms at Sides",
+      title: "Arms at sides",
       subtitle: "Relax arms — do not swing forward",
     ),
   ];
+
+  void _selectMode(PostureMode mode) {
+    if (mode != _mode) hapticSelect();
+    setState(() => _mode = mode);
+  }
 
   @override
   Widget build(BuildContext context) => FeatureGuard(
@@ -122,89 +114,89 @@ class _PostureGuideScreenState extends State<PostureGuideScreen> {
         : _sagittalInstructions;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Posture Setup Guide")),
+      backgroundColor: kBg,
+      appBar: AppBar(title: const Text("Posture setup guide")),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Mode selector cards
+          // Mode selector
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Row(
-              children: [
-                _ModeCard(
-                  title: "Frontal View",
-                  subtitle: "Face camera\nShoulder, pelvis, knee alignment",
-                  icon: Icons.accessibility_new,
-                  selected: _mode == PostureMode.frontal,
-                  onTap: () => setState(() => _mode = PostureMode.frontal),
-                ),
-                const SizedBox(width: 10),
-                _ModeCard(
-                  title: "Sagittal View",
-                  subtitle: "Stand sideways\nForward head, kyphosis, swayback",
-                  icon: Icons.switch_left,
-                  selected: _mode == PostureMode.sagittal,
-                  onTap: () => setState(() => _mode = PostureMode.sagittal),
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(kGutter, 8, kGutter, 0),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ModeCard(
+                    title: "Frontal view",
+                    subtitle: "Face camera\nShoulder, pelvis, knee alignment",
+                    icon: Icons.accessibility_new_rounded,
+                    selected: _mode == PostureMode.frontal,
+                    onTap: () => _selectMode(PostureMode.frontal),
+                  ),
+                  const SizedBox(width: 10),
+                  _ModeCard(
+                    title: "Sagittal view",
+                    subtitle: "Stand sideways\nForward head, kyphosis, swayback",
+                    icon: Icons.switch_left_rounded,
+                    selected: _mode == PostureMode.sagittal,
+                    onTap: () => _selectMode(PostureMode.sagittal),
+                  ),
+                ],
+              ),
             ),
           ),
 
           // Instructions list
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              itemCount: instructions.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
-              itemBuilder: (_, i) {
-                final item = instructions[i];
-                return Card(
-                  color: kCard,
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: item.color.withValues(alpha: 0.15),
-                      child: Icon(item.icon, color: item.color, size: 22),
-                    ),
-                    title: Text(
-                      item.title,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      item.subtitle,
-                      style: TextStyle(fontSize: 12, color: kTextSecondary),
-                    ),
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(kGutter, 24, kGutter, 16),
+              children: [
+                const SectionHeader("Before you start"),
+                const SizedBox(height: 8),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(kRadius),
+                    border: Border.all(color: kBorder, width: 0.6),
                   ),
-                );
-              },
+                  child: Column(
+                    children: [
+                      for (int i = 0; i < instructions.length; i++) ...[
+                        if (i > 0)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 54),
+                            child: Divider(height: 0.6, thickness: 0.6, color: kBorder),
+                          ),
+                        _GuideRow(item: instructions[i]),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
 
           // Start button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(kGutter, 8, kGutter, 16),
               child: ElevatedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PostureScreen(mode: _mode),
-                  ),
-                ),
-                icon: const Icon(Icons.camera_alt),
+                onPressed: () {
+                  hapticConfirm();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PostureScreen(mode: _mode),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.camera_alt_outlined, size: 20),
                 label: Text(
                   _mode == PostureMode.frontal
-                      ? "Start Frontal Analysis"
-                      : "Start Sagittal Analysis",
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _mode == PostureMode.frontal
-                      ? kSuccess
-                      : kSky,
-                  foregroundColor: kOnAccent,
+                      ? "Start frontal analysis"
+                      : "Start sagittal analysis",
                 ),
               ),
             ),
@@ -233,41 +225,48 @@ class _ModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: selected ? kInfo : kCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? kSky : kTextMuted,
-              width: selected ? 2 : 1,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          color: kCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kRadiusSm),
+            side: BorderSide(
+              color: selected ? kTextPrimary : kBorder,
+              width: selected ? 1 : 0.6,
             ),
           ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: selected ? kSky : kTextSecondary,
-                size: 28,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+              child: Column(
+                children: [
+                  Icon(
+                    icon,
+                    color: selected ? kTextPrimary : kTextSecondary,
+                    size: 24,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: selected ? kTextPrimary : kTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: kTextSecondary, height: 1.35),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: selected ? kTextPrimary : kTextSecondary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(fontSize: 10, color: kTextSecondary),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -275,15 +274,47 @@ class _ModeCard extends StatelessWidget {
   }
 }
 
+class _GuideRow extends StatelessWidget {
+  final _GuideItem item;
+  const _GuideRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          Icon(item.icon, color: kTextSecondary, size: 22),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GuideItem {
   final IconData icon;
-  final Color color;
   final String title;
   final String subtitle;
 
   const _GuideItem({
     required this.icon,
-    required this.color,
     required this.title,
     required this.subtitle,
   });
@@ -451,7 +482,7 @@ class _PostureScreenState extends State<PostureScreen> {
   Widget build(BuildContext context) {
     if (errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Posture Analysis")),
+        appBar: AppBar(title: const Text("Posture analysis")),
         body: CameraErrorView(
           message: errorMessage!,
           showSettingsButton: _permissionDenied,
@@ -467,8 +498,8 @@ class _PostureScreenState extends State<PostureScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.mode == PostureMode.frontal
-            ? "Frontal Analysis"
-            : "Sagittal Analysis"),
+            ? "Frontal analysis"
+            : "Sagittal analysis"),
       ),
       body: controller == null
           ? const Center(child: CircularProgressIndicator())
@@ -1230,8 +1261,8 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.mode == PostureMode.frontal
-            ? "Frontal Result"
-            : "Sagittal Result"),
+            ? "Frontal result"
+            : "Sagittal result"),
       ),
       body: Column(
         children: [
@@ -1275,62 +1306,49 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 12),
-                        Text("Analyzing posture..."),
+                        CircularProgressIndicator(strokeWidth: 2),
+                        SizedBox(height: 14),
+                        Text(
+                          "Analyzing posture...",
+                          style: TextStyle(fontSize: 15, color: kTextSecondary),
+                        ),
                       ],
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    itemCount: results.length,
-                    itemBuilder: (_, i) {
-                      final r = results[i];
-                      return Card(
-                        color: kSurface,
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        child: ListTile(
-                          dense: true,
-                          leading: CircleAvatar(
-                            backgroundColor: r.color,
-                            radius: 12,
-                          ),
-                          title: Row(
-                            children: [
-                              Text(
-                                r.label,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                              const Spacer(),
-                              Text(
-                                r.value,
-                                style: TextStyle(
-                                    color: r.color,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14),
-                              ),
-                            ],
-                          ),
-                          subtitle: Text(
-                            r.detail,
-                            style: TextStyle(
-                                color: kTextSecondary, fontSize: 11),
-                          ),
+                : ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: kCard,
+                          borderRadius: BorderRadius.circular(kRadius),
+                          border: Border.all(color: kBorder, width: 0.6),
                         ),
-                      );
-                    },
+                        child: Column(
+                          children: [
+                            for (int i = 0; i < results.length; i++) ...[
+                              if (i > 0)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 34),
+                                  child: Divider(height: 0.6, thickness: 0.6, color: kBorder),
+                                ),
+                              _PostureResultRow(result: results[i]),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
           ),
           if (_saved)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(kGutter, 4, kGutter, 4),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, size: 14, color: kSuccess),
-                  const SizedBox(width: 6),
-                  Text('Saved to history', style: TextStyle(color: kSuccess, fontSize: 12)),
+                  Icon(Icons.check_circle_rounded, size: 16, color: kSuccess),
+                  SizedBox(width: 6),
+                  Text('Saved to history', style: TextStyle(color: kTextSecondary, fontSize: 13)),
                 ],
               ),
             ),
@@ -1340,6 +1358,64 @@ class _PoseResultScreenState extends State<PoseResultScreen> {
               message:
                   'This is a screening tool, not a diagnosis. Consult a Physiotherapist to address any flagged findings for postural integrity.',
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One result row: status dot, label and value, detail underneath.
+// ─────────────────────────────────────────────────────────────────────────────
+class _PostureResultRow extends StatelessWidget {
+  final PostureResult result;
+  const _PostureResultRow({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = result;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: r.color, shape: BoxShape.circle),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        r.label,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      r.value,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.2),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  r.detail,
+                  style: const TextStyle(fontSize: 13, color: kTextSecondary, height: 1.35),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1359,21 +1435,24 @@ class _ConsultBanner extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: kSky.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kSky.withValues(alpha: 0.4)),
+          color: kCard,
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          border: Border.all(color: kBorder, width: 0.6),
         ),
-        child: Row(children: [
-          Icon(Icons.medical_services_outlined, color: kSky, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(message,
-                style: TextStyle(fontSize: 11.5, color: kTextPrimary, height: 1.35)),
-          ),
-        ]),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.medical_services_outlined, color: kTextSecondary, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(message,
+                  style: const TextStyle(fontSize: 13, color: kTextSecondary, height: 1.4)),
+            ),
+          ],
+        ),
       ),
     );
   }

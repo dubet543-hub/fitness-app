@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme.dart';
 import '../services/notification_service.dart';
+import '../widgets/common_widgets.dart' show SectionHeader;
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -57,18 +58,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text('NOTIFICATIONS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: IconThemeData(color: kTextPrimary),
-        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
-      ),
+      appBar: AppBar(title: const Text('Notifications')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
         children: [
-          _SectionLabel('REMINDERS'),
-          const SizedBox(height: 8),
+          const _SectionLabel('Reminders'),
           _ToggleGroup(items: [
             _ToggleItem(
               title: 'Morning check-in',
@@ -83,18 +78,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
               onChanged: _setEvening,
             ),
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           // TEMPORARY — on-device verification only, remove once confirmed.
           OutlinedButton.icon(
-            onPressed: () => NotificationService.showTestNotification(),
-            icon: Icon(Icons.notifications_active_rounded, size: 18, color: kAccent),
-            label: Text('Send Test Notification',
-                style: TextStyle(color: kAccent, fontWeight: FontWeight.w600)),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: kAccent),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
+            onPressed: () { hapticSelect(); NotificationService.showTestNotification(); },
+            icon: const Icon(Icons.notifications_none_rounded, size: 20, color: kTextSecondary),
+            label: const Text('Send test notification'),
           ),
         ],
       ),
@@ -107,9 +96,9 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+    child: SectionHeader(text),
   );
 }
 
@@ -119,16 +108,20 @@ class _ToggleGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: kBorder),
+    return Material(
+      color: kCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadius),
+        side: const BorderSide(color: kBorder, width: 0.6),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
-        children: List.generate(items.length, (i) => Column(children: [
-          items[i],
-          if (i < items.length - 1) Divider(height: 1, indent: 16, color: kBorder),
-        ])),
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const Divider(height: 0.6, thickness: 0.6, indent: 16, color: kBorder),
+            items[i],
+          ],
+        ],
       ),
     );
   }
@@ -142,29 +135,27 @@ class _ToggleItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: kTextSecondary)),
-              ],
+    void toggle(bool v) { hapticSelect(); onChanged(v); }
+    return InkWell(
+      onTap: () => toggle(!value),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary)),
+                  const SizedBox(height: 3),
+                  Text(subtitle, style: const TextStyle(fontSize: 13, color: kTextSecondary, height: 1.35)),
+                ],
+              ),
             ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: kAccent,
-            activeTrackColor: kAccent.withValues(alpha: 0.25),
-            inactiveThumbColor: kTextMuted,
-            inactiveTrackColor: kBorderBright,
-          ),
-        ],
+            const SizedBox(width: 12),
+            Switch(value: value, onChanged: toggle),
+          ],
+        ),
       ),
     );
   }

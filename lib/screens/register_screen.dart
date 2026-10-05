@@ -95,155 +95,209 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: kTextPrimary),
+          tooltip: 'Back',
+          icon: Icon(Icons.adaptive.arrow_back),
           onPressed: _loading ? null : widget.onBackToLogin,
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 8),
-              Center(
-                child: BrandLogo(width: 150),
-              ),
-              const SizedBox(height: 8),
-              Text('Create your account',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
-                      color: kTextPrimary, letterSpacing: -0.5)),
-              const SizedBox(height: 4),
-              Text('Sign up to start tracking your performance',
-                  style: TextStyle(fontSize: 13, color: kTextSecondary)),
-              const SizedBox(height: 24),
-
-              if (_error != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+        top: false,
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(kGutter, 0, kGutter, 32),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _AuthHeader(
+                    title: 'Create your account',
+                    subtitle: 'Sign up to start tracking your performance',
                   ),
-                  child: Row(children: [
-                    Icon(Icons.error_outline_rounded, size: 15, color: Colors.red.shade300),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!,
-                        style: TextStyle(color: Colors.red.shade300, fontSize: 13))),
-                  ]),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 32),
 
-              _field(_nameCtrl,    'Full name',        Icons.person_outline_rounded),
-              const SizedBox(height: 12),
-              _field(_emailCtrl,   'Email',            Icons.mail_outline_rounded,
-                  keyboardType: TextInputType.emailAddress),
-              const SizedBox(height: 12),
-              _field(_sportCtrl,   'Sport (optional)', Icons.sports_rounded),
-              const SizedBox(height: 12),
-              _field(_passCtrl,    'Password',         Icons.lock_outline_rounded,
-                  obscure: _obscure,
-                  suffix: IconButton(
-                    icon: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                        size: 18, color: kTextSecondary),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  )),
-              const SizedBox(height: 12),
-              _field(_confirmCtrl, 'Confirm password', Icons.lock_outline_rounded,
-                  obscure: _obscure),
-              const SizedBox(height: 20),
+                  if (_error != null) ...[
+                    _ErrorBanner(message: _error!),
+                    const SizedBox(height: 20),
+                  ],
 
-              LegalAgreementCheckbox(
-                value: _agreedLegal,
-                onChanged: (v) => setState(() {
-                  _agreedLegal = v;
-                  if (v) _error = null;
-                }),
-              ),
-              const SizedBox(height: 12),
-              TrackingConsentCheckbox(
-                value: _trackingConsent,
-                onChanged: (v) => setState(() => _trackingConsent = v),
-              ),
-              const SizedBox(height: 24),
+                  _field(_nameCtrl, 'Full name'),
+                  const SizedBox(height: 16),
+                  _field(_emailCtrl, 'Email', keyboardType: TextInputType.emailAddress),
+                  const SizedBox(height: 16),
+                  _field(_sportCtrl, 'Sport (optional)'),
+                  const SizedBox(height: 16),
+                  _field(_passCtrl, 'Password',
+                      obscure: _obscure,
+                      suffix: IconButton(
+                        tooltip: _obscure ? 'Show password' : 'Hide password',
+                        icon: Icon(
+                          _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          size: 20, color: kTextSecondary,
+                        ),
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                      )),
+                  const SizedBox(height: 16),
+                  _field(_confirmCtrl, 'Confirm password', obscure: _obscure),
+                  const SizedBox(height: 24),
 
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _loading || !_agreedLegal ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
-                    disabledForegroundColor: kOnAccent.withValues(alpha: 0.5),
+                  LegalAgreementCheckbox(
+                    value: _agreedLegal,
+                    onChanged: (v) => setState(() {
+                      _agreedLegal = v;
+                      if (v) _error = null;
+                    }),
                   ),
-                  child: _loading
-                      ? SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: kOnAccent))
-                      : const Text('Create Account',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: TextButton(
-                  onPressed: _loading ? null : widget.onBackToLogin,
-                  child: RichText(
-                    text: TextSpan(
-                      style: TextStyle(fontSize: 13, color: kTextSecondary),
-                      children: [
-                        const TextSpan(text: 'Already have an account?  '),
-                        TextSpan(text: 'Sign in',
-                            style: TextStyle(color: kAccent, fontWeight: FontWeight.w700)),
-                      ],
+                  const SizedBox(height: 4),
+                  TrackingConsentCheckbox(
+                    value: _trackingConsent,
+                    onChanged: (v) => setState(() => _trackingConsent = v),
+                  ),
+                  const SizedBox(height: 22),
+
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _loading || !_agreedLegal
+                          ? null
+                          : () {
+                              hapticConfirm();
+                              _submit();
+                            },
+                      child: _loading
+                          ? const SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: kTextSecondary),
+                            )
+                          : const Text('Create Account'),
                     ),
                   ),
-                ),
-              ),
-              if (widget.onOtpSignIn != null)
-                Center(
-                  child: TextButton(
-                    onPressed: _loading ? null : widget.onOtpSignIn,
-                    child: Text('Or create an account with a one-time code',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAccent)),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton(
+                      onPressed: _loading ? null : widget.onBackToLogin,
+                      child: const Text.rich(
+                        TextSpan(
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: kTextSecondary),
+                          children: [
+                            TextSpan(text: 'Already have an account? '),
+                            TextSpan(
+                              text: 'Sign in',
+                              style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              const SizedBox(height: 24),
-            ],
+                  if (widget.onOtpSignIn != null)
+                    Center(
+                      child: TextButton(
+                        onPressed: _loading ? null : widget.onOtpSignIn,
+                        child: const Text('Or create an account with a one-time code'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, IconData icon,
+  /// A labelled text field: label above, theme-styled input below.
+  Widget _field(TextEditingController ctrl, String label,
       {bool obscure = false, TextInputType? keyboardType, Widget? suffix}) {
-    return TextField(
-      controller: ctrl,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      style: TextStyle(color: kTextPrimary, fontSize: 14),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: kTextSecondary, fontSize: 13),
-        prefixIcon: Icon(icon, size: 18, color: kAccent.withValues(alpha: 0.65)),
-        suffixIcon: suffix,
-        filled: true,
-        fillColor: const Color(0xFF0F0F18),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: kBorder),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: kBorder),
+        TextField(
+          controller: ctrl,
+          obscureText: obscure,
+          keyboardType: keyboardType,
+          style: const TextStyle(color: kTextPrimary, fontSize: 16),
+          decoration: InputDecoration(suffixIcon: suffix),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: kAccent.withValues(alpha: 0.6)),
+      ],
+    );
+  }
+}
+
+/// Logo, large title and a one-line subtitle — the top of every auth screen.
+class _AuthHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  const _AuthHeader({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const BrandLogo(width: 132),
+        const SizedBox(height: 20),
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary,
+              letterSpacing: -0.6, height: 1.15,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 15, color: kTextSecondary, height: 1.4),
+        ),
+      ],
+    );
+  }
+}
+
+/// Inline form error: a neutral card with a red status icon.
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          border: Border.all(color: kBorder, width: 0.6),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(Icons.error_outline_rounded, size: 18, color: kDanger),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 14, color: kTextPrimary, height: 1.35),
+              ),
+            ),
+          ],
         ),
       ),
     );

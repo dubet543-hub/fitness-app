@@ -9,6 +9,7 @@ import '../api_service.dart';
 import '../core/theme.dart';
 import '../services/dashboard_metrics.dart';
 import '../services/local_log_store.dart';
+import '../widgets/common_widgets.dart' show SectionHeader;
 import 'legal_pages.dart';
 
 class PrivacySecurityPage extends StatefulWidget {
@@ -72,13 +73,21 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          backgroundColor: kCard,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Change password', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700, fontSize: 17)),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
+          title: const Text('Change password'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (error != null) ...[
-              Text(error!, style: TextStyle(color: kDanger, fontSize: 12.5)),
-              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(Icons.error_outline_rounded, size: 16, color: kDanger),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(error!, style: const TextStyle(color: kTextPrimary, fontSize: 13, height: 1.4))),
+                ],
+              ),
+              const SizedBox(height: 12),
             ],
             _pwField(currentCtrl, 'Current password'),
             const SizedBox(height: 10),
@@ -89,10 +98,11 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           actions: [
             TextButton(
               onPressed: busy ? null : () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+              child: const Text('Cancel', style: TextStyle(color: kTextSecondary)),
             ),
             TextButton(
               onPressed: busy ? null : () async {
+                hapticConfirm();
                 if (newCtrl.text.length < 6) { setLocal(() => error = 'New password must be at least 6 characters'); return; }
                 if (newCtrl.text != confirmCtrl.text) { setLocal(() => error = 'Passwords do not match'); return; }
                 setLocal(() { busy = true; error = null; });
@@ -104,7 +114,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                   setLocal(() { busy = false; error = e.toString().replaceFirst('Exception: ', ''); });
                 }
               },
-              child: Text(busy ? 'Saving…' : 'Update', style: TextStyle(color: kAccent, fontWeight: FontWeight.w700)),
+              child: Text(busy ? 'Saving…' : 'Update', style: const TextStyle(color: kAccent, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -112,16 +122,12 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     );
   }
 
+  // Filled kCard field with hairline border — all from the input theme.
   Widget _pwField(TextEditingController ctrl, String label) => TextField(
     controller: ctrl,
     obscureText: true,
-    style: TextStyle(color: kTextPrimary, fontSize: 14),
-    decoration: InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: kTextSecondary, fontSize: 13),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kAccent)),
-    ),
+    style: const TextStyle(color: kTextPrimary, fontSize: 16),
+    decoration: InputDecoration(labelText: label),
   );
 
   // ── Download my data ─────────────────────────────────────────────────────────
@@ -137,22 +143,23 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     final days = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Export data', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700, fontSize: 17)),
+        title: const Text('Export data'),
+        contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final (label, days) in _exportRanges)
               ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(label, style: TextStyle(color: kTextPrimary, fontSize: 14)),
-                onTap: () => Navigator.pop(ctx, days),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusSm)),
+                title: Text(label, style: const TextStyle(color: kTextPrimary, fontSize: 16, fontWeight: FontWeight.w500)),
+                trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
+                onTap: () { hapticSelect(); Navigator.pop(ctx, days); },
               ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: kTextSecondary))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: kTextSecondary))),
         ],
       ),
     );
@@ -387,17 +394,14 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     showDialog(
       context: context,
       builder: (dctx) => AlertDialog(
-        backgroundColor: kCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Delete my data?', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700)),
-        content: Text(
+        title: const Text('Delete my data?'),
+        content: const Text(
           'This permanently erases your training sessions and body-composition history. Your account stays active.',
-          style: TextStyle(color: kTextSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dctx),
-            child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: kTextSecondary)),
           ),
           TextButton(
             onPressed: () async {
@@ -415,7 +419,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
               }
             },
-            child: Text('Delete', style: TextStyle(color: kDanger, fontWeight: FontWeight.w700)),
+            child: const Text('Delete', style: TextStyle(color: kDanger, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -427,17 +431,14 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     showDialog(
       context: context,
       builder: (dctx) => AlertDialog(
-        backgroundColor: kCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Delete account?', style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w700)),
-        content: Text(
+        title: const Text('Delete account?'),
+        content: const Text(
           'This is permanent and cannot be undone. All your data will be erased.',
-          style: TextStyle(color: kTextSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dctx),
-            child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: kTextSecondary)),
           ),
           TextButton(
             onPressed: () async {
@@ -452,7 +453,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
               }
             },
-            child: Text('Delete', style: TextStyle(color: kDanger, fontWeight: FontWeight.w700)),
+            child: const Text('Delete', style: TextStyle(color: kDanger, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -463,34 +464,25 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text('PRIVACY & SECURITY', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: IconThemeData(color: kTextPrimary),
-        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
-      ),
+      appBar: AppBar(title: const Text('Privacy & security')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
         children: [
-          const _SectionLabel('SECURITY'),
-          const SizedBox(height: 8),
+          const _SectionLabel('Security'),
           _Group(children: [
             _RowItem(
               icon: Icons.lock_outline_rounded,
-              iconColor: kSky,
               label: 'Change password',
               onTap: _changePassword,
             ),
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          const _SectionLabel('DATA'),
-          const SizedBox(height: 8),
+          const _SectionLabel('Data'),
           _Group(children: [
             _ToggleItem(
               icon: Icons.event_note_outlined,
-              iconColor: const Color(0xFF34D399),
               label: 'Physical metrics, sleep & fatigue',
               subtitle: 'Consent to recording your wellness & recovery logs',
               value: dailyLogsConsent,
@@ -502,7 +494,6 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
             _ToggleItem(
               icon: Icons.camera_alt_outlined,
-              iconColor: kSky,
               label: 'Camera-based features',
               subtitle: 'On-device posture, running & bowling analysis',
               value: cameraConsent,
@@ -514,7 +505,6 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
             _ToggleItem(
               icon: Icons.analytics_outlined,
-              iconColor: kWarn,
               label: 'Analytics sharing',
               subtitle: 'Help improve SolidCore',
               value: analyticsShare,
@@ -522,59 +512,60 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
             _RowItem(
               icon: Icons.download_outlined,
-              iconColor: kTextSecondary,
               label: 'Download my data',
               onTap: _pickRangeAndDownload,
             ),
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          const _SectionLabel('LEGAL'),
-          const SizedBox(height: 8),
+          const _SectionLabel('Legal'),
           _Group(children: [
             _RowItem(
               icon: Icons.description_outlined,
-              iconColor: kTextSecondary,
-              label: 'Terms & Conditions',
+              label: 'Terms & conditions',
               onTap: () => Navigator.of(context)
                   .push(MaterialPageRoute(builder: (_) => const TermsPage())),
             ),
             _RowItem(
               icon: Icons.privacy_tip_outlined,
-              iconColor: kTextSecondary,
-              label: 'Privacy Policy',
+              label: 'Privacy policy',
               onTap: () => Navigator.of(context)
                   .push(MaterialPageRoute(builder: (_) => const PrivacyPolicyPage())),
             ),
           ]),
           if (legalAcceptedAt != null) ...[
             const SizedBox(height: 8),
-            Text(
-              'Accepted on ${_fmtDay(legalAcceptedAt!)} (version $kLegalVersion)',
-              style: TextStyle(fontSize: 12, color: kTextMuted),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'Accepted on ${_fmtDay(legalAcceptedAt!)} (version $kLegalVersion)',
+                style: const TextStyle(fontSize: 13, color: kTextMuted),
+              ),
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
 
-          const _SectionLabel('DANGER ZONE'),
-          const SizedBox(height: 8),
-          _DangerButton(
-            icon: Icons.person_off_outlined,
-            label: 'Deactivate account',
-            onTap: () => _snack('Deactivation requires confirmation'),
-          ),
-          const SizedBox(height: 8),
-          _DangerButton(
-            icon: Icons.delete_sweep_outlined,
-            label: 'Delete my data',
-            onTap: _confirmDeleteData,
-          ),
-          const SizedBox(height: 8),
-          _DangerButton(
-            icon: Icons.delete_outline_rounded,
-            label: 'Delete account',
-            onTap: _confirmDelete,
-          ),
+          const _SectionLabel('Danger zone'),
+          _Group(children: [
+            _RowItem(
+              icon: Icons.person_off_outlined,
+              label: 'Deactivate account',
+              destructive: true,
+              onTap: () => _snack('Deactivation requires confirmation'),
+            ),
+            _RowItem(
+              icon: Icons.delete_sweep_outlined,
+              label: 'Delete my data',
+              destructive: true,
+              onTap: _confirmDeleteData,
+            ),
+            _RowItem(
+              icon: Icons.delete_outline_rounded,
+              label: 'Delete account',
+              destructive: true,
+              onTap: _confirmDelete,
+            ),
+          ]),
         ],
       ),
     );
@@ -588,9 +579,9 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+    child: SectionHeader(text),
   );
 }
 
@@ -600,16 +591,21 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: kBorder),
+    return Material(
+      color: kCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadius),
+        side: const BorderSide(color: kBorder, width: 0.6),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
-        children: List.generate(children.length, (i) => Column(children: [
-          children[i],
-          if (i < children.length - 1) Divider(height: 1, indent: 54, color: kBorder),
-        ])),
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            // Inset to the text start: 16 padding + 22 icon + 14 gap.
+            if (i > 0) const Divider(height: 0.6, thickness: 0.6, indent: 52, color: kBorder),
+            children[i],
+          ],
+        ],
       ),
     );
   }
@@ -617,28 +613,33 @@ class _Group extends StatelessWidget {
 
 class _RowItem extends StatelessWidget {
   final IconData icon;
-  final Color    iconColor;
   final String   label;
+  final bool     destructive;
   final VoidCallback? onTap;
-  const _RowItem({required this.icon, required this.iconColor, required this.label, this.onTap});
+  const _RowItem({required this.icon, required this.label, this.destructive = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, size: 16, color: iconColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
-            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
-          ],
+      onTap: onTap == null ? null : () { hapticSelect(); onTap!(); },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 54),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: destructive ? kDanger : kTextSecondary),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: destructive ? kDanger : kTextPrimary),
+                ),
+              ),
+              if (!destructive)
+                const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
+            ],
+          ),
         ),
       ),
     );
@@ -647,73 +648,37 @@ class _RowItem extends StatelessWidget {
 
 class _ToggleItem extends StatelessWidget {
   final IconData icon;
-  final Color    iconColor;
   final String   label;
   final String?  subtitle;
   final bool     value;
   final ValueChanged<bool> onChanged;
-  const _ToggleItem({required this.icon, required this.iconColor, required this.label, this.subtitle, required this.value, required this.onChanged});
+  const _ToggleItem({required this.icon, required this.label, this.subtitle, required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, size: 16, color: iconColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, style: TextStyle(fontSize: 12, color: kTextSecondary)),
-                ],
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: kAccent,
-            activeTrackColor: kAccent.withValues(alpha: 0.25),
-            inactiveThumbColor: kTextMuted,
-            inactiveTrackColor: kBorderBright,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DangerButton extends StatelessWidget {
-  final IconData icon;
-  final String   label;
-  final VoidCallback onTap;
-  const _DangerButton({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
-        ),
+    void toggle(bool v) { hapticSelect(); onChanged(v); }
+    return InkWell(
+      onTap: () => toggle(!value),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: kDanger),
+            Icon(icon, size: 22, color: kTextSecondary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 3),
+                    Text(subtitle!, style: const TextStyle(fontSize: 13, color: kTextSecondary, height: 1.35)),
+                  ],
+                ],
+              ),
+            ),
             const SizedBox(width: 12),
-            Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kDanger)),
+            Switch(value: value, onChanged: toggle),
           ],
         ),
       ),

@@ -93,54 +93,34 @@ class _WMState extends State<WorkloadMonitorScreen>
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kBg,
-        title: Text('WORKLOAD',
-            style: TextStyle(color: kTextSecondary, fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 1.4)),
-        centerTitle: false,
-        iconTheme: IconThemeData(color: kTextPrimary),
+        title: const Text('Workload'),
         actions: [
           if (_athleteLabel.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: kCard,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: kBorder),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.person_rounded, size: 14, color: kAccent),
-                const SizedBox(width: 6),
-                Text(_athleteLabel,
-                    style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700, color: kAccent)),
-              ]),
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(child: _AthleteChip(name: _athleteLabel)),
             ),
-          ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(49),
-          child: Column(children: [
-            Divider(height: 1, color: kBorder),
-            TabBar(
+          preferredSize: const Size.fromHeight(48),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: kBorder, width: 0.6)),
+            ),
+            child: TabBar(
               controller: _tabs,
-              labelColor: kAccent,
-              unselectedLabelColor: kTextSecondary,
-              indicatorColor: kAccent,
-              indicatorSize: TabBarIndicatorSize.label,
+              onTap: (_) => hapticSelect(),
               tabs: const [
-                Tab(icon: Icon(Icons.fitness_center_rounded, size: 16), text: 'Training'),
-                Tab(icon: Icon(Icons.sports_cricket_rounded, size: 16), text: 'Skill'),
-                Tab(icon: Icon(Icons.stacked_bar_chart_rounded, size: 16), text: 'Daily Total'),
+                Tab(text: 'Training'),
+                Tab(text: 'Skill'),
+                Tab(text: 'Daily total'),
               ],
             ),
-          ]),
+          ),
         ),
       ),
       body: _loading
-          ? Center(child: CircularProgressIndicator(color: kAccent))
+          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : (_metrics == null || !_metrics!.hasLoadData)
               ? const _WorkloadEmpty()
               : TabBarView(
@@ -149,7 +129,7 @@ class _WMState extends State<WorkloadMonitorScreen>
                     _SectionView(
                       data:           _train,
                       accentColor:    kSky,
-                      sectionTitle:   'Training Session Exertion',
+                      sectionTitle:   'Training session exertion',
                       barColor:       kSky,
                       range:          _range,
                       onRangeChanged: (r) => setState(() => _range = r),
@@ -157,7 +137,7 @@ class _WMState extends State<WorkloadMonitorScreen>
                     _SectionView(
                       data:           _skill,
                       accentColor:    kSuccess,
-                      sectionTitle:   'Skill Session Exertion',
+                      sectionTitle:   'Skill session exertion',
                       barColor:       kSuccess,
                       range:          _range,
                       onRangeChanged: (r) => setState(() => _range = r),
@@ -165,13 +145,124 @@ class _WMState extends State<WorkloadMonitorScreen>
                     _SectionView(
                       data:           _total,
                       accentColor:    kViolet,
-                      sectionTitle:   'Daily Total Load & Exertion',
+                      sectionTitle:   'Daily total load & exertion',
                       barColor:       kViolet,
                       range:          _range,
                       onRangeChanged: (r) => setState(() => _range = r),
                     ),
                   ],
                 ),
+    );
+  }
+}
+
+// ── Shared bits ───────────────────────────────────────────────────────────────
+
+/// Chart axis / tick text.
+const TextStyle _kAxis = TextStyle(color: kTextMuted, fontSize: 11);
+
+/// Tabular figures so numbers in columns line up.
+const List<FontFeature> _kTabular = [FontFeature.tabularFigures()];
+
+/// A small filled circle — a series key or a status marker.
+class _Dot extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _Dot(this.color, {this.size = 7});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
+}
+
+/// Status = a dot in the status colour + the word in neutral text.
+class _StatusDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _StatusDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _Dot(color),
+      const SizedBox(width: 6),
+      Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextPrimary),
+      ),
+    ],
+  );
+}
+
+/// Read-only identity pill for the signed-in athlete.
+class _AthleteChip extends StatelessWidget {
+  final String name;
+  const _AthleteChip({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Signed in as $name',
+      excludeSemantics: true,
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: kBorder, width: 0.6),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.person_outline_rounded, size: 15, color: kTextSecondary),
+          const SizedBox(width: 5),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Centred empty state: plain icon, title, optional one-line hint.
+class _EmptyMessage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? hint;
+  const _EmptyMessage({required this.icon, required this.title, this.hint});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 40, color: kTextMuted),
+        const SizedBox(height: 16),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary),
+        ),
+        if (hint != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            hint!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -183,38 +274,38 @@ class _FilterBar extends StatelessWidget {
   final ValueChanged<String> onChanged;
   const _FilterBar({required this.selected, required this.onChanged});
 
-  static const _keys   = ['today', 'yesterday', '1w', '2w', '28d'];
-  static const _labels = ['Today', 'Yesterday', '1 Week', '2 Weeks', '28 Days'];
+  // Longest range first, so the default (28 days) is visible without scrolling.
+  static const _keys   = ['28d', '2w', '1w', 'yesterday', 'today'];
+  static const _labels = ['28 days', '2 weeks', '1 week', 'Yesterday', 'Today'];
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       child: Row(
         children: List.generate(_keys.length, (i) {
           final active = selected == _keys[i];
           return Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: GestureDetector(
-              onTap: () => onChanged(_keys[i]),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: active ? kAccent.withValues(alpha: 0.15) : kCard,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: active ? kAccent : kBorder,
-                  ),
-                ),
-                child: Text(
-                  _labels[i],
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: active ? kAccent : kTextSecondary,
-                  ),
-                ),
+            padding: EdgeInsets.only(right: i < _keys.length - 1 ? 8 : 0),
+            child: ChoiceChip(
+              label: Text(_labels[i]),
+              selected: active,
+              showCheckmark: false,
+              onSelected: (_) {
+                if (!active) hapticSelect();
+                onChanged(_keys[i]);
+              },
+              backgroundColor: kCard,
+              selectedColor: kTextPrimary,
+              elevation: 0,
+              pressElevation: 0,
+              side: BorderSide(color: active ? kTextPrimary : kBorder, width: 0.6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              labelStyle: TextStyle(
+                fontSize: 14,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                color: active ? kBg : kTextSecondary,
               ),
             ),
           );
@@ -254,7 +345,7 @@ class _SectionView extends StatelessWidget {
   int get _targetHigh => (_last.chronic * 1.3).round();
 
   Color _acwrColor(double v) {
-    if (v <= 0)   return kTextSecondary;
+    if (v <= 0)   return kTextMuted;
     if (v < 0.8)  return kInfo;
     if (v <= 1.3) return kSuccess;
     if (v <= 1.5) return kWarn;
@@ -262,389 +353,325 @@ class _SectionView extends StatelessWidget {
   }
 
   String _acwrLabel(double v) {
-    if (v <= 0)   return 'No Data';
+    if (v <= 0)   return 'No data';
     if (v < 0.8)  return 'Undertraining';
-    if (v <= 1.3) return 'Sweet Spot';
+    if (v <= 1.3) return 'Sweet spot';
     if (v <= 1.5) return 'Caution';
-    return 'Danger Zone';
+    return 'Danger zone';
   }
 
-  Color _loadGuidanceColor(double load, int low, int high) {
-    if (load <= 0) return kTextSecondary;
-    if (load < low) return kInfo;
-    if (load <= high) return kSuccess;
-    return kWarn;
+  /// Where the latest load sits against the target range — the colour the
+  /// target card used to be tinted with, now a dot + words. Null = no load.
+  (Color, String)? _loadGuidance(double load, int low, int high) {
+    if (load <= 0) return null;
+    if (load < low) return (kInfo, 'Latest load below range');
+    if (load <= high) return (kSuccess, 'Latest load within range');
+    return (kWarn, 'Latest load above range');
   }
 
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.event_busy_rounded, size: 30, color: kTextSecondary),
-            const SizedBox(height: 10),
-            Text('No load recorded for this period',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 12.5, color: kTextSecondary, height: 1.4)),
-          ],
-        ),
+      // The range filter stays reachable here, so an empty range (e.g.
+      // "Today" before anything is logged) is not a dead end.
+      return ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
+        children: [
+          _FilterBar(selected: range, onChanged: onRangeChanged),
+          const SizedBox(height: 72),
+          const _EmptyMessage(
+            icon: Icons.event_busy_outlined,
+            title: 'No load recorded for this period',
+          ),
+        ],
       );
     }
     final acwr  = _last.acwr;
-    final acCol = _acwrColor(acwr);
     final tLow  = _targetLow;
     final tHigh = _targetHigh;
+    final guide = _loadGuidance(_last.load, tLow, tHigh);
+    final zFlag = _last.z.abs() > 2;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(14),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 20, kGutter, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Section label ──────────────────────────────────────────────────
-          Row(children: [
-            Container(width: 3, height: 18,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: BorderRadius.circular(2),
-                  boxShadow: [BoxShadow(color: accentColor.withValues(alpha: 0.4), blurRadius: 6)],
-                )),
-            Text(sectionTitle,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
-          ]),
-          const SizedBox(height: 14),
-
-          // ── Key Metrics Row 1: Load, Exertion, Acute ──────────────────────
-          Row(children: [
-            Expanded(child: _MetricCard(
-              label: 'Session Load',
-              value: _last.load.toStringAsFixed(0),
-              color: accentColor,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _MetricCard(
-              label: 'Exertion',
-              value: _exertion.toStringAsFixed(1),
-              color: Colors.pinkAccent,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _MetricCard(
-              label: '7-day Acute',
-              value: _last.acute.toStringAsFixed(0),
-              color: kSky,
-            )),
-          ]),
-          const SizedBox(height: 10),
-
-          // ── Key Metrics Row 2: Chronic, ACWR, Z-Score ─────────────────────
-          Row(children: [
-            Expanded(child: _MetricCard(
-              label: 'Chronic (EWMA)',
-              value: _last.chronic.toStringAsFixed(0),
-              color: Colors.amberAccent,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _MetricCard(
-              label: 'ACWR',
-              value: _last.acwr <= 0 ? '—' : _last.acwr.toStringAsFixed(2),
-              sub: _acwrLabel(acwr),
-              color: acCol,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _MetricCard(
-              label: 'Z-Score',
-              value: _last.z.toStringAsFixed(2),
-              sub: _last.z.abs() > 2 ? 'Flagged' : 'Normal',
-              color: _last.z.abs() > 2 ? kDanger : kSuccess,
-            )),
-          ]),
-          const SizedBox(height: 12),
-
-          // ── Load Guidance (Target Range) ──────────────────────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-              color: _loadGuidanceColor(_last.load, tLow, tHigh).withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: _loadGuidanceColor(_last.load, tLow, tHigh).withValues(alpha: 0.35)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: _loadGuidanceColor(_last.load, tLow, tHigh).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.track_changes_rounded,
-                      size: 16, color: _loadGuidanceColor(_last.load, tLow, tHigh)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Tomorrow's Load Target",
-                          style: TextStyle(fontSize: 10, color: kTextSecondary)),
-                      const SizedBox(height: 3),
-                      Text('$tLow – $tHigh',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                            color: _loadGuidanceColor(_last.load, tLow, tHigh),
-                          )),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('80% – 130%',
-                        style: TextStyle(fontSize: 9, color: kTextSecondary)),
-                    Text('of Chronic ${_last.chronic.toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 9, color: kTextSecondary)),
-                  ],
-                ),
-              ],
+          // ── Section title ──────────────────────────────────────────────────
+          Semantics(
+            header: true,
+            child: Text(
+              sectionTitle,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4),
             ),
           ),
           const SizedBox(height: 14),
 
-          // ── Date range filter (moved here, right after Tomorrow's Load
-          // Target, instead of pinned above the tabs) ───────────────────────
+          // ── Key metrics, in pairs ──────────────────────────────────────────
+          _pair(
+            _MetricCard(label: 'Session load', value: _last.load.toStringAsFixed(0)),
+            _MetricCard(label: 'Exertion', value: _exertion.toStringAsFixed(1)),
+          ),
+          const SizedBox(height: 10),
+          _pair(
+            _MetricCard(label: '7-day acute', value: _last.acute.toStringAsFixed(0)),
+            _MetricCard(label: 'Chronic (EWMA)', value: _last.chronic.toStringAsFixed(0)),
+          ),
+          const SizedBox(height: 10),
+          _pair(
+            _MetricCard(
+              label: 'ACWR',
+              value: _last.acwr <= 0 ? '—' : _last.acwr.toStringAsFixed(2),
+              status: _acwrLabel(acwr),
+              statusColor: _acwrColor(acwr),
+            ),
+            _MetricCard(
+              label: 'Z-score',
+              value: _last.z.toStringAsFixed(2),
+              status: zFlag ? 'Flagged' : 'Normal',
+              statusColor: zFlag ? kDanger : kSuccess,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Load Guidance (Target Range) ──────────────────────────────────
+          _panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Tomorrow's load target",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondary)),
+                const SizedBox(height: 6),
+                Text(
+                  '$tLow–$tHigh',
+                  style: const TextStyle(
+                    fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.8,
+                    color: kTextPrimary, height: 1.1, fontFeatures: _kTabular,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '80–130% of chronic ${_last.chronic.toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 13, color: kTextSecondary),
+                ),
+                if (guide != null) ...[
+                  const SizedBox(height: 12),
+                  _StatusDot(color: guide.$1, label: guide.$2),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Date range filter (kept here, right after Tomorrow's Load
+          // Target, instead of pinned above the tabs) ────────────────────────
           _FilterBar(selected: range, onChanged: onRangeChanged),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
 
           // ── ACWR Gauge ─────────────────────────────────────────────────────
           _panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _panelHeader('ACWR Zone', Icons.speed_rounded),
+                _panelTitle('ACWR zone'),
                 const SizedBox(height: 12),
                 _AcwrGauge(acwr: acwr),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ── Load Chart ─────────────────────────────────────────────────────
           _panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _panelHeader('Load History', Icons.bar_chart_rounded),
+                _panelTitle('Load history'),
                 const SizedBox(height: 8),
                 _legend(barColor),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 SizedBox(
                   height: 240,
                   child: _InteractiveLoadChart(data: data, barColor: barColor, accentColor: accentColor),
                 ),
-                const SizedBox(height: 4),
-                Text('Tap a bar to inspect · Scroll to pan',
-                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
+                const SizedBox(height: 8),
+                _hint('Tap a bar to inspect · Scroll to pan'),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ── ACWR Trend Line ────────────────────────────────────────────────
           _panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _panelHeader('ACWR Trend', Icons.show_chart_rounded),
-                const SizedBox(height: 4),
-                Text('Zones: Under <0.8 · Sweet 0.8–1.3 · Caution 1.3–1.5 · Danger >1.5',
-                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
-                const SizedBox(height: 10),
+                _panelTitle('ACWR trend'),
+                const SizedBox(height: 8),
+                Wrap(spacing: 14, runSpacing: 6, children: [
+                  _legendDot(kInfo,    'Under <0.8'),
+                  _legendDot(kSuccess, 'Sweet 0.8–1.3'),
+                  _legendDot(kWarn,    'Caution 1.3–1.5'),
+                  _legendDot(kDanger,  'Danger >1.5'),
+                ]),
+                const SizedBox(height: 12),
                 SizedBox(
-                  height: 210,
+                  height: 220,
                   child: _InteractiveAcwrChart(data: data, lineColor: accentColor),
                 ),
-                const SizedBox(height: 4),
-                Text('Tap a point to inspect · Scroll to pan',
-                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
+                const SizedBox(height: 8),
+                _hint('Tap a point to inspect · Scroll to pan'),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ── Z-Score Trend ──────────────────────────────────────────────────
           _panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _panelHeader('Z-Score Trend', Icons.insights_rounded),
-                const SizedBox(height: 4),
-                Text('Tap a point · |Z| > 2 = flagged',
-                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
-                const SizedBox(height: 10),
+                _panelTitle('Z-score trend'),
+                const SizedBox(height: 8),
+                Wrap(spacing: 14, runSpacing: 6, children: [
+                  _legendDot(kSuccess, 'Normal'),
+                  _legendDot(kDanger,  '|Z| > 2 = flagged'),
+                ]),
+                const SizedBox(height: 12),
                 SizedBox(
                   height: 190,
                   child: _InteractiveZChart(data: data, lineColor: accentColor),
                 ),
-                const SizedBox(height: 4),
-                Text('Tap a point to inspect · Scroll to pan',
-                    style: TextStyle(fontSize: 9, color: kTextSecondary)),
+                const SizedBox(height: 8),
+                _hint('Tap a point to inspect · Scroll to pan'),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ── Session Log ────────────────────────────────────────────────────
           _panel(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _panelHeader('Session Log', Icons.list_alt_rounded),
+                _panelTitle('Session log'),
                 const SizedBox(height: 2),
                 Text('Latest ${data.length.clamp(0, 10)} entries',
-                    style: TextStyle(fontSize: 10, color: kTextSecondary)),
-                const SizedBox(height: 10),
+                    style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+                const SizedBox(height: 14),
+                const _SessionHeader(),
                 ...List.generate(
                   data.length.clamp(0, 10),
                   (i) {
                     final idx = data.length - 1 - i;
-                    return _SessionRow(pt: data[idx], color: barColor);
+                    return _SessionRow(pt: data[idx]);
                   },
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _panelHeader(String title, IconData icon) => Row(children: [
-    Icon(icon, size: 14, color: kTextSecondary),
-    const SizedBox(width: 6),
-    Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
-  ]);
+  Widget _pair(Widget a, Widget b) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(child: a),
+      const SizedBox(width: 10),
+      Expanded(child: b),
+    ],
+  );
+
+  Widget _panelTitle(String title) => Text(
+    title,
+    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary, letterSpacing: -0.2),
+  );
+
+  Widget _hint(String text) => Text(text, style: const TextStyle(fontSize: 12, color: kTextMuted));
 
   Widget _legend(Color bar) {
-    return Wrap(spacing: 14, runSpacing: 6, children: [
-      _legendBar(bar, 'Session Load'),
+    return Wrap(spacing: 16, runSpacing: 6, children: [
+      _legendBar(bar, 'Session load'),
       _legendLine(Colors.pinkAccent, 'Exertion'),
     ]);
   }
 
   Widget _legendBar(Color c, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
     Container(width: 10, height: 10,
-        decoration: BoxDecoration(color: c.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(2))),
-    const SizedBox(width: 5),
-    Text(label, style: TextStyle(fontSize: 10, color: kTextSecondary)),
+        decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2))),
+    const SizedBox(width: 6),
+    Text(label, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
   ]);
 
-  Widget _legendLine(Color c, String label, {bool dashed = false}) =>
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          width: 20, height: 10,
-          child: CustomPaint(painter: _LegendLinePainter(color: c, dashed: dashed)),
-        ),
-        const SizedBox(width: 5),
-        Text(label, style: TextStyle(fontSize: 10, color: kTextSecondary)),
-      ]);
+  Widget _legendLine(Color c, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
+    Container(width: 14, height: 2,
+        decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(1))),
+    const SizedBox(width: 6),
+    Text(label, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+  ]);
+
+  Widget _legendDot(Color c, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
+    _Dot(c),
+    const SizedBox(width: 6),
+    Text(label, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+  ]);
 
   Widget _panel({required Widget child}) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: kCard,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: kBorder),
+      borderRadius: BorderRadius.circular(kRadius),
+      border: Border.all(color: kBorder, width: 0.6),
     ),
     child: child,
   );
-}
-
-// ── Legend Line Painter ───────────────────────────────────────────────────────
-
-class _LegendLinePainter extends CustomPainter {
-  final Color color;
-  final bool dashed;
-  const _LegendLinePainter({required this.color, required this.dashed});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..strokeWidth = 1.8..strokeCap = StrokeCap.round;
-    final y = size.height / 2;
-    if (!dashed) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    } else {
-      double x = 0;
-      while (x < size.width) {
-        canvas.drawLine(Offset(x, y), Offset(min(x + 4, size.width), y), paint);
-        x += 7;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_LegendLinePainter old) => old.color != color || old.dashed != dashed;
 }
 
 // ── Metric Card ───────────────────────────────────────────────────────────────
 
 class _MetricCard extends StatelessWidget {
   final String label, value;
-  final String sub;
-  final Color color;
-  const _MetricCard({required this.label, required this.value, this.sub = '', required this.color});
+  final String? status;
+  final Color? statusColor;
+  const _MetricCard({required this.label, required this.value, this.status, this.statusColor});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
+    return MergeSemantics(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          border: Border.all(color: kBorder, width: 0.6),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: 2, color: color),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 10, color: kTextSecondary, letterSpacing: 0.2),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.5),
-          ),
-          const SizedBox(height: 2),
-          Container(width: 20, height: 2, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(1))),
-          if (sub.isNotEmpty) ...[
-            const SizedBox(height: 4),
             Text(
-              sub,
-              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary),
             ),
-          ],
-                ],
+            const SizedBox(height: 6),
+            Text(
+              value,
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 26, fontWeight: FontWeight.w700, color: kTextPrimary,
+                letterSpacing: -0.8, height: 1.1, fontFeatures: _kTabular,
               ),
             ),
+            if (status != null) ...[
+              const SizedBox(height: 8),
+              _StatusDot(color: statusColor ?? kTextMuted, label: status!),
+            ],
           ],
         ),
       ),
@@ -663,97 +690,108 @@ class _AcwrGauge extends StatelessWidget {
     // Clamp to 0-2.0 for display; proportions match the 0-2.0 scale exactly
     final clamped = acwr.clamp(0.0, 2.0);
     Color zoneColor(double v) {
-      if (v <= 0)   return kTextSecondary;
+      if (v <= 0)   return kTextMuted;
       if (v < 0.8)  return kInfo;
       if (v <= 1.3) return kSuccess;
       if (v <= 1.5) return kWarn;
       return kDanger;
     }
-    final col = zoneColor(acwr);
+    // Current zone: 0 under, 1 sweet spot, 2 caution, 3 danger, -1 no data.
+    final zone = acwr <= 0
+        ? -1
+        : acwr < 0.8 ? 0 : acwr <= 1.3 ? 1 : acwr <= 1.5 ? 2 : 3;
+    const zoneNames = ['Under training', 'Sweet spot', 'Caution', 'Danger zone'];
+    // Each zone's share of the 0.0–2.0 scale.
+    const zones = [(40, kInfo), (25, kSuccess), (10, kWarn), (25, kDanger)];
 
-    return Column(children: [
-      // Gauge bar — flex proportional to each zone's share of 0.0–2.0
-      ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          height: 20,
-          child: Row(children: [
-            // 0.0–0.8 = 40%
-            Expanded(flex: 40, child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Value + zone
+        if (zone < 0)
+          const Text('No sessions logged yet',
+              style: TextStyle(fontSize: 15, color: kTextSecondary))
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                acwr.toStringAsFixed(2),
+                style: const TextStyle(
+                  fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary,
+                  letterSpacing: -0.8, height: 1.1, fontFeatures: _kTabular,
+                ),
               ),
-            )),
-            // 0.8–1.3 = 25%
-            Expanded(flex: 25, child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)]),
-              ),
-            )),
-            // 1.3–1.5 = 10%
-            Expanded(flex: 10, child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFE65100), kWarn]),
-              ),
-            )),
-            // 1.5–2.0 = 25%
-            Expanded(flex: 25, child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFB71C1C), kDanger]),
-              ),
-            )),
-          ]),
-        ),
-      ),
-      const SizedBox(height: 4),
-      // Scale labels — left edge of each Expanded aligns with zone boundary
-      Row(children: [
-        Expanded(flex: 40, child: const _GaugeTick('0')),
-        Expanded(flex: 25, child: const _GaugeTick('0.8')),
-        Expanded(flex: 10, child: const _GaugeTick('1.3')),
-        Expanded(flex: 25, child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [_GaugeTick('1.5'), _GaugeTick('2.0+')],
-        )),
-      ]),
-      // Arrow indicator
-      LayoutBuilder(builder: (ctx, c) {
-        final x = (c.maxWidth * (clamped / 2.0) - 10).clamp(0.0, c.maxWidth - 20.0);
-        return Stack(children: [
-          const SizedBox(height: 20),
-          Positioned(
-            left: x,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.arrow_drop_down, color: acwr <= 0 ? kTextSecondary : kTextPrimary, size: 20),
-            ]),
+              const SizedBox(width: 12),
+              _StatusDot(color: zoneColor(acwr), label: zoneNames[zone]),
+            ],
           ),
-        ]);
-      }),
-      const SizedBox(height: 4),
-      // ACWR value badge
-      Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-          decoration: BoxDecoration(
-            color: col.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: col.withValues(alpha: 0.45)),
-          ),
-          child: Text(
-            acwr <= 0 ? 'No sessions logged yet' : 'ACWR  ${acwr.toStringAsFixed(2)}',
-            style: TextStyle(fontWeight: FontWeight.w700, color: col, fontSize: 13, letterSpacing: 0.3),
-          ),
-        ),
-      ),
-      const SizedBox(height: 10),
-      // Zone labels — same flex proportions as gauge bar
-      Row(children: [
-        Expanded(flex: 40, child: _ZL('Under\nTraining${acwr > 0 && acwr < 0.8 ? ' ✓' : ''}', kInfo)),
-        Expanded(flex: 25, child: _ZL('Sweet\nSpot${acwr >= 0.8 && acwr <= 1.3 ? ' ✓' : ''}', kSuccess)),
-        Expanded(flex: 10, child: _ZL('Caution${acwr > 1.3 && acwr <= 1.5 ? ' ✓' : ''}', kWarn)),
-        Expanded(flex: 25, child: _ZL('Danger\nZone${acwr > 1.5 ? ' ✓' : ''}', kDanger)),
-      ]),
-    ]);
+        const SizedBox(height: 16),
+
+        // Gauge bar — flex proportional to each zone's share of 0.0–2.0. The
+        // current zone is full strength, the rest recede.
+        LayoutBuilder(builder: (ctx, c) {
+          final w = c.maxWidth;
+          const markerH = 20.0, barH = 8.0, labelTop = markerH + 6;
+          final markerX = (w * (clamped / 2.0) - 1.5).clamp(0.0, w - 3.0);
+          Widget tickAt(double frac, String label) => Positioned(
+            left: w * frac,
+            top: labelTop,
+            child: FractionalTranslation(
+              translation: const Offset(-0.5, 0),
+              child: _GaugeTick(label),
+            ),
+          );
+          return SizedBox(
+            height: labelTop + 14,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: 0, right: 0, top: (markerH - barH) / 2, height: barH,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(barH / 2),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      for (int i = 0; i < zones.length; i++)
+                        Expanded(
+                          flex: zones[i].$1,
+                          child: ColoredBox(
+                            color: zones[i].$2.withValues(alpha: zone == i ? 1.0 : 0.28),
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+                if (zone >= 0)
+                  Positioned(
+                    left: markerX, top: 0,
+                    child: Container(
+                      width: 3, height: markerH,
+                      decoration: BoxDecoration(
+                        color: kTextPrimary,
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
+                    ),
+                  ),
+                // Scale labels at each zone boundary
+                const Positioned(left: 0, top: labelTop, child: _GaugeTick('0')),
+                tickAt(0.40, '0.8'),
+                tickAt(0.65, '1.3'),
+                tickAt(0.75, '1.5'),
+                const Positioned(right: 0, top: labelTop, child: _GaugeTick('2.0+')),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 14),
+
+        // Zone key — the current zone reads brighter.
+        Wrap(spacing: 14, runSpacing: 6, children: [
+          for (int i = 0; i < zones.length; i++)
+            _ZL(zoneNames[i], zones[i].$2, active: zone == i),
+        ]),
+      ],
+    );
   }
 }
 
@@ -762,17 +800,180 @@ class _GaugeTick extends StatelessWidget {
   const _GaugeTick(this.label);
 
   @override
-  Widget build(BuildContext context) =>
-      Text(label, style: TextStyle(fontSize: 8.5, color: kTextSecondary));
+  Widget build(BuildContext context) => Text(label, style: _kAxis);
 }
 
 class _ZL extends StatelessWidget {
   final String t;
   final Color  c;
-  const _ZL(this.t, this.c);
+  final bool   active;
+  const _ZL(this.t, this.c, {required this.active});
   @override
-  Widget build(BuildContext ctx) =>
-      Text(t, textAlign: TextAlign.center, style: TextStyle(fontSize: 9, color: c));
+  Widget build(BuildContext ctx) => Row(mainAxisSize: MainAxisSize.min, children: [
+    _Dot(c),
+    const SizedBox(width: 6),
+    Text(t, style: TextStyle(
+      fontSize: 12,
+      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+      color: active ? kTextPrimary : kTextSecondary,
+    )),
+  ]);
+}
+
+// ── Chart helpers ─────────────────────────────────────────────────────────────
+
+TextPainter _layoutText(String s, TextStyle style, {double maxWidth = double.infinity}) =>
+    TextPainter(text: TextSpan(text: s, style: style), textDirection: TextDirection.ltr)
+      ..layout(maxWidth: maxWidth);
+
+/// Hairline horizontal gridline.
+final Paint _kGridPaint = Paint()..color = kBorder..strokeWidth = 0.6;
+
+/// One tooltip row: label on the left, value on the right, optional status
+/// dot. An empty label draws just the dot and the value.
+typedef _TipRow = (String label, String value, Color? dot);
+
+/// Flat dark tooltip with a hairline edge, shared by the three charts.
+void _paintTooltip(Canvas canvas, Size size, double x, double top, double minX,
+    String header, List<_TipRow> rows) {
+  const tw = 148.0, lh = 18.0, pad = 10.0;
+  final h = pad * 2 + (rows.length + 1) * lh - 4;
+  double tx = x + 10;
+  if (tx + tw > size.width) tx = x - tw - 10;
+  if (tx < minX) tx = minX;
+  final ty = top + 2;
+  final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(tx, ty, tw, h), const Radius.circular(10));
+  canvas.drawRRect(rrect, Paint()..color = kSurface);
+  canvas.drawRRect(rrect, Paint()
+    ..color = kBorderBright
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.6);
+
+  _layoutText(header,
+      const TextStyle(color: kTextPrimary, fontSize: 12, fontWeight: FontWeight.w600),
+      maxWidth: tw - pad * 2)
+    .paint(canvas, Offset(tx + pad, ty + pad));
+
+  for (int i = 0; i < rows.length; i++) {
+    final (label, value, dot) = rows[i];
+    final y = ty + pad + (i + 1) * lh;
+    final valTp = _layoutText(value,
+        const TextStyle(color: kTextPrimary, fontSize: 12, fontWeight: FontWeight.w600, fontFeatures: _kTabular));
+    var lx = tx + pad;
+    if (dot != null) {
+      canvas.drawCircle(Offset(lx + 3, y + valTp.height / 2), 3, Paint()..color = dot);
+      lx += 11;
+    }
+    if (label.isEmpty) {
+      valTp.paint(canvas, Offset(lx, y));
+    } else {
+      _layoutText(label, const TextStyle(color: kTextSecondary, fontSize: 12))
+          .paint(canvas, Offset(lx, y));
+      valTp.paint(canvas, Offset(tx + tw - pad - valTp.width, y));
+    }
+  }
+}
+
+/// Date label centred under [cx].
+void _paintDateLabel(Canvas c, String s, double cx, double cy) {
+  final tp = _layoutText(s, _kAxis);
+  tp.paint(c, Offset(cx - tp.width / 2, cy));
+}
+
+/// Draws a date label at every [step]-th slot, plus the last one.
+void _paintDateLabels(Canvas canvas, List<WorkPoint> data, double Function(int) xAt, double y) {
+  final n = data.length;
+  final step = n > 20 ? 5 : (n > 10 ? 3 : 2);
+  for (int i = 0; i < n; i += step) {
+    _paintDateLabel(canvas, data[i].d, xAt(i), y);
+  }
+  if ((n - 1) % step != 0) {
+    _paintDateLabel(canvas, data[n - 1].d, xAt(n - 1), y);
+  }
+}
+
+/// Selected point: white fill with a ring in the series/zone colour.
+void _paintSelectedDot(Canvas canvas, Offset p, Color c) {
+  canvas.drawCircle(p, 4.5, Paint()..color = kTextPrimary);
+  canvas.drawCircle(p, 4.5, Paint()
+    ..color = c
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2);
+}
+
+/// Catmull-Rom → cubic Bézier segment from pts[i] to pts[i+1].
+Path _smoothSegment(List<Offset> pts, int i) {
+  final n = pts.length;
+  final p0 = i > 0 ? pts[i - 1] : pts[0];
+  final p1 = pts[i], p2 = pts[i + 1];
+  final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
+  final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
+  final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
+  return Path()
+    ..moveTo(p1.dx, p1.dy)
+    ..cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
+}
+
+/// The whole smoothed polyline through [pts] (needs at least one point).
+Path _smoothPath(List<Offset> pts) {
+  final n = pts.length;
+  final path = Path()..moveTo(pts[0].dx, pts[0].dy);
+  for (int i = 0; i < n - 1; i++) {
+    final p0 = i > 0 ? pts[i - 1] : pts[0];
+    final p1 = pts[i], p2 = pts[i + 1];
+    final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
+    final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
+    final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
+    path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
+  }
+  return path;
+}
+
+/// Horizontal scroller + tap-to-select wrapper shared by the three charts.
+class _ScrollableChart extends StatelessWidget {
+  final int count;
+  final int? selected;
+  final ValueChanged<int?> onSelect;
+  final CustomPainter Function(double contentW) painter;
+  const _ScrollableChart({
+    required this.count,
+    required this.selected,
+    required this.onSelect,
+    required this.painter,
+  });
+
+  static const lPad = 40.0, slotW = 30.0;
+
+  @override
+  Widget build(BuildContext context) {
+    // Fill the panel exactly when the points fit; scroll when they don't.
+    return LayoutBuilder(builder: (context, constraints) {
+      final minW = constraints.hasBoundedWidth
+          ? constraints.maxWidth
+          : MediaQuery.of(context).size.width - 72.0;
+      final contentW = max(slotW * count, minW - lPad);
+      final chartW = contentW + lPad;
+
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: GestureDetector(
+          onTapDown: (d) {
+            final lx = d.localPosition.dx - lPad;
+            if (lx < 0) return;
+            final sl = contentW / count;
+            final idx = (lx / sl).round().clamp(0, count - 1);
+            hapticSelect();
+            onSelect(selected == idx ? null : idx);
+          },
+          child: SizedBox(
+            width: chartW,
+            child: CustomPaint(painter: painter(contentW)),
+          ),
+        ),
+      );
+    });
+  }
 }
 
 // ── Interactive Load Chart ────────────────────────────────────────────────────
@@ -791,32 +992,15 @@ class _InteractiveLoadChartState extends State<_InteractiveLoadChart> {
 
   @override
   Widget build(BuildContext context) {
-    const lPad = 40.0, slotW = 30.0;
-    final minW = MediaQuery.of(context).size.width - 56.0;
-    final contentW = max(slotW * widget.data.length, minW - lPad);
-    final chartW = contentW + lPad;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: GestureDetector(
-        onTapDown: (d) {
-          final lx = d.localPosition.dx - lPad;
-          if (lx < 0) return;
-          final sl = contentW / widget.data.length;
-          final idx = (lx / sl).round().clamp(0, widget.data.length - 1);
-          setState(() => _sel = _sel == idx ? null : idx);
-        },
-        child: SizedBox(
-          width: chartW,
-          child: CustomPaint(
-            painter: _LoadChartPainter(
-              data: widget.data,
-              barColor: widget.barColor,
-              selectedIdx: _sel,
-              contentW: contentW,
-            ),
-          ),
-        ),
+    return _ScrollableChart(
+      count: widget.data.length,
+      selected: _sel,
+      onSelect: (i) => setState(() => _sel = i),
+      painter: (contentW) => _LoadChartPainter(
+        data: widget.data,
+        barColor: widget.barColor,
+        selectedIdx: _sel,
+        contentW: contentW,
       ),
     );
   }
@@ -845,47 +1029,26 @@ class _LoadChartPainter extends CustomPainter {
     final chronics = data.map((d) => d.chronic).toList();
     final vMax     = [...loads, ...acutes, ...chronics].reduce(max).clamp(1.0, double.infinity);
 
-    // Y-axis line
-    canvas.drawLine(Offset(lp, tPad - 4), Offset(lp, tPad + chartH),
-        Paint()..color = const Color(0xFF3A3F52)..strokeWidth = 0.8);
-
-    // Grid lines + Y-axis labels
+    // Baseline, gridlines + Y-axis labels
+    canvas.drawLine(Offset(lp, tPad + chartH), Offset(size.width, tPad + chartH), _kGridPaint);
     for (final frac in [0.25, 0.5, 0.75, 1.0]) {
       final y = tPad + chartH * (1 - frac);
-      canvas.drawLine(Offset(lp, y), Offset(size.width, y),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.09)..strokeWidth = 0.5);
-      final tp = TextPainter(
-        text: TextSpan(
-            text: (vMax * frac).toStringAsFixed(0),
-            style: TextStyle(color: kGrid, fontSize: 8)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(lp - 4 - tp.width, y - tp.height / 2));
+      canvas.drawLine(Offset(lp, y), Offset(size.width, y), _kGridPaint);
+      final tp = _layoutText((vMax * frac).toStringAsFixed(0), _kAxis);
+      tp.paint(canvas, Offset(lp - 6 - tp.width, y - tp.height / 2));
     }
 
-    // Bars with gradient fill
+    // Bars — flat fill; when one is selected the rest recede.
     final barW = (slotW * 0.55).clamp(5.0, 22.0);
     for (int i = 0; i < n; i++) {
       final h = data[i].load > 0 ? (chartH * data[i].load / vMax).clamp(2.0, chartH) : 0.0;
       if (h <= 0) continue;
       final rect = Rect.fromLTWH(xAt(i) - barW / 2, tPad + chartH - h, barW, h);
-      final isSelected = selectedIdx == i;
-      if (isSelected) {
-        canvas.drawRRect(
-          RRect.fromRectAndCorners(rect.inflate(1.5),
-              topLeft: const Radius.circular(4), topRight: const Radius.circular(4)),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.08),
-        );
-      }
+      final dimmed = selectedIdx != null && selectedIdx != i;
       canvas.drawRRect(
         RRect.fromRectAndCorners(rect,
             topLeft: const Radius.circular(3), topRight: const Radius.circular(3)),
-        Paint()..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [barColor.withValues(alpha: isSelected ? 1.0 : 0.85),
-                   barColor.withValues(alpha: isSelected ? 0.65 : 0.4)],
-        ).createShader(rect),
+        Paint()..color = barColor.withValues(alpha: dimmed ? 0.35 : 0.85),
       );
     }
 
@@ -899,28 +1062,15 @@ class _LoadChartPainter extends CustomPainter {
       }
     }
     if (exertPts.length >= 2) {
-      final exertPaint = Paint()
+      canvas.drawPath(_smoothPath(exertPts), Paint()
         ..color = Colors.pinkAccent
-        ..strokeWidth = 1.5
+        ..strokeWidth = 2
         ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      final ePath = Path()..moveTo(exertPts[0].dx, exertPts[0].dy);
-      for (int i = 0; i < exertPts.length - 1; i++) {
-        final p0 = i > 0 ? exertPts[i - 1] : exertPts[0];
-        final p1 = exertPts[i], p2 = exertPts[i + 1];
-        final p3 = i < exertPts.length - 2 ? exertPts[i + 2] : exertPts.last;
-        final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-        final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-        ePath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-      }
-      canvas.drawPath(ePath, exertPaint);
-      for (final p in exertPts) {
-        canvas.drawCircle(p, 2.5, Paint()..color = Colors.pinkAccent);
-        canvas.drawCircle(p, 2.5, Paint()
-          ..color = kTextPrimary.withValues(alpha: 0.25)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.8);
-      }
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round);
+    }
+    for (final p in exertPts) {
+      canvas.drawCircle(p, 2.5, Paint()..color = Colors.pinkAccent);
     }
 
     // Selection vertical line + tooltip
@@ -928,72 +1078,27 @@ class _LoadChartPainter extends CustomPainter {
       final si = selectedIdx!;
       final x = xAt(si);
       canvas.drawLine(Offset(x, tPad), Offset(x, tPad + chartH),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.13)..strokeWidth = 1);
+          Paint()..color = kBorderBright..strokeWidth = 1);
       final exert = data[si].load > 0
           ? (min(10.0, 2.087 * log(data[si].load / 50.0 + 1.0) + 2.0)).toStringAsFixed(1)
           : '—';
-      _drawTooltip(canvas, size, x, tPad, lp, [
-        data[si].d,
-        'Load     ${data[si].load.toStringAsFixed(0)}',
-        'Exertion $exert / 10',
-        'Acute    ${data[si].acute.toStringAsFixed(0)}',
-        'Chronic  ${data[si].chronic.toStringAsFixed(0)}',
-        'ACWR     ${data[si].acwr <= 0 ? '—' : data[si].acwr.toStringAsFixed(2)}',
-      ], barColor);
+      _paintTooltip(canvas, size, x, tPad, lp, data[si].d, [
+        ('Load',     data[si].load.toStringAsFixed(0), null),
+        ('Exertion', '$exert / 10', null),
+        ('Acute',    data[si].acute.toStringAsFixed(0), null),
+        ('Chronic',  data[si].chronic.toStringAsFixed(0), null),
+        ('ACWR',     data[si].acwr <= 0 ? '—' : data[si].acwr.toStringAsFixed(2), null),
+      ]);
     }
 
     // Date labels
-    final step = n > 20 ? 5 : (n > 10 ? 3 : 2);
-    for (int i = 0; i < n; i += step) {
-      _lbl(canvas, data[i].d, xAt(i), size.height - bPad + 5);
-    }
-    if ((n - 1) % step != 0) {
-      _lbl(canvas, data[n - 1].d, xAt(n - 1), size.height - bPad + 5);
-    }
-  }
-
-  void _drawTooltip(Canvas canvas, Size size, double x, double top, double lp,
-      List<String> lines, Color accent) {
-    const tw = 126.0, lh = 13.5, pad = 8.0, fs = 9.0;
-    final h = pad * 2 + lines.length * lh;
-    double tx = x + 8;
-    if (tx + tw > size.width) tx = x - tw - 8;
-    if (tx < lp) tx = lp;
-    final ty = top + 2;
-    final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(tx, ty, tw, h), const Radius.circular(7));
-    canvas.drawRRect(rrect, Paint()..color = const Color(0xF0191C22));
-    canvas.drawRRect(rrect, Paint()
-      ..color = accent.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8);
-    for (int i = 0; i < lines.length; i++) {
-      final tp = TextPainter(
-        text: TextSpan(
-          text: lines[i],
-          style: TextStyle(
-            color: i == 0 ? kTextPrimary : const Color(0xFF878CA8),
-            fontSize: fs,
-            fontWeight: i == 0 ? FontWeight.w700 : FontWeight.normal,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: tw - pad * 2);
-      tp.paint(canvas, Offset(tx + pad, ty + pad + i * lh));
-    }
-  }
-
-
-  void _lbl(Canvas c, String s, double cx, double cy) {
-    final tp = TextPainter(
-      text: TextSpan(text: s, style: TextStyle(color: kGrid, fontSize: 8.5)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(c, Offset(cx - tp.width / 2, cy));
+    _paintDateLabels(canvas, data, xAt, size.height - bPad + 7);
   }
 
   @override
   bool shouldRepaint(covariant _LoadChartPainter old) =>
-      old.data != data || old.barColor != barColor || old.selectedIdx != selectedIdx;
+      old.data != data || old.barColor != barColor || old.selectedIdx != selectedIdx ||
+      old.contentW != contentW;
 }
 
 // ── Interactive ACWR Trend Chart ──────────────────────────────────────────────
@@ -1012,32 +1117,15 @@ class _InteractiveAcwrChartState extends State<_InteractiveAcwrChart> {
 
   @override
   Widget build(BuildContext context) {
-    const lPad = 40.0, slotW = 30.0;
-    final minW = MediaQuery.of(context).size.width - 56.0;
-    final contentW = max(slotW * widget.data.length, minW - lPad);
-    final chartW = contentW + lPad;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: GestureDetector(
-        onTapDown: (d) {
-          final lx = d.localPosition.dx - lPad;
-          if (lx < 0) return;
-          final sl = contentW / widget.data.length;
-          final idx = (lx / sl).round().clamp(0, widget.data.length - 1);
-          setState(() => _sel = _sel == idx ? null : idx);
-        },
-        child: SizedBox(
-          width: chartW,
-          child: CustomPaint(
-            painter: _AcwrPainter(
-              data: widget.data,
-              lineColor: widget.lineColor,
-              selectedIdx: _sel,
-              contentW: contentW,
-            ),
-          ),
-        ),
+    return _ScrollableChart(
+      count: widget.data.length,
+      selected: _sel,
+      onSelect: (i) => setState(() => _sel = i),
+      painter: (contentW) => _AcwrPainter(
+        data: widget.data,
+        lineColor: widget.lineColor,
+        selectedIdx: _sel,
+        contentW: contentW,
       ),
     );
   }
@@ -1064,38 +1152,28 @@ class _AcwrPainter extends CustomPainter {
     const vMax = 2.5, vMin = 0.0;
     double yAt(double v) => tPad + chartH * (1.0 - (v - vMin) / (vMax - vMin));
 
-    // Zone bands
+    // Zone bands — a faint flat wash per zone
     void band(double lo, double hi, Color c) {
       canvas.drawRect(Rect.fromLTRB(lp, yAt(hi), size.width, yAt(lo)),
-          Paint()..color = c.withValues(alpha: 0.09));
+          Paint()..color = c.withValues(alpha: 0.06));
     }
     band(0.0, 0.8, kInfo);
     band(0.8, 1.3, kSuccess);
     band(1.3, 1.5, kWarn);
     band(1.5, 2.5, kDanger);
 
-    // Y-axis line
-    canvas.drawLine(Offset(lp, tPad - 4), Offset(lp, tPad + chartH),
-        Paint()..color = const Color(0xFF3A3F52)..strokeWidth = 0.8);
-
-    // Y-axis labels + subtle grid
+    // Baseline, gridlines (zone thresholds dashed) + Y-axis labels
+    canvas.drawLine(Offset(lp, yAt(0)), Offset(size.width, yAt(0)), _kGridPaint);
     for (final v in [0.5, 0.8, 1.0, 1.3, 1.5, 2.0]) {
       final y = yAt(v);
       if (y < tPad || y > tPad + chartH) continue;
-      canvas.drawLine(Offset(lp, y), Offset(size.width, y),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.08)..strokeWidth = 0.5);
-      final tp = TextPainter(
-        text: TextSpan(
-            text: v.toStringAsFixed(1),
-            style: TextStyle(color: kGrid, fontSize: 8)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(lp - 4 - tp.width, y - tp.height / 2));
-    }
-
-    // Zone threshold dashed lines
-    for (final thresh in [0.8, 1.3, 1.5]) {
-      _dashH(canvas, lp, size.width, yAt(thresh.toDouble()), const Color(0x28FFFFFF));
+      if (v == 0.8 || v == 1.3 || v == 1.5) {
+        _dashH(canvas, lp, size.width, y, kBorderBright);
+      } else {
+        canvas.drawLine(Offset(lp, y), Offset(size.width, y), _kGridPaint);
+      }
+      final tp = _layoutText(v.toStringAsFixed(1), _kAxis);
+      tp.paint(canvas, Offset(lp - 6 - tp.width, y - tp.height / 2));
     }
 
     final vals = data.map((d) => d.acwr.clamp(vMin, vMax)).toList();
@@ -1108,57 +1186,28 @@ class _AcwrPainter extends CustomPainter {
       return kDanger;
     }
 
-    // Gradient area fill under the line
-    final fillPath = Path()..moveTo(pts[0].dx, pts[0].dy);
-    for (int i = 0; i < n - 1; i++) {
-      final p0 = i > 0 ? pts[i - 1] : pts[0];
-      final p1 = pts[i], p2 = pts[i + 1];
-      final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-      final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-      final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-      fillPath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-    }
-    fillPath
+    // Flat wash under the line
+    final fillPath = _smoothPath(pts)
       ..lineTo(pts.last.dx, tPad + chartH)
       ..lineTo(pts.first.dx, tPad + chartH)
       ..close();
-    canvas.drawPath(
-      fillPath,
-      Paint()..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [lineColor.withValues(alpha: 0.22), lineColor.withValues(alpha: 0.0)],
-      ).createShader(Rect.fromLTWH(lp, tPad, contentW, chartH)),
-    );
+    canvas.drawPath(fillPath, Paint()..color = lineColor.withValues(alpha: 0.10));
 
-    // Smooth color-coded ACWR line segments
+    // Smooth colour-coded ACWR line segments
     for (int i = 0; i < n - 1; i++) {
-      final p0 = i > 0 ? pts[i - 1] : pts[0];
-      final p1 = pts[i], p2 = pts[i + 1];
-      final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-      final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-      final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-      final path = Path()..moveTo(p1.dx, p1.dy)
-          ..cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-      canvas.drawPath(path, Paint()
+      canvas.drawPath(_smoothSegment(pts, i), Paint()
         ..color = segColor((vals[i] + vals[i + 1]) / 2)
-        ..strokeWidth = 2.5
+        ..strokeWidth = 2
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round);
     }
 
     // Data dots
     for (int i = 0; i < n; i++) {
-      final isSelected = selectedIdx == i;
-      if (isSelected) {
-        canvas.drawCircle(pts[i], 6.0, Paint()..color = segColor(vals[i]).withValues(alpha: 0.25));
-        canvas.drawCircle(pts[i], 4.5, Paint()..color = kTextPrimary);
-        canvas.drawCircle(pts[i], 4.5, Paint()
-          ..color = segColor(vals[i])
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5);
+      if (selectedIdx == i) {
+        _paintSelectedDot(canvas, pts[i], segColor(vals[i]));
       } else {
-        canvas.drawCircle(pts[i], 3.0, Paint()..color = segColor(vals[i]));
+        canvas.drawCircle(pts[i], 2.5, Paint()..color = segColor(vals[i]));
       }
     }
 
@@ -1167,49 +1216,14 @@ class _AcwrPainter extends CustomPainter {
       final si = selectedIdx!;
       final x = xAt(si);
       canvas.drawLine(Offset(x, tPad), Offset(x, tPad + chartH),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.13)..strokeWidth = 1);
-      final col = segColor(vals[si]);
-      _drawTooltip(canvas, size, x, tPad, lp, data[si].d, vals[si], col);
+          Paint()..color = kBorderBright..strokeWidth = 1);
+      _paintTooltip(canvas, size, x, tPad, lp, data[si].d, [
+        ('ACWR', vals[si].toStringAsFixed(2), segColor(vals[si])),
+      ]);
     }
 
     // Date labels
-    final step = n > 20 ? 5 : (n > 10 ? 3 : 2);
-    for (int i = 0; i < n; i += step) {
-      _lbl(canvas, data[i].d, xAt(i), size.height - bPad + 5);
-    }
-    if ((n - 1) % step != 0) {
-      _lbl(canvas, data[n - 1].d, xAt(n - 1), size.height - bPad + 5);
-    }
-  }
-
-  void _drawTooltip(Canvas canvas, Size size, double x, double top, double lp,
-      String date, double acwr, Color col) {
-    const tw = 102.0, lh = 13.5, pad = 8.0, fs = 9.0;
-    final h = pad * 2 + 2 * lh;
-    double tx = x + 8;
-    if (tx + tw > size.width) tx = x - tw - 8;
-    if (tx < lp) tx = lp;
-    final ty = top + 2;
-    final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(tx, ty, tw, h), const Radius.circular(7));
-    canvas.drawRRect(rrect, Paint()..color = const Color(0xF0191C22));
-    canvas.drawRRect(rrect, Paint()
-      ..color = col.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8);
-    // Date line
-    final tp0 = TextPainter(
-      text: TextSpan(text: date,
-          style: TextStyle(color: kTextPrimary, fontSize: fs, fontWeight: FontWeight.w700)),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: tw - pad * 2);
-    tp0.paint(canvas, Offset(tx + pad, ty + pad));
-    // ACWR line
-    final tp1 = TextPainter(
-      text: TextSpan(text: 'ACWR  ${acwr.toStringAsFixed(2)}',
-          style: TextStyle(color: col, fontSize: fs)),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: tw - pad * 2);
-    tp1.paint(canvas, Offset(tx + pad, ty + pad + lh));
+    _paintDateLabels(canvas, data, xAt, size.height - bPad + 7);
   }
 
   void _dashH(Canvas c, double x0, double x1, double y, Color col) {
@@ -1221,17 +1235,10 @@ class _AcwrPainter extends CustomPainter {
     }
   }
 
-  void _lbl(Canvas c, String s, double cx, double cy) {
-    final tp = TextPainter(
-      text: TextSpan(text: s, style: TextStyle(color: kGrid, fontSize: 8.5)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(c, Offset(cx - tp.width / 2, cy));
-  }
-
   @override
   bool shouldRepaint(covariant _AcwrPainter old) =>
-      old.data != data || old.selectedIdx != selectedIdx;
+      old.data != data || old.selectedIdx != selectedIdx ||
+      old.lineColor != lineColor || old.contentW != contentW;
 }
 
 // ── Interactive Z-Score Chart ─────────────────────────────────────────────────
@@ -1250,32 +1257,15 @@ class _InteractiveZChartState extends State<_InteractiveZChart> {
 
   @override
   Widget build(BuildContext context) {
-    const lPad = 40.0, slotW = 30.0;
-    final minW = MediaQuery.of(context).size.width - 56.0;
-    final contentW = max(slotW * widget.data.length, minW - lPad);
-    final chartW = contentW + lPad;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: GestureDetector(
-        onTapDown: (d) {
-          final lx = d.localPosition.dx - lPad;
-          if (lx < 0) return;
-          final sl = contentW / widget.data.length;
-          final idx = (lx / sl).round().clamp(0, widget.data.length - 1);
-          setState(() => _sel = _sel == idx ? null : idx);
-        },
-        child: SizedBox(
-          width: chartW,
-          child: CustomPaint(
-            painter: _ZScorePainter(
-              data: widget.data,
-              lineColor: widget.lineColor,
-              selectedIdx: _sel,
-              contentW: contentW,
-            ),
-          ),
-        ),
+    return _ScrollableChart(
+      count: widget.data.length,
+      selected: _sel,
+      onSelect: (i) => setState(() => _sel = i),
+      painter: (contentW) => _ZScorePainter(
+        data: widget.data,
+        lineColor: widget.lineColor,
+        selectedIdx: _sel,
+        contentW: contentW,
       ),
     );
   }
@@ -1305,63 +1295,39 @@ class _ZScorePainter extends CustomPainter {
 
     // Flagged zone bands (|z| > 2)
     canvas.drawRect(Rect.fromLTRB(lp, yAt(vMax), size.width, yAt(2.0)),
-        Paint()..color = kDanger.withValues(alpha: 0.08));
+        Paint()..color = kDanger.withValues(alpha: 0.06));
     canvas.drawRect(Rect.fromLTRB(lp, yAt(-2.0), size.width, yAt(vMin)),
-        Paint()..color = kDanger.withValues(alpha: 0.08));
+        Paint()..color = kDanger.withValues(alpha: 0.06));
     // Normal band
     canvas.drawRect(Rect.fromLTRB(lp, yAt(2.0), size.width, yAt(-2.0)),
-        Paint()..color = kSuccess.withValues(alpha: 0.05));
+        Paint()..color = kSuccess.withValues(alpha: 0.04));
 
-    // Y-axis line
-    canvas.drawLine(Offset(lp, tPad - 4), Offset(lp, tPad + chartH),
-        Paint()..color = const Color(0xFF3A3F52)..strokeWidth = 0.8);
-
-    // Y-axis labels + grid
+    // Gridlines + Y-axis labels; the ±2 flag thresholds in the danger colour
     for (final v in [-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0]) {
       final y = yAt(v);
       if (y < tPad || y > tPad + chartH) continue;
       final isThreshold = v == 2.0 || v == -2.0;
       canvas.drawLine(Offset(lp, y), Offset(size.width, y),
-          Paint()
-            ..color = isThreshold
-                ? kDanger.withValues(alpha: 0.35)
-                : kTextPrimary.withValues(alpha: 0.08)
-            ..strokeWidth = isThreshold ? 0.8 : 0.5
-            ..strokeJoin = StrokeJoin.round);
-      final tp = TextPainter(
-        text: TextSpan(
-            text: v == 0.0 ? '0' : v.toStringAsFixed(0),
-            style: TextStyle(
-              color: isThreshold ? kDanger.withValues(alpha: 0.7) : kGrid,
-              fontSize: 8,
-              fontWeight: isThreshold ? FontWeight.w700 : FontWeight.normal,
-            )),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(lp - 4 - tp.width, y - tp.height / 2));
+          isThreshold
+              ? (Paint()..color = kDanger.withValues(alpha: 0.45)..strokeWidth = 0.8)
+              : _kGridPaint);
+      final tp = _layoutText(v == 0.0 ? '0' : v.toStringAsFixed(0), _kAxis);
+      tp.paint(canvas, Offset(lp - 6 - tp.width, y - tp.height / 2));
     }
 
     // Zero line
     canvas.drawLine(Offset(lp, yAt(0)), Offset(size.width, yAt(0)),
-        Paint()..color = kTextPrimary.withValues(alpha: 0.2)..strokeWidth = 0.8);
+        Paint()..color = kBorderBright..strokeWidth = 0.8);
 
     final vals = data.map((d) => d.z.clamp(vMin, vMax)).toList();
     final pts  = List.generate(n, (i) => Offset(xAt(i), yAt(vals[i])));
 
     Color ptColor(double z) => z.abs() > 2 ? kDanger : kSuccess;
 
-    // Build Catmull-Rom spline path
-    final linePath = Path()..moveTo(pts[0].dx, pts[0].dy);
-    for (int i = 0; i < n - 1; i++) {
-      final p0 = i > 0 ? pts[i - 1] : pts[0];
-      final p1 = pts[i], p2 = pts[i + 1];
-      final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-      final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-      final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-      linePath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
-    }
+    // Catmull-Rom spline path
+    final linePath = _smoothPath(pts);
 
-    // Area fill above/below zero
+    // Flat washes above / below zero
     final zeroY = yAt(0);
     final fillAbove = Path.from(linePath)
       ..lineTo(pts.last.dx, zeroY)
@@ -1369,11 +1335,7 @@ class _ZScorePainter extends CustomPainter {
       ..close();
     canvas.save();
     canvas.clipRect(Rect.fromLTRB(lp, tPad, size.width, zeroY));
-    canvas.drawPath(fillAbove, Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter, end: Alignment.bottomCenter,
-        colors: [lineColor.withValues(alpha: 0.30), lineColor.withValues(alpha: 0.0)],
-      ).createShader(Rect.fromLTWH(lp, tPad, contentW, zeroY - tPad)));
+    canvas.drawPath(fillAbove, Paint()..color = lineColor.withValues(alpha: 0.10));
     canvas.restore();
 
     final fillBelow = Path.from(linePath)
@@ -1382,24 +1344,13 @@ class _ZScorePainter extends CustomPainter {
       ..close();
     canvas.save();
     canvas.clipRect(Rect.fromLTRB(lp, zeroY, size.width, tPad + chartH));
-    canvas.drawPath(fillBelow, Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.bottomCenter, end: Alignment.topCenter,
-        colors: [kDanger.withValues(alpha: 0.20), kDanger.withValues(alpha: 0.0)],
-      ).createShader(Rect.fromLTWH(lp, zeroY, contentW, tPad + chartH - zeroY)));
+    canvas.drawPath(fillBelow, Paint()..color = kDanger.withValues(alpha: 0.08));
     canvas.restore();
 
-    // Draw the line, colour-coded per segment
+    // The line, colour-coded per segment
     for (int i = 0; i < n - 1; i++) {
-      final p0 = i > 0 ? pts[i - 1] : pts[0];
-      final p1 = pts[i], p2 = pts[i + 1];
-      final p3 = i < n - 2 ? pts[i + 2] : pts[n - 1];
-      final cp1 = Offset(p1.dx + (p2.dx - p0.dx) / 6, p1.dy + (p2.dy - p0.dy) / 6);
-      final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
-      final seg = Path()..moveTo(p1.dx, p1.dy)
-          ..cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
       final midZ = (vals[i] + vals[i + 1]) / 2;
-      canvas.drawPath(seg, Paint()
+      canvas.drawPath(_smoothSegment(pts, i), Paint()
         ..color = ptColor(midZ)
         ..strokeWidth = 2.0
         ..style = PaintingStyle.stroke
@@ -1408,18 +1359,11 @@ class _ZScorePainter extends CustomPainter {
 
     // Dots
     for (int i = 0; i < n; i++) {
-      final isSelected = selectedIdx == i;
       final col = ptColor(vals[i]);
-      if (isSelected) {
-        canvas.drawCircle(pts[i], 6.0, Paint()..color = col.withValues(alpha: 0.2));
-        canvas.drawCircle(pts[i], 4.0, Paint()..color = kTextPrimary);
-        canvas.drawCircle(pts[i], 4.0, Paint()..color = col..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      if (selectedIdx == i) {
+        _paintSelectedDot(canvas, pts[i], col);
       } else {
         canvas.drawCircle(pts[i], 2.5, Paint()..color = col);
-        canvas.drawCircle(pts[i], 2.5, Paint()
-          ..color = kTextPrimary.withValues(alpha: 0.2)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.8);
       }
     }
 
@@ -1428,135 +1372,118 @@ class _ZScorePainter extends CustomPainter {
       final si = selectedIdx!;
       final x = xAt(si);
       canvas.drawLine(Offset(x, tPad), Offset(x, tPad + chartH),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.13)..strokeWidth = 1);
+          Paint()..color = kBorderBright..strokeWidth = 1);
+      final z = data[si].z;
       final col = ptColor(vals[si]);
-      _drawTooltip(canvas, size, x, tPad, lp, data[si].d, data[si].z, col);
+      _paintTooltip(canvas, size, x, tPad, lp, data[si].d, [
+        ('Z-score', z.toStringAsFixed(2), null),
+        ('', z.abs() > 2 ? 'Flagged' : 'Normal', col),
+      ]);
     }
 
     // Date labels
-    final step = n > 20 ? 5 : (n > 10 ? 3 : 2);
-    for (int i = 0; i < n; i += step) {
-      _lbl(canvas, data[i].d, xAt(i), size.height - bPad + 5);
-    }
-    if ((n - 1) % step != 0) {
-      _lbl(canvas, data[n - 1].d, xAt(n - 1), size.height - bPad + 5);
-    }
-  }
-
-  void _drawTooltip(Canvas canvas, Size size, double x, double top, double lp,
-      String date, double z, Color col) {
-    const tw = 110.0, lh = 13.5, pad = 8.0, fs = 9.0;
-    final h = pad * 2 + 3 * lh;
-    double tx = x + 8;
-    if (tx + tw > size.width) tx = x - tw - 8;
-    if (tx < lp) tx = lp;
-    final ty = top + 2;
-    final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(tx, ty, tw, h), const Radius.circular(7));
-    canvas.drawRRect(rrect, Paint()..color = const Color(0xF0191C22));
-    canvas.drawRRect(rrect, Paint()
-      ..color = col.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8);
-    for (final (i, text, bold) in [
-      (0, date, true),
-      (1, 'Z-Score  ${z.toStringAsFixed(2)}', false),
-      (2, z.abs() > 2 ? '⚠ Flagged' : '✓ Normal', false),
-    ]) {
-      final tp = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: TextStyle(
-            color: bold ? kTextPrimary : (i == 2 ? col : const Color(0xFF878CA8)),
-            fontSize: fs,
-            fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: tw - pad * 2);
-      tp.paint(canvas, Offset(tx + pad, ty + pad + i * lh));
-    }
-  }
-
-  void _lbl(Canvas c, String s, double cx, double cy) {
-    final tp = TextPainter(
-      text: TextSpan(text: s, style: TextStyle(color: kGrid, fontSize: 8.5)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(c, Offset(cx - tp.width / 2, cy));
+    _paintDateLabels(canvas, data, xAt, size.height - bPad + 7);
   }
 
   @override
   bool shouldRepaint(covariant _ZScorePainter old) =>
-      old.data != data || old.selectedIdx != selectedIdx;
+      old.data != data || old.selectedIdx != selectedIdx ||
+      old.lineColor != lineColor || old.contentW != contentW;
 }
 
-// ── Session Log Row ───────────────────────────────────────────────────────────
+// ── Session Log ───────────────────────────────────────────────────────────────
+// A compact table: one header row, then one hairline-separated row per day.
+
+const _kLogFlex = [4, 4, 5, 4, 5, 5, 5]; // Date, Load, Exertion, Acute, Chronic, ACWR, Z
+
+class _SessionHeader extends StatelessWidget {
+  const _SessionHeader();
+
+  static const _labels = ['Date', 'Load', 'Exertion', 'Acute', 'Chronic', 'ACWR', 'Z'];
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          for (int i = 0; i < _labels.length; i++)
+            Expanded(
+              flex: _kLogFlex[i],
+              child: Align(
+                alignment: i == 0 ? Alignment.centerLeft : Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(_labels[i],
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: kTextMuted)),
+                ),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+}
 
 class _SessionRow extends StatelessWidget {
   final WorkPoint pt;
-  final Color color;
-  const _SessionRow({required this.pt, required this.color});
+  const _SessionRow({required this.pt});
 
   @override
   Widget build(BuildContext context) {
     Color acwrCol(double v) {
-      if (v <= 0)   return kTextSecondary;
+      if (v <= 0)   return kTextMuted;
       if (v < 0.8)  return kInfo;
       if (v <= 1.3) return kSuccess;
       if (v <= 1.5) return kWarn;
       return kDanger;
     }
-    final acCol = acwrCol(pt.acwr);
+    final exert = pt.load > 0
+        ? (min(10.0, 2.087 * log(pt.load / 50.0 + 1.0) + 2.0)).toStringAsFixed(1)
+        : '—';
+    final acwr  = pt.acwr <= 0 ? '—' : pt.acwr.toStringAsFixed(2);
+    final flagged = pt.z.abs() > 2;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: kBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: kBorder),
+    return Semantics(
+      label: '${pt.d}: load ${pt.load.toStringAsFixed(0)}, exertion $exert, '
+          'acute ${pt.acute.toStringAsFixed(0)}, chronic ${pt.chronic.toStringAsFixed(0)}, '
+          'ACWR $acwr, Z ${pt.z.toStringAsFixed(2)}${flagged ? ', flagged' : ''}',
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: kBorder, width: 0.6)),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 46, alignment: Alignment.center,
-              child: Text(pt.d,
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: kTextSecondary)),
-            ),
-            Container(width: 1, height: 30, color: kBorder,
-                margin: const EdgeInsets.symmetric(horizontal: 10)),
-            Expanded(
-              child: Row(children: [
-                _stat('Load', pt.load.toStringAsFixed(0), color),
-                _stat('Exertion',
-                    pt.load > 0
-                        ? (min(10.0, 2.087 * log(pt.load / 50.0 + 1.0) + 2.0)).toStringAsFixed(1)
-                        : '—',
-                    Colors.pinkAccent),
-                _stat('Acute', pt.acute.toStringAsFixed(0), kSky),
-                _stat('Chronic', pt.chronic.toStringAsFixed(0), Colors.amberAccent),
-                _stat('ACWR', pt.acwr <= 0 ? '—' : pt.acwr.toStringAsFixed(2), acCol),
-                _stat('Z', pt.z.toStringAsFixed(2),
-                    pt.z.abs() > 2 ? kDanger : kSuccess),
-              ]),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(children: [
+            _cell(0, Text(pt.d,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary))),
+            _cell(1, _num(pt.load.toStringAsFixed(0))),
+            _cell(2, _num(exert)),
+            _cell(3, _num(pt.acute.toStringAsFixed(0))),
+            _cell(4, _num(pt.chronic.toStringAsFixed(0))),
+            _cell(5, _num(acwr, dot: pt.acwr <= 0 ? null : acwrCol(pt.acwr))),
+            _cell(6, _num(pt.z.toStringAsFixed(2), dot: flagged ? kDanger : null)),
+          ]),
         ),
       ),
     );
   }
 
-  Widget _stat(String label, String value, Color c) => Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(label, style: TextStyle(fontSize: 8.5, color: kTextSecondary)),
-        const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: c)),
-      ],
+  Widget _cell(int col, Widget child) => Expanded(
+    flex: _kLogFlex[col],
+    child: Align(
+      alignment: col == 0 ? Alignment.centerLeft : Alignment.centerRight,
+      child: FittedBox(fit: BoxFit.scaleDown, child: child),
     ),
   );
+
+  Widget _num(String value, {Color? dot}) => Row(mainAxisSize: MainAxisSize.min, children: [
+    if (dot != null) ...[_Dot(dot, size: 6), const SizedBox(width: 4)],
+    Text(value,
+        style: const TextStyle(
+          fontSize: 13, fontWeight: FontWeight.w500, color: kTextPrimary, fontFeatures: _kTabular)),
+  ]);
 }
 
 // ── Screen-level empty state ──────────────────────────────────────────────────────
@@ -1566,29 +1493,13 @@ class _WorkloadEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64, height: 64,
-              decoration: BoxDecoration(
-                color: kAccent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(Icons.monitor_heart_rounded, size: 30, color: kAccent),
-            ),
-            const SizedBox(height: 16),
-            Text('No training data yet',
-                style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary)),
-            const SizedBox(height: 8),
-            Text('Log sessions to see your workload stats here.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: kTextSecondary, height: 1.4)),
-          ],
+        padding: EdgeInsets.all(32),
+        child: _EmptyMessage(
+          icon: Icons.monitor_heart_outlined,
+          title: 'No training data yet',
+          hint: 'Log sessions to see your workload stats here.',
         ),
       ),
     );

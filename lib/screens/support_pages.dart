@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
+import '../widgets/common_widgets.dart' show BrandLogo, SectionHeader;
 import 'legal_pages.dart';
 
 const _supportEmail = 'support@solidcoreats.com';
@@ -32,16 +33,15 @@ class HelpCenterPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: _appBar('HELP CENTER'),
+      appBar: _appBar('Help center'),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
         children: [
-          const _SectionLabel('CONTACT'),
-          const SizedBox(height: 8),
+          const _SectionLabel('Contact'),
           _Group(children: [
             _ContactRow(
-              icon: Icons.email_outlined,
-              iconColor: kSky,
+              icon: Icons.mail_outline_rounded,
               label: 'Email support',
               onTap: () => _openEmail(context, subject: 'SolidCore support request'),
             ),
@@ -87,12 +87,12 @@ class _FeedbackPageState extends State<FeedbackPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: _appBar('SEND FEEDBACK'),
+      appBar: _appBar('Send feedback'),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
         children: [
-          const _SectionLabel('TYPE'),
-          const SizedBox(height: 10),
+          const _SectionLabel('Type'),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -102,55 +102,51 @@ class _FeedbackPageState extends State<FeedbackPage> {
             childAspectRatio: 3.2,
             children: List.generate(_types.length, (i) {
               final sel = _selectedType == i;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedType = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: sel ? kAccent.withValues(alpha: 0.12) : kCard,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: sel ? kAccent : kBorder),
+              return Semantics(
+                button: true,
+                selected: sel,
+                child: Material(
+                  color: kCard,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kRadiusSm),
+                    side: BorderSide(color: sel ? kTextPrimary : kBorder, width: sel ? 1 : 0.6),
                   ),
-                  child: Text(
-                    _types[i],
-                    style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600,
-                      color: sel ? kAccent : kTextSecondary,
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () {
+                      if (!sel) hapticSelect();
+                      setState(() => _selectedType = i);
+                    },
+                    child: Center(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 150),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                          color: sel ? kTextPrimary : kTextSecondary,
+                        ),
+                        child: Text(_types[i]),
+                      ),
                     ),
                   ),
                 ),
               );
             }),
           ),
-          const SizedBox(height: 20),
-
-          const _SectionLabel('MESSAGE'),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: kCard, borderRadius: BorderRadius.circular(16), border: Border.all(color: kBorder),
-            ),
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-            child: TextField(
-              controller: _msgCtrl,
-              maxLines: 6,
-              style: TextStyle(color: kTextPrimary, fontSize: 14),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Describe your feedback…',
-                hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
-              ),
-            ),
-          ),
           const SizedBox(height: 24),
 
-          SizedBox(
-            height: 54,
-            child: ElevatedButton(
-              onPressed: _submit,
-              child: const Text('Submit Feedback', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-            ),
+          const _SectionLabel('Message'),
+          TextField(
+            controller: _msgCtrl,
+            maxLines: 6,
+            style: const TextStyle(color: kTextPrimary, fontSize: 16, height: 1.4),
+            decoration: const InputDecoration(hintText: 'Describe your feedback…'),
+          ),
+          const SizedBox(height: 28),
+
+          ElevatedButton(
+            onPressed: () { hapticConfirm(); _submit(); },
+            child: const Text('Submit feedback'),
           ),
         ],
       ),
@@ -170,46 +166,38 @@ class AboutPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: kBg,
-      appBar: _appBar('ABOUT'),
+      appBar: _appBar('About'),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 24, kGutter, 32),
         children: [
           // ── Logo & version ───────────────────────────────────────
-          Center(
+          const Center(
             child: Column(
               children: [
-                Container(
-                  width: 80, height: 80,
-                  decoration: BoxDecoration(
-                    color: kCard,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: kAccent.withValues(alpha: 0.30)),
-                    boxShadow: [BoxShadow(color: kAccent.withValues(alpha: 0.12), blurRadius: 30, spreadRadius: 2)],
-                  ),
-                  child: Icon(Icons.bolt_rounded, size: 38, color: kAccent),
-                ),
-                const SizedBox(height: 16),
-                Text('SolidCore', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
-                const SizedBox(height: 4),
-                Text('Version 1.0.0 (build 1042)', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                BrandLogo(width: 128),
+                SizedBox(height: 12),
+                Text('SolidCore', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4)),
+                SizedBox(height: 4),
+                Text('Version 1.0.0 (build 1042)', style: TextStyle(fontSize: 14, color: kTextSecondary)),
               ],
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 32),
 
           // ── Legal ────────────────────────────────────────────────
           _Group(children: [
-            _ArrowRow(label: 'Terms & Conditions',     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsPage()))),
-            _ArrowRow(label: 'Privacy policy',         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()))),
+            _ArrowRow(label: 'Terms & conditions',    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsPage()))),
+            _ArrowRow(label: 'Privacy policy',        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()))),
             _ArrowRow(label: 'Open source licenses',  onTap: () => snack('Opening licenses…')),
           ]),
-          const SizedBox(height: 28),
+          const SizedBox(height: 32),
 
-          Center(
+          const Center(
             child: Text(
               '© 2026 Tushar Dube.\nAll rights reserved.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.7),
+              style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.6),
             ),
           ),
         ],
@@ -220,22 +208,16 @@ class AboutPage extends StatelessWidget {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
-AppBar _appBar(String title) => AppBar(
-  backgroundColor: kBg,
-  elevation: 0,
-  iconTheme: IconThemeData(color: kTextPrimary),
-  title: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-  bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
-);
+AppBar _appBar(String title) => AppBar(title: Text(title));
 
 class _SectionLabel extends StatelessWidget {
   final String text;
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+    child: SectionHeader(text),
   );
 }
 
@@ -245,16 +227,20 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: kBorder),
+    return Material(
+      color: kCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadius),
+        side: const BorderSide(color: kBorder, width: 0.6),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
-        children: List.generate(children.length, (i) => Column(children: [
-          children[i],
-          if (i < children.length - 1) Divider(height: 1, indent: 16, color: kBorder),
-        ])),
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(height: 0.6, thickness: 0.6, indent: 16, color: kBorder),
+            children[i],
+          ],
+        ],
       ),
     );
   }
@@ -268,14 +254,17 @@ class _ArrowRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
-            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
-          ],
+      onTap: () { hapticSelect(); onTap(); },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 54),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary))),
+              const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
+            ],
+          ),
         ),
       ),
     );
@@ -284,28 +273,26 @@ class _ArrowRow extends StatelessWidget {
 
 class _ContactRow extends StatelessWidget {
   final IconData   icon;
-  final Color      iconColor;
   final String     label;
   final VoidCallback onTap;
-  const _ContactRow({required this.icon, required this.iconColor, required this.label, required this.onTap});
+  const _ContactRow({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, size: 16, color: iconColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary))),
-            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
-          ],
+      onTap: () { hapticSelect(); onTap(); },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 54),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: kTextSecondary),
+              const SizedBox(width: 14),
+              Expanded(child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary))),
+              const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
+            ],
+          ),
         ),
       ),
     );

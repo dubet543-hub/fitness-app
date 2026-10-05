@@ -150,251 +150,170 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08080F),
+      backgroundColor: kBg,
       resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-
-          // ── Background bloom ─────────────────────────────────────────────
-          Positioned(
-            top: -80, left: 0, right: 0,
-            height: 460,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -0.2),
-                  radius: 0.85,
-                  colors: [
-                    kAccent.withValues(alpha: 0.20),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(kGutter, 24, kGutter, 32),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 28),
-
-                  // ── Logo ─────────────────────────────────────────────────
-                  Center(
-                    child: BrandLogo(width: 190),
+                  const _AuthHeader(
+                    title: 'Welcome back',
+                    subtitle: 'Sign in to your account',
                   ),
-                  const SizedBox(height: 34),
+                  const SizedBox(height: 32),
 
-                  _buildForm(),
-                  const SizedBox(height: 18),
-                  if (widget.onCreateAccount != null)
+                  ..._buildForm(),
+
+                  if (widget.onCreateAccount != null) ...[
+                    const SizedBox(height: 16),
                     Center(
                       child: TextButton(
                         onPressed: widget.onCreateAccount,
-                        child: RichText(
-                          text: TextSpan(
-                            style: TextStyle(fontSize: 13, color: kTextSecondary),
+                        child: const Text.rich(
+                          TextSpan(
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: kTextSecondary),
                             children: [
-                              const TextSpan(text: "Don't have an account?  "),
+                              TextSpan(text: "Don't have an account? "),
                               TextSpan(
                                 text: 'Create one',
-                                style: TextStyle(color: kAccent, fontWeight: FontWeight.w700),
+                                style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.w600),
                               ),
                             ],
                           ),
                         ),
                       ),
                     ),
-
-                  const SizedBox(height: 40),
+                  ],
                 ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildForm() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F0F18),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: kAccent.withValues(alpha: 0.38), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: kAccent.withValues(alpha: 0.13),
-            blurRadius: 30,
-            offset: const Offset(0, 8),
-          ),
-        ],
+  List<Widget> _buildForm() {
+    return [
+      if (_error != null) ...[
+        _ErrorBanner(message: _error!),
+        const SizedBox(height: 20),
+      ],
+
+      const _FieldLabel('Email'),
+      TextField(
+        controller: _emailCtrl,
+        keyboardType: TextInputType.emailAddress,
+        textInputAction: TextInputAction.next,
+        style: _kInputText,
+        decoration: const InputDecoration(hintText: 'you@example.com'),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Welcome back',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
-          ),
-          const SizedBox(height: 4),
-          Text('Sign in to your account', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-          const SizedBox(height: 24),
+      const SizedBox(height: 16),
 
-          if (_error != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.08),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline_rounded, size: 15, color: Colors.red.shade300),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_error!, style: TextStyle(color: Colors.red.shade300, fontSize: 13))),
-                ],
-              ),
+      const _FieldLabel('Password'),
+      TextField(
+        controller: _passCtrl,
+        obscureText: _obscure,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+        style: _kInputText,
+        decoration: InputDecoration(
+          hintText: '••••••••',
+          suffixIcon: IconButton(
+            tooltip: _obscure ? 'Show password' : 'Hide password',
+            icon: Icon(
+              _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              size: 20, color: kTextSecondary,
             ),
-            const SizedBox(height: 18),
-          ],
-
-          _fieldLabel('EMAIL'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _emailCtrl,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            style: TextStyle(color: kTextPrimary, fontSize: 14),
-            decoration: _inputDecor('you@example.com', Icons.mail_outline_rounded),
+            onPressed: () => setState(() => _obscure = !_obscure),
           ),
-          const SizedBox(height: 16),
-
-          _fieldLabel('PASSWORD'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _passCtrl,
-            obscureText: _obscure,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _submit(),
-            style: TextStyle(color: kTextPrimary, fontSize: 14),
-            decoration: _inputDecor('••••••••', Icons.lock_outline_rounded).copyWith(
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  size: 18, color: kTextSecondary,
-                ),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
+        ),
+      ),
+      if (widget.onOtpSignIn != null)
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: widget.onOtpSignIn,
+            style: TextButton.styleFrom(
+              foregroundColor: kTextSecondary,
+              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
+            child: const Text('Forgot password?'),
           ),
-          if (widget.onOtpSignIn != null)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: widget.onOtpSignIn,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text('Forgot password?',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kAccent)),
-              ),
-            ),
-          const SizedBox(height: 14),
+        )
+      else
+        const SizedBox(height: 10),
+      const SizedBox(height: 4),
 
-          // ── Remember me ───────────────────────────────────────────
-          GestureDetector(
-            onTap: () => setState(() => _remember = !_remember),
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+      // ── Remember me ───────────────────────────────────────────────────
+      // Same tick box as the consent rows below, so the three read as one group.
+      ConsentTickBox(
+        value: _remember,
+        onChanged: (v) => setState(() => _remember = v),
+        label: const Text(
+          'Remember my email & password',
+          style: TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45),
+        ),
+      ),
+      const SizedBox(height: 4),
+
+      // ── Terms, Privacy & tracking consent ─────────────────────────────
+      // Asked once. After the current version has been accepted the
+      // tick boxes give way to a one-line confirmation.
+      if (_alreadyAgreed)
+        LegalAcceptedNotice(acceptedAt: _agreedAt)
+      else ...[
+        LegalAgreementCheckbox(
+          value: _agreedLegal,
+          onChanged: (v) => setState(() {
+            _agreedLegal = v;
+            if (v) _error = null;
+          }),
+        ),
+        const SizedBox(height: 4),
+        TrackingConsentCheckbox(
+          value: _trackingConsent,
+          onChanged: (v) => setState(() => _trackingConsent = v),
+        ),
+      ],
+      const SizedBox(height: 24),
+
+      SizedBox(
+        height: 52,
+        child: ElevatedButton(
+          onPressed: _loading || !_agreedLegal
+              ? null
+              : () {
+                  hapticConfirm();
+                  _submit();
+                },
+          child: _loading
+              ? const SizedBox(
                   width: 20, height: 20,
-                  decoration: BoxDecoration(
-                    color: _remember ? kAccent : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: _remember ? kAccent : kTextSecondary.withValues(alpha: 0.5),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: _remember
-                      ? Icon(Icons.check_rounded, size: 14, color: kOnAccent)
-                      : null,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Remember my email & password',
-                  style: TextStyle(fontSize: 13, color: kTextSecondary),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Terms, Privacy & tracking consent ─────────────────────
-          // Asked once. After the current version has been accepted the
-          // tick boxes give way to a one-line confirmation.
-          if (_alreadyAgreed)
-            LegalAcceptedNotice(acceptedAt: _agreedAt)
-          else ...[
-            LegalAgreementCheckbox(
-              value: _agreedLegal,
-              onChanged: (v) => setState(() {
-                _agreedLegal = v;
-                if (v) _error = null;
-              }),
-            ),
-            const SizedBox(height: 12),
-            TrackingConsentCheckbox(
-              value: _trackingConsent,
-              onChanged: (v) => setState(() => _trackingConsent = v),
-            ),
-          ],
-          const SizedBox(height: 20),
-
-          SizedBox(
-            height: 54,
-            child: ElevatedButton(
-              onPressed: _loading || !_agreedLegal ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kAccent,
-                disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
-                disabledForegroundColor: kOnAccent.withValues(alpha: 0.5),
-                foregroundColor: kOnAccent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 8,
-                shadowColor: kAccent.withValues(alpha: 0.55),
-              ),
-              child: _loading
-                  ? SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(color: kOnAccent, strokeWidth: 2.5))
-                  : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
-            ),
-          ),
-
-          if (widget.onOtpSignIn != null) ...[
-            const SizedBox(height: 14),
-            Center(
-              child: TextButton(
-                onPressed: widget.onOtpSignIn,
-                child: Text('Or sign in with a one-time code',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAccent)),
-              ),
-            ),
-          ],
-
-          ..._buildSocialSection(),
-        ],
+                  child: CircularProgressIndicator(strokeWidth: 2, color: kTextSecondary),
+                )
+              : const Text('Sign In'),
+        ),
       ),
-    );
+
+      if (widget.onOtpSignIn != null) ...[
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: widget.onOtpSignIn,
+            child: const Text('Or sign in with a one-time code'),
+          ),
+        ),
+      ],
+
+      ..._buildSocialSection(),
+    ];
   }
 
   // ── Google / Apple sign-in ──────────────────────────────────────────────
@@ -407,17 +326,16 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!showGoogle && !_appleAvailable) return const [];
 
     return [
-      const SizedBox(height: 20),
-      Row(children: [
-        Expanded(child: Divider(color: kBorder)),
+      const SizedBox(height: 24),
+      const Row(children: [
+        Expanded(child: Divider(height: 0.6, thickness: 0.6, color: kBorder)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('OR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-              color: kTextMuted, letterSpacing: 1.2)),
+          padding: EdgeInsets.symmetric(horizontal: 14),
+          child: Text('or', style: TextStyle(fontSize: 13, color: kTextMuted)),
         ),
-        Expanded(child: Divider(color: kBorder)),
+        Expanded(child: Divider(height: 0.6, thickness: 0.6, color: kBorder)),
       ]),
-      const SizedBox(height: 16),
+      const SizedBox(height: 24),
       if (showGoogle) ...[
         _SocialButton(
           label: 'Continue with Google',
@@ -426,42 +344,109 @@ class _LoginScreenState extends State<LoginScreen> {
           enabled: _agreedLegal && _socialBusy == null && !_loading,
           onTap: () => _submitSocial(SocialProvider.google),
         ),
-        if (_appleAvailable) const SizedBox(height: 10),
+        if (_appleAvailable) const SizedBox(height: 12),
       ],
       if (_appleAvailable)
         _SocialButton(
           label: 'Continue with Apple',
-          icon: Icon(Icons.apple, size: 21, color: kTextPrimary),
+          icon: const Icon(Icons.apple, size: 22, color: kTextPrimary),
           busy: _socialBusy == SocialProvider.apple,
           enabled: _agreedLegal && _socialBusy == null && !_loading,
           onTap: () => _submitSocial(SocialProvider.apple),
         ),
     ];
   }
+}
 
-  InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
-    prefixIcon: Icon(icon, size: 18, color: kAccent.withValues(alpha: 0.65)),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(13),
-      borderSide: BorderSide(color: kAccent.withValues(alpha: 0.28)),
+const TextStyle _kInputText = TextStyle(color: kTextPrimary, fontSize: 16);
+
+/// Logo, large title and a one-line subtitle — the top of every auth screen.
+class _AuthHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  const _AuthHeader({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const BrandLogo(width: 132),
+        const SizedBox(height: 20),
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary,
+              letterSpacing: -0.6, height: 1.15,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 15, color: kTextSecondary, height: 1.4),
+        ),
+      ],
+    );
+  }
+}
+
+/// Label above a text field.
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary),
     ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(13),
-      borderSide: BorderSide(color: kAccent, width: 1.5),
-    ),
-    filled: true,
-    fillColor: const Color(0xFF0A0A14),
   );
 }
 
-Widget _fieldLabel(String text) => Text(
-  text,
-  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
-);
+/// Inline form error: a neutral card with a red status icon.
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner({required this.message});
 
-/// Outlined provider button, sized and shaped to match the Sign In button.
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          border: Border.all(color: kBorder, width: 0.6),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(Icons.error_outline_rounded, size: 18, color: kDanger),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 14, color: kTextPrimary, height: 1.35),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Neutral outlined provider button, the same height as the Sign In button.
 class _SocialButton extends StatelessWidget {
   final String label;
   final Widget icon;
@@ -482,24 +467,27 @@ class _SocialButton extends StatelessWidget {
     return Opacity(
       opacity: enabled ? 1 : 0.45,
       child: SizedBox(
-        height: 50,
+        height: 52,
         child: OutlinedButton(
           onPressed: enabled ? onTap : null,
-          style: OutlinedButton.styleFrom(
-            backgroundColor: const Color(0xFF0A0A14),
-            side: BorderSide(color: kBorderBright),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
           child: busy
-              ? SizedBox(width: 18, height: 18,
-                  child: CircularProgressIndicator(color: kTextSecondary, strokeWidth: 2.2))
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(color: kTextSecondary, strokeWidth: 2),
+                )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    icon,
+                    SizedBox(width: 22, child: Center(child: icon)),
                     const SizedBox(width: 10),
-                    Text(label, style: TextStyle(fontSize: 14,
-                        fontWeight: FontWeight.w600, color: kTextPrimary)),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: kTextPrimary),
+                      ),
+                    ),
                   ],
                 ),
         ),

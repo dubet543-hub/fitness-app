@@ -8,6 +8,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../api_service.dart';
 import '../core/theme.dart';
 import '../services/entitlements.dart';
+import '../widgets/common_widgets.dart' show SectionHeader;
 import '../widgets/feature_gate.dart' show formatInr;
 
 /// Apple requires digital subscriptions bought inside an iOS app to go
@@ -75,9 +76,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   void _snack(String msg, {bool ok = false}) {
     if (!mounted) return;
+    // The theme's snackbar is light-on-dark; success adds a check mark rather
+    // than a coloured background (which would clash with the dark label).
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: ok ? const Color(0xFF14532D) : null,
+      content: ok
+          ? Row(children: [
+              const Icon(Icons.check_circle_rounded, size: 18, color: kBg),
+              const SizedBox(width: 10),
+              Expanded(child: Text(msg)),
+            ])
+          : Text(msg),
       duration: const Duration(seconds: 4),
     ));
   }
@@ -252,48 +260,44 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: kTextPrimary),
-        title: Text('SUBSCRIPTION',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                color: kTextSecondary, letterSpacing: 1.4)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Subscription')),
       body: _ent == null
           ? Center(
               child: _error == null
-                  ? CircularProgressIndicator(color: kAccent, strokeWidth: 2)
+                  ? const CircularProgressIndicator(strokeWidth: 2)
                   : Padding(
                       padding: const EdgeInsets.all(32),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          const Icon(Icons.error_outline_rounded, size: 40, color: kTextMuted),
+                          const SizedBox(height: 14),
                           Text(_error!,
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: kTextSecondary, fontSize: 13)),
-                          const SizedBox(height: 14),
-                          TextButton(onPressed: _load, child: const Text('Retry')),
+                              style: const TextStyle(color: kTextSecondary, fontSize: 14, height: 1.45)),
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: () { hapticSelect(); _load(); },
+                            child: const Text('Retry'),
+                          ),
                         ],
                       ),
                     ),
             )
           : RefreshIndicator(
               color: kAccent,
+              backgroundColor: kCard,
               onRefresh: _load,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 40),
                 children: [
                   _StatusCard(ent: _ent!),
-                  const SizedBox(height: 24),
-                  Text('PLANS',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                          letterSpacing: 1.4, color: kTextSecondary)),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 28),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+                    child: SectionHeader('Plans'),
+                  ),
                   // Bio Lab is held back from general release (see the
                   // ExploreTab preview gate) — don't sell a plan for a
                   // feature set almost nobody can use yet. Athletes already
@@ -307,40 +311,41 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       anyBusy: _buyingPlan != null,
                       onBuy: () => _buy(plan),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                   ],
                   if (_useAppleIap() && _ent!.appleEnabled) ...[
-                    const SizedBox(height: 4),
                     Center(
                       child: TextButton(
-                        onPressed: () => _iap.restorePurchases(),
-                        child: Text('Restore Purchases',
-                            style: TextStyle(fontSize: 13, color: kAccent)),
+                        onPressed: () { hapticSelect(); _iap.restorePurchases(); },
+                        child: const Text('Restore purchases'),
                       ),
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Text(
-                    // The active provider on this platform, not the generic
-                    // paymentsEnabled flag — otherwise this can claim a
-                    // payment method is available while every Buy button on
-                    // the page above is actually hidden.
-                    !(_useAppleIap() ? _ent!.appleEnabled : _ent!.razorpayEnabled)
-                        ? 'To start, change, or renew a plan, contact your '
-                          'SolidCore administrator or email '
-                          'support@solidcoreats.com. Changing plans never '
-                          'deletes your data.'
-                        : _useAppleIap()
-                            ? 'Payments are processed securely by the App Store. '
-                              'Changing plans never deletes your data — locked '
-                              'features keep all their history, restored the '
-                              'moment you upgrade. For help, email '
-                              'support@solidcoreats.com.'
-                            : 'Payments are processed securely by Razorpay. Changing '
-                              'plans never deletes your data — locked features keep '
-                              'all their history, restored the moment you upgrade. '
-                              'For help, email support@solidcoreats.com.',
-                    style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.55),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      // The active provider on this platform, not the generic
+                      // paymentsEnabled flag — otherwise this can claim a
+                      // payment method is available while every Buy button on
+                      // the page above is actually hidden.
+                      !(_useAppleIap() ? _ent!.appleEnabled : _ent!.razorpayEnabled)
+                          ? 'To start, change, or renew a plan, contact your '
+                            'SolidCore administrator or email '
+                            'support@solidcoreats.com. Changing plans never '
+                            'deletes your data.'
+                          : _useAppleIap()
+                              ? 'Payments are processed securely by the App Store. '
+                                'Changing plans never deletes your data — locked '
+                                'features keep all their history, restored the '
+                                'moment you upgrade. For help, email '
+                                'support@solidcoreats.com.'
+                              : 'Payments are processed securely by Razorpay. Changing '
+                                'plans never deletes your data — locked features keep '
+                                'all their history, restored the moment you upgrade. '
+                                'For help, email support@solidcoreats.com.',
+                      style: const TextStyle(fontSize: 13, color: kTextMuted, height: 1.5),
+                    ),
                   ),
                 ],
               ),
@@ -361,58 +366,58 @@ class _StatusCard extends StatelessWidget {
     final days = ent.daysRemaining;
     final (label, color, detail) = switch (ent.status) {
       'trial' => (
-          'FREE TRIAL', kSky,
+          'Free trial', kInfo,
           'All features unlocked${ent.trialEndsAt != null ? ' until ${_fmt(ent.trialEndsAt!)}' : ''}'
           '${days != null ? ' — $days day${days == 1 ? '' : 's'} left' : ''}. '
           'Buy a plan below any time; it starts right away.',
         ),
       'active' => (
-          ent.planName?.toUpperCase() ?? 'ACTIVE', kAccent,
+          ent.planName ?? 'Active', kSuccess,
           '${ent.complimentary ? 'Complimentary access' : 'Active'}'
           '${ent.expiresAt != null ? ' until ${_fmt(ent.expiresAt!)}' : ''}.',
         ),
       'grace' => (
-          'RENEWAL DUE', kWarn,
+          'Renewal due', kWarn,
           'Your ${ent.planName ?? 'plan'} has expired. Access continues until '
           '${ent.graceEndsAt != null ? _fmt(ent.graceEndsAt!) : 'the grace period ends'} — renew to avoid interruption.',
         ),
-      'suspended' => ('SUSPENDED', kDanger, 'Access is paused. Contact support to restore it.'),
-      'cancelled' => ('CANCELLED', kDanger, 'Your subscription has been cancelled. Your data is retained.'),
-      'expired' => ('EXPIRED', kDanger,
+      'suspended' => ('Suspended', kDanger, 'Access is paused. Contact support to restore it.'),
+      'cancelled' => ('Cancelled', kDanger, 'Your subscription has been cancelled. Your data is retained.'),
+      'expired' => ('Expired', kDanger,
           'Your access has ended. Renew to unlock your data again — nothing has been deleted.'),
-      _ => ('NO SUBSCRIPTION', kTextMuted, 'Choose a plan below to get started.'),
+      _ => ('No subscription', kTextMuted, 'Choose a plan below to get started.'),
     };
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: kCard,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(kRadius),
+        border: Border.all(color: kBorder, width: 0.6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Flexible(
                 child: Text(label,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1, color: color)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600,
+                        color: kTextPrimary, letterSpacing: -0.2)),
               ),
               if (ent.complimentary) ...[
                 const SizedBox(width: 8),
-                Icon(Icons.card_giftcard_rounded, size: 16, color: kViolet),
+                const Icon(Icons.card_giftcard_rounded, size: 18, color: kTextSecondary,
+                    semanticLabel: 'Complimentary'),
               ],
             ],
           ),
-          const SizedBox(height: 10),
-          Text(detail, style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.5)),
+          const SizedBox(height: 8),
+          Text(detail, style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45)),
         ],
       ),
     );
@@ -448,14 +453,21 @@ class _PlanCard extends StatelessWidget {
         ? 'Renew — ${formatInr(plan.priceInr)} for 1 more year'
         : 'Buy for ${formatInr(plan.priceInr)}/year';
 
+    final VoidCallback? onPressed = anyBusy ? null : () { hapticConfirm(); onBuy(); };
+    final Widget buttonChild = busy
+        ? const SizedBox(width: 20, height: 20,
+            child: CircularProgressIndicator(color: kTextPrimary, strokeWidth: 2))
+        : FittedBox(fit: BoxFit.scaleDown, child: Text(buyLabel, maxLines: 1));
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
         color: kCard,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kRadius),
+        // Current plan: a 1px bright outline plus the "Current plan" label.
         border: Border.all(
-          color: isCurrent ? kAccent : kBorder,
-          width: isCurrent ? 1.4 : 1,
+          color: isCurrent ? kTextPrimary : kBorder,
+          width: isCurrent ? 1 : 0.6,
         ),
       ),
       child: Column(
@@ -465,82 +477,65 @@ class _PlanCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(plan.name,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600,
+                        color: kTextPrimary, letterSpacing: -0.2)),
               ),
               if (isCurrent)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                   decoration: BoxDecoration(
-                    color: kAccent.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: kBorderBright, width: 0.6),
                   ),
-                  child: Text('CURRENT',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
-                          letterSpacing: 1, color: kAccent)),
+                  child: const Text('Current plan',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kTextPrimary)),
                 ),
             ],
           ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(formatInr(plan.priceInr),
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kAccent)),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text('/ year', style: TextStyle(fontSize: 12, color: kTextSecondary)),
+          const SizedBox(height: 8),
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: formatInr(plan.priceInr),
+                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700,
+                    color: kTextPrimary, letterSpacing: -1, height: 1.1),
               ),
-            ],
+              const TextSpan(
+                text: '  / year',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondary),
+              ),
+            ]),
           ),
-          const SizedBox(height: 14),
+          if (plan.features.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 0.6, thickness: 0.6, color: kBorder),
+            const SizedBox(height: 14),
+          ],
           for (final f in plan.features)
             Padding(
-              padding: const EdgeInsets.only(bottom: 7),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_circle_rounded, size: 15, color: kAccent.withValues(alpha: 0.8)),
-                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(Icons.check_rounded, size: 18, color: kTextSecondary),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(names[f] ?? f,
-                        style: TextStyle(fontSize: 13, color: kTextPrimary)),
+                        style: const TextStyle(fontSize: 15, color: kTextPrimary, height: 1.3)),
                   ),
                 ],
               ),
             ),
           if (canBuy) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
-              height: 46,
               child: isCurrent
-                  ? OutlinedButton(
-                      onPressed: anyBusy ? null : onBuy,
-                      style: OutlinedButton.styleFrom(
-                        // The card's SizedBox sets the height; the global 18px
-                        // vertical button padding would clip the label inside it.
-                        padding: EdgeInsets.zero,
-                        side: BorderSide(color: kAccent.withValues(alpha: 0.6)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
-                      ),
-                      child: busy
-                          ? SizedBox(width: 18, height: 18,
-                              child: CircularProgressIndicator(color: kAccent, strokeWidth: 2))
-                          : Text(buyLabel,
-                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kAccent)),
-                    )
-                  : ElevatedButton(
-                      onPressed: anyBusy ? null : onBuy,
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.zero, // height comes from the SizedBox
-                        disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
-                      ),
-                      child: busy
-                          ? SizedBox(width: 18, height: 18,
-                              child: CircularProgressIndicator(color: kOnAccent, strokeWidth: 2))
-                          : Text(buyLabel,
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
-                    ),
+                  ? OutlinedButton(onPressed: onPressed, child: buttonChild)
+                  : ElevatedButton(onPressed: onPressed, child: buttonChild),
             ),
           ],
         ],

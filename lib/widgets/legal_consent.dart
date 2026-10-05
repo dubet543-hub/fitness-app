@@ -28,31 +28,37 @@ class ConsentTickBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 20, height: 20,
-              decoration: BoxDecoration(
-                color: value ? kAccent : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: value ? kAccent : kTextSecondary.withValues(alpha: 0.5),
-                  width: 1.5,
+    return Semantics(
+      checked: value,
+      child: InkWell(
+        onTap: () { hapticSelect(); onChanged(!value); },
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 22px box centred on the label's first 14/1.45 line.
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 22, height: 22,
+                decoration: BoxDecoration(
+                  color: value ? kAccent : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: value ? kAccent : kTextMuted,
+                    width: 1.5,
+                  ),
                 ),
+                child: value ? const Icon(Icons.check_rounded, size: 16, color: kOnAccent) : null,
               ),
-              child: value ? Icon(Icons.check_rounded, size: 14, color: kOnAccent) : null,
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(padding: const EdgeInsets.only(top: 1), child: label),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(child: label),
-        ],
+        ),
       ),
     );
   }
@@ -92,13 +98,13 @@ class _LegalAgreementCheckboxState extends State<LegalAgreementCheckbox> {
 
   @override
   Widget build(BuildContext context) {
-    final link = TextStyle(color: kAccent, fontWeight: FontWeight.w700);
+    const link = TextStyle(color: kAccent, fontWeight: FontWeight.w600);
     return ConsentTickBox(
       value: widget.value,
       onChanged: widget.onChanged,
       label: RichText(
         text: TextSpan(
-          style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.45),
+          style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45),
           children: [
             const TextSpan(text: 'I have read and agree to the '),
             TextSpan(text: 'Terms & Conditions', style: link, recognizer: _terms),
@@ -125,17 +131,17 @@ class TrackingConsentCheckbox extends StatelessWidget {
     return ConsentTickBox(
       value: value,
       onChanged: onChanged,
-      label: Column(
+      label: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'I agree to SolidCore recording my physical metrics, sleep, and fatigue.',
-            style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.45),
+            style: TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45),
           ),
-          const SizedBox(height: 3),
+          SizedBox(height: 3),
           Text(
             'Optional. You can change this any time in Privacy & Security.',
-            style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.35),
+            style: TextStyle(fontSize: 13, color: kTextMuted, height: 1.4),
           ),
         ],
       ),
@@ -181,16 +187,19 @@ class _LegalAcceptedNoticeState extends State<LegalAcceptedNotice> {
   @override
   Widget build(BuildContext context) {
     final at = widget.acceptedAt;
-    final link = TextStyle(color: kAccent, fontWeight: FontWeight.w700);
+    const link = TextStyle(color: kAccent, fontWeight: FontWeight.w600);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.verified_outlined, size: 16, color: kAccent),
+        const Padding(
+          padding: EdgeInsets.only(top: 1),
+          child: Icon(Icons.verified_outlined, size: 16, color: kSuccess),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: RichText(
             text: TextSpan(
-              style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.45),
+              style: const TextStyle(fontSize: 13, color: kTextSecondary, height: 1.4),
               children: [
                 TextSpan(text: at == null ? 'Accepted — ' : 'Accepted on ${_fmt(at)} — '),
                 TextSpan(text: 'Terms', style: link, recognizer: _terms),

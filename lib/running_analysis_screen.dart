@@ -583,9 +583,9 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
 
   Widget _gatedBody(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBg,
       appBar: AppBar(
-        title: const Text("Running Analysis"),
-        centerTitle: true,
+        title: const Text("Running analysis"),
       ),
       body: _phase == _AnalysisPhase.setup
           ? _buildSetupPhase()
@@ -607,60 +607,56 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
         onRetry: _retryCamera,
       );
     }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 20),
-          Icon(Icons.directions_run, size: 60, color: kSuccess),
-          const SizedBox(height: 20),
-          const Text(
-            "Running Form Analysis",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 12, kGutter, 24),
+      children: [
+        Semantics(
+          header: true,
+          child: const Text(
+            "Running form analysis",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4),
           ),
-          const SizedBox(height: 12),
-          Text(
-            "Record a 10-second running session from the side view",
-            style: TextStyle(fontSize: 14, color: kTextSecondary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 30),
-          _buildInstructionCard(
-            icon: Icons.videocam,
-            title: "Camera Setup",
-            items: [
-              "Position phone at hip height",
-              "Film from the side (perpendicular to running path)",
-              "Ensure full body is visible",
-              "Good lighting is essential",
-            ],
-          ),
-          const SizedBox(height: 14),
-          _buildInstructionCard(
-            icon: Icons.directions_run,
-            title: "Running Tips",
-            items: [
-              "Run at steady, comfortable pace",
-              "Maintain natural running form",
-              "Record 8-10 strides for analysis",
-              "Clear background works best",
-            ],
-          ),
-          const SizedBox(height: 30),
-          ElevatedButton.icon(
-            onPressed: _controller == null ? null : _startRecording,
-            icon: const Icon(Icons.camera_alt),
-            label: const Text("Start Recording"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kSuccess,
-              foregroundColor: kOnAccent,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          "Record a 10-second running session from the side view",
+          style: TextStyle(fontSize: 15, color: kTextSecondary, height: 1.4),
+        ),
+        const SizedBox(height: 24),
+        _buildInstructionCard(
+          icon: Icons.videocam_outlined,
+          title: "Camera setup",
+          items: [
+            "Position phone at hip height",
+            "Film from the side (perpendicular to running path)",
+            "Ensure full body is visible",
+            "Good lighting is essential",
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildInstructionCard(
+          icon: Icons.directions_run_rounded,
+          title: "Running tips",
+          items: [
+            "Run at steady, comfortable pace",
+            "Maintain natural running form",
+            "Record 8-10 strides for analysis",
+            "Clear background works best",
+          ],
+        ),
+        const SizedBox(height: 28),
+        ElevatedButton.icon(
+          onPressed: _controller == null
+              ? null
+              : () {
+                  hapticConfirm();
+                  _startRecording();
+                },
+          icon: const Icon(Icons.camera_alt_outlined, size: 20),
+          label: const Text("Start recording"),
+        ),
+      ],
     );
   }
 
@@ -670,25 +666,25 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     required List<String> items,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
       decoration: BoxDecoration(
-        color: kTextPrimary.withValues(alpha: 0.05),
-        border: Border.all(color: kBorder),
-        borderRadius: BorderRadius.circular(12),
+        color: kCard,
+        border: Border.all(color: kBorder, width: 0.6),
+        borderRadius: BorderRadius.circular(kRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: kSuccess, size: 24),
+              Icon(icon, color: kTextSecondary, size: 20),
               const SizedBox(width: 10),
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: kTextSecondary,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: kTextPrimary,
                 ),
               ),
             ],
@@ -697,12 +693,20 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
           ...items.map((item) => Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("• ", style: TextStyle(color: kSuccess)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 8, 12, 0),
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(color: kTextMuted, shape: BoxShape.circle),
+                  ),
+                ),
                 Expanded(
                   child: Text(
                     item,
-                    style: TextStyle(fontSize: 12, color: kTextSecondary),
+                    style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4),
                   ),
                 ),
               ],
@@ -861,11 +865,11 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: kSuccess),
-          const SizedBox(height: 20),
+          const CircularProgressIndicator(strokeWidth: 2),
+          const SizedBox(height: 16),
           Text(
             "Analyzing $_frameCount frames...",
-            style: TextStyle(fontSize: 14, color: kTextSecondary),
+            style: const TextStyle(fontSize: 15, color: kTextSecondary),
           ),
         ],
       ),
@@ -880,139 +884,157 @@ class _RunningAnalysisScreenState extends State<RunningAnalysisScreen> {
     }
 
     final metrics = [
-      ('trunk_lean', 'Trunk Lean', "${_results!.trunkLean.toStringAsFixed(1)}°"),
-      ('knee_drive', 'Knee Drive', "${_results!.kneeDriver.toStringAsFixed(0)}%"),
-      ('hip_drop', 'Hip Drop', "${_results!.hipDrop.toStringAsFixed(1)}%"),
-      ('arm_swing', 'Arm Swing', "${_results!.armSwing.toStringAsFixed(1)}°"),
-      ('head_position', 'Head Position', "${_results!.headPosition.toStringAsFixed(1)}°"),
+      ('trunk_lean', 'Trunk lean', "${_results!.trunkLean.toStringAsFixed(1)}°"),
+      ('knee_drive', 'Knee drive', "${_results!.kneeDriver.toStringAsFixed(0)}%"),
+      ('hip_drop', 'Hip drop', "${_results!.hipDrop.toStringAsFixed(1)}%"),
+      ('arm_swing', 'Arm swing', "${_results!.armSwing.toStringAsFixed(1)}°"),
+      ('head_position', 'Head position', "${_results!.headPosition.toStringAsFixed(1)}°"),
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Overall Score Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  kSuccess.withValues(alpha: 0.3),
-                  kSuccess.withValues(alpha: 0.1),
-                ],
+    final footStatus = _results!.footStrike == 'midfoot' ? 'good' : 'fair';
+    final cadenceStatus =
+        _results!.cadence >= 160 && _results!.cadence <= 180 ? 'good' : 'fair';
+    final footLabel = _results!.footStrike.isEmpty
+        ? _results!.footStrike
+        : '${_results!.footStrike[0].toUpperCase()}${_results!.footStrike.substring(1)}';
+
+    final cards = <Widget>[
+      ...metrics.map((m) {
+        final status = _getMetricStatus(m.$1, double.parse(m.$3.replaceAll(RegExp(r'[^0-9.]'), '')));
+        final feedback = _getMetricFeedback(m.$1, double.parse(m.$3.replaceAll(RegExp(r'[^0-9.]'), '')));
+        return _MetricCard(
+          label: m.$2,
+          value: m.$3,
+          status: status,
+          feedback: feedback,
+          statusColor: _statusColor(status),
+        );
+      }),
+
+      // Foot strike
+      _MetricCard(
+        label: "Foot strike",
+        value: footLabel,
+        status: footStatus,
+        feedback: _getFootStrikeFeedback(_results!.footStrike),
+        statusColor: _statusColor(footStatus),
+      ),
+
+      // Cadence
+      _MetricCard(
+        label: "Estimated cadence",
+        value: "${_results!.cadence.toStringAsFixed(0)} steps/min",
+        status: cadenceStatus,
+        feedback: _getStrikeFeedback(_results!.cadence),
+        statusColor: _statusColor(cadenceStatus),
+      ),
+    ];
+
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 12, kGutter, 24),
+      children: [
+        // Overall score
+        Container(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+          decoration: BoxDecoration(
+            color: kCard,
+            border: Border.all(color: kBorder, width: 0.6),
+            borderRadius: BorderRadius.circular(kRadius),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Overall form score",
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondary),
               ),
-              border: Border.all(color: kSuccess.withValues(alpha: 0.5)),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  "Overall Form Score",
-                  style: TextStyle(fontSize: 14, color: kTextSecondary),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  "${_results!.overallScore.toStringAsFixed(0)}",
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: kSuccess,
+              const SizedBox(height: 6),
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(
+                    text: _results!.overallScore.toStringAsFixed(0),
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary,
+                      letterSpacing: -1.0,
+                      height: 1.05,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _getScoreInterpretation(_results!.overallScore),
-                  style: TextStyle(fontSize: 12, color: kTextSecondary),
-                  textAlign: TextAlign.center,
-                ),
+                  const TextSpan(
+                    text: " /100",
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextSecondary),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _getScoreInterpretation(_results!.overallScore),
+                style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Per-metric breakdown
+        const SectionHeader("Breakdown"),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: kCard,
+            border: Border.all(color: kBorder, width: 0.6),
+            borderRadius: BorderRadius.circular(kRadius),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < cards.length; i++) ...[
+                if (i > 0)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 16),
+                    child: Divider(height: 0.6, thickness: 0.6, color: kBorder),
+                  ),
+                cards[i],
               ],
-            ),
+            ],
           ),
-          const SizedBox(height: 20),
+        ),
+        const SizedBox(height: 16),
 
-          // Metrics Grid
-          ...metrics.map((m) {
-            final status = _getMetricStatus(m.$1, double.parse(m.$3.replaceAll(RegExp(r'[^0-9.]'), '')));
-            final feedback = _getMetricFeedback(m.$1, double.parse(m.$3.replaceAll(RegExp(r'[^0-9.]'), '')));
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _MetricCard(
-                label: m.$2,
-                value: m.$3,
-                status: status,
-                feedback: feedback,
-                statusColor: _statusColor(status),
-              ),
-            );
-          }),
-
-          // Foot Strike Card
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _MetricCard(
-              label: "Foot Strike",
-              value: _results!.footStrike.toUpperCase(),
-              status: _results!.footStrike == 'midfoot' ? 'good' : 'fair',
-              feedback: _getFootStrikeFeedback(_results!.footStrike),
-              statusColor: _statusColor(
-                _results!.footStrike == 'midfoot' ? 'good' : 'fair',
-              ),
-            ),
+        // Consult-specialist advisory
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: kCard,
+            borderRadius: BorderRadius.circular(kRadiusSm),
+            border: Border.all(color: kBorder, width: 0.6),
           ),
-
-          // Cadence Card
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: _MetricCard(
-              label: "Estimated Cadence",
-              value: "${_results!.cadence.toStringAsFixed(0)} steps/min",
-              status: _results!.cadence >= 160 && _results!.cadence <= 180
-                  ? 'good'
-                  : 'fair',
-              feedback: _getStrikeFeedback(_results!.cadence),
-              statusColor: _statusColor(
-                _results!.cadence >= 160 && _results!.cadence <= 180
-                    ? 'good'
-                    : 'fair',
-              ),
-            ),
-          ),
-
-          // Consult-specialist advisory
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: kSuccess.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: kSuccess.withValues(alpha: 0.4)),
-            ),
-            child: Row(children: [
-              Icon(Icons.medical_services_outlined, color: kSuccess, size: 20),
-              const SizedBox(width: 10),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.medical_services_outlined, color: kTextSecondary, size: 20),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'This analysis flags running-form defaults only. Consult a Physiotherapist or SNC coach to address them.',
-                  style: TextStyle(fontSize: 11.5, color: kTextPrimary, height: 1.35),
+                  style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.4),
                 ),
               ),
-            ]),
+            ],
           ),
+        ),
+        const SizedBox(height: 20),
 
-          ElevatedButton.icon(
-            onPressed: _reset,
-            icon: const Icon(Icons.refresh),
-            label: const Text("Analyze Another Run"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kSuccess,
-              foregroundColor: kOnAccent,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
+        ElevatedButton.icon(
+          onPressed: () {
+            hapticConfirm();
+            _reset();
+          },
+          icon: const Icon(Icons.refresh_rounded, size: 20),
+          label: const Text("Analyze another run"),
+        ),
+      ],
     );
   }
 
@@ -1167,43 +1189,54 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.08),
-        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    final statusWord =
+        status.isEmpty ? status : '${status[0].toUpperCase()}${status.substring(1)}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: kTextSecondary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: kTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          statusWord,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-                ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                  ),
+              const SizedBox(width: 12),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: kTextPrimary,
+                  letterSpacing: -0.4,
                 ),
               ),
             ],
@@ -1211,7 +1244,7 @@ class _MetricCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             feedback,
-            style: TextStyle(fontSize: 11, color: kTextSecondary),
+            style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4),
           ),
         ],
       ),

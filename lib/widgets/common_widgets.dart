@@ -23,7 +23,7 @@ class AvatarWidget extends StatelessWidget {
       width: radius * 2, height: radius * 2,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: kAccent.withValues(alpha: 0.5), width: 1.5),
+        border: Border.all(color: kBorderBright, width: 1),
       ),
       child: CircleAvatar(
         radius: radius,
@@ -34,8 +34,8 @@ class AvatarWidget extends StatelessWidget {
                 name.isNotEmpty ? name[0].toUpperCase() : 'U',
                 style: TextStyle(
                   color: kTextPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: radius * 0.65,
+                  fontWeight: FontWeight.w600,
+                  fontSize: radius * 0.62,
                 ),
               )
             : null,
@@ -160,15 +160,16 @@ class SectionHeader extends StatelessWidget {
   const SectionHeader(this.text, {super.key});
 
   @override
-  Widget build(BuildContext context) => Text(
-    text.toUpperCase(),
-    style: TextStyle(
-      fontFamily: kHeadlineFont,
-      fontStyle: FontStyle.italic,
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      color: kTextSecondary,
-      letterSpacing: 1.4,
+  Widget build(BuildContext context) => Semantics(
+    header: true,
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: kTextSecondary,
+        letterSpacing: 0,
+      ),
     ),
   );
 }

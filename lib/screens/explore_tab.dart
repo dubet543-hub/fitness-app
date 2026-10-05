@@ -6,6 +6,7 @@ import '../running_analysis_screen.dart';
 import '../bowling_analysis_screen.dart';
 import '../services/entitlements.dart';
 import '../services/local_log_store.dart';
+import '../widgets/common_widgets.dart';
 import '../widgets/feature_gate.dart';
 
 /// Client-side kill switch: Bio Lab is held back from the general release
@@ -67,44 +68,50 @@ class _ExploreTabState extends State<ExploreTab> {
 
   void _showLockedSheet(DateTime nextAvailable) {
     final daysLeft = nextAvailable.difference(DateTime.now()).inDays + 1;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      backgroundColor: kCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(Icons.lock_clock_rounded, color: kWarn, size: 22),
-              const SizedBox(width: 10),
-              Text('Tool locked', style: TextStyle(color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w800)),
-            ]),
-            const SizedBox(height: 12),
-            Text(
-              'This check runs once every 14 days, so results reflect a real change '
-              'rather than day-to-day noise. It opens again in $daysLeft '
-              '${daysLeft == 1 ? 'day' : 'days'}.',
-              style: TextStyle(color: kTextSecondary, fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kAccent,
-                  foregroundColor: kOnAccent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(kGutter, 10, kGutter, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(color: kBorderBright, borderRadius: BorderRadius.circular(2)),
                 ),
-                child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              const Icon(Icons.lock_clock_outlined, color: kTextSecondary, size: 28),
+              const SizedBox(height: 12),
+              Semantics(
+                header: true,
+                child: const Text(
+                  'Tool locked',
+                  style: TextStyle(color: kTextPrimary, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This check runs once every 14 days, so results reflect a real change '
+                'rather than day-to-day noise. It opens again in $daysLeft '
+                '${daysLeft == 1 ? 'day' : 'days'}.',
+                style: const TextStyle(color: kTextSecondary, fontSize: 15, height: 1.45),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -114,196 +121,158 @@ class _ExploreTabState extends State<ExploreTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text(
-          'BIO LAB',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
-        ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 28),
           children: [
-            // ── Hero header ─────────────────────────────────────
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [kAccent.withValues(alpha: 0.16), kCard],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: kBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 42, height: 42,
-                        decoration: BoxDecoration(
-                          color: kAccent.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        child: Icon(Icons.center_focus_strong_rounded, color: kAccent, size: 23),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Bio Lab',
-                          style: TextStyle(color: kTextPrimary, fontSize: 20, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Camera-based movement & technique analysis. Each tool re-opens 14 days after your last check.',
-                    style: TextStyle(color: kTextSecondary, fontSize: 12, height: 1.45),
-                  ),
-                ],
+            // ── Header ──────────────────────────────────────────
+            Semantics(
+              header: true,
+              child: const Text(
+                'Motion',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.6, height: 1.15),
               ),
             ),
-            const SizedBox(height: 26),
+            const SizedBox(height: 6),
+            const Text(
+              'Camera-based movement and technique analysis. Each tool reopens 14 days after your last check.',
+              style: TextStyle(color: kTextSecondary, fontSize: 15, height: 1.4),
+            ),
+            const SizedBox(height: 28),
 
             // ── Tools ───────────────────────────────────────────
-            const _SectionLabel('ANALYSIS TOOLS'),
-            const SizedBox(height: 14),
+            const SectionHeader('Analysis tools'),
+            const SizedBox(height: 8),
             if (_loading)
               const SizedBox.shrink()
             else if (!_bioLabOpen)
-              const _ComingSoonBanner()
-            else ...[
-              _MotionToolCard(
-                icon: Icons.accessibility_new_rounded,
-                title: 'Posture',
-                subtitle: 'Body alignment & postural symmetry check',
-                tags: const ['Pose AI', 'Alignment'],
-                accentColor: kSky,
-                nextAvailable: _postureNext,
-                locked: _isLocked(_postureNext),
-                onTap: () => _openTool(_postureNext, () => PostureGuideScreen(), FeatureKeys.posture),
+              const _ComingSoonPanel()
+            else
+              _Group(
+                children: [
+                  _MotionToolRow(
+                    icon: Icons.accessibility_new_rounded,
+                    title: 'Posture',
+                    subtitle: 'Body alignment and postural symmetry check',
+                    nextAvailable: _postureNext,
+                    locked: _isLocked(_postureNext),
+                    onTap: () => _openTool(_postureNext, () => PostureGuideScreen(), FeatureKeys.posture),
+                  ),
+                  _MotionToolRow(
+                    icon: Icons.directions_run_rounded,
+                    title: 'Running',
+                    subtitle: 'Gait, cadence and running form analysis',
+                    nextAvailable: _runningNext,
+                    locked: _isLocked(_runningNext),
+                    onTap: () => _openTool(_runningNext, () => const RunningAnalysisScreen(), FeatureKeys.running),
+                  ),
+                  _MotionToolRow(
+                    icon: Icons.sports_cricket_rounded,
+                    title: 'Bowling',
+                    subtitle: 'Fast and spin action biomechanics',
+                    nextAvailable: _bowlingNext,
+                    locked: _isLocked(_bowlingNext),
+                    onTap: () => _openTool(_bowlingNext, () => const BowlingAnalysisScreen(), FeatureKeys.bowling),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              _MotionToolCard(
-                icon: Icons.directions_run_rounded,
-                title: 'Running',
-                subtitle: 'Gait, cadence & running form analysis',
-                tags: const ['Pose AI', 'Gait'],
-                accentColor: kOrange,
-                nextAvailable: _runningNext,
-                locked: _isLocked(_runningNext),
-                onTap: () => _openTool(_runningNext, () => const RunningAnalysisScreen(), FeatureKeys.running),
-              ),
-              const SizedBox(height: 12),
-              _MotionToolCard(
-                icon: Icons.sports_cricket_rounded,
-                title: 'Bowling',
-                subtitle: 'Fast & spin action biomechanics',
-                tags: const ['Pose AI', 'Technique'],
-                accentColor: kSleep,
-                nextAvailable: _bowlingNext,
-                locked: _isLocked(_bowlingNext),
-                onTap: () => _openTool(_bowlingNext, () => const BowlingAnalysisScreen(), FeatureKeys.bowling),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
-
 }
 
-/// Shown instead of the tool cards while Bio Lab is held back from general
-/// release. Same hero visual language as the header above, so it reads as
-/// a teaser rather than an error state.
-class _ComingSoonBanner extends StatelessWidget {
-  const _ComingSoonBanner();
+/// Shown instead of the tool rows while Bio Lab is held back from general
+/// release — a calm teaser panel rather than an error state.
+class _ComingSoonPanel extends StatelessWidget {
+  const _ComingSoonPanel();
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [kSleep.withValues(alpha: 0.20), kCard],
-      ),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: kBorder),
-    ),
+  Widget build(BuildContext context) => const _Panel(
+    padding: EdgeInsets.fromLTRB(18, 18, 18, 20),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                color: kSleep.withValues(alpha: 0.20),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.auto_awesome_rounded, color: kSleep, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Something big is coming',
-                style: TextStyle(color: kTextPrimary, fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
+        Icon(Icons.auto_awesome_outlined, color: kTextSecondary, size: 22),
+        SizedBox(height: 12),
+        Text(
+          'Something big is coming',
+          style: TextStyle(color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.2),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 6),
         Text(
           'Posture, running and bowling analysis are getting a full rebuild — '
           'sharper pose tracking, clearer breakdowns, faster results. '
-          'Bio Lab reopens soon.',
-          style: TextStyle(color: kTextSecondary, fontSize: 12.5, height: 1.5),
+          'These tools reopen soon.',
+          style: TextStyle(color: kTextSecondary, fontSize: 14, height: 1.45),
         ),
       ],
     ),
   );
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+// ── Panel / group ─────────────────────────────────────────────────────────────
+
+class _Panel extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets padding;
+  const _Panel({required this.child, this.padding = const EdgeInsets.all(18)});
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: kCard,
+      borderRadius: BorderRadius.circular(kRadius),
+      border: Border.all(color: kBorder, width: 0.6),
+    ),
+    child: Padding(padding: padding, child: SizedBox(width: double.infinity, child: child)),
   );
 }
 
-class _MotionToolCard extends StatelessWidget {
+/// One card holding a list of rows separated by hairlines inset to the text.
+class _Group extends StatelessWidget {
+  final List<Widget> children;
+  const _Group({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: kCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadius),
+        side: const BorderSide(color: kBorder, width: 0.6),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              const Padding(
+                padding: EdgeInsets.only(left: 54),
+                child: Divider(height: 0.6, thickness: 0.6, color: kBorder),
+              ),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MotionToolRow extends StatelessWidget {
   final IconData     icon;
   final String       title, subtitle;
-  final List<String> tags;
-  final Color        accentColor;
   final VoidCallback onTap;
   final DateTime?    nextAvailable;
   final bool         locked;
 
-  const _MotionToolCard({
+  const _MotionToolRow({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.tags,
-    required this.accentColor,
     required this.onTap,
     this.nextAvailable,
     this.locked = false,
@@ -317,38 +286,23 @@ class _MotionToolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: locked ? kWarn.withValues(alpha: 0.35) : kBorder),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Opacity(
-          opacity: locked ? 0.6 : 1.0,
+    final status = _statusLabel;
+    return Semantics(
+      button: true,
+      label: '$title. $subtitle. $status.',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () { hapticSelect(); onTap(); },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Gradient icon tile
-              Container(
-                width: 52, height: 52,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      accentColor.withValues(alpha: 0.30),
-                      accentColor.withValues(alpha: 0.10),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: accentColor.withValues(alpha: 0.35)),
-                ),
-                child: Icon(locked ? Icons.lock_rounded : icon, color: accentColor, size: 26),
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(icon, size: 22, color: locked ? kTextMuted : kTextSecondary),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,38 +310,30 @@ class _MotionToolCard extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        color: kTextPrimary,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        letterSpacing: 0.3,
+                        color: locked ? kTextSecondary : kTextPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: TextStyle(color: kTextSecondary, fontSize: 11.5, height: 1.3),
+                      style: const TextStyle(color: kTextSecondary, fontSize: 14, height: 1.3),
                     ),
-                    const SizedBox(height: 9),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: tags.map((t) => _Tag(text: t, color: accentColor)).toList(),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(
-                          locked ? Icons.lock_clock_rounded : Icons.check_circle_outline_rounded,
-                          size: 12,
-                          color: locked ? kWarn : kTextMuted,
-                        ),
-                        const SizedBox(width: 4),
+                        if (locked) ...[
+                          const Icon(Icons.lock_clock_outlined, size: 14, color: kWarn),
+                          const SizedBox(width: 5),
+                        ],
                         Text(
-                          _statusLabel,
+                          status,
                           style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: locked ? FontWeight.w700 : FontWeight.w400,
-                            color: locked ? kWarn : kTextMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: locked ? kTextSecondary : kTextMuted,
                           ),
                         ),
                       ],
@@ -396,41 +342,17 @@ class _MotionToolCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 34, height: 34,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
                 child: Icon(
-                  locked ? Icons.lock_outline_rounded : Icons.arrow_forward_rounded,
-                  color: accentColor, size: 18,
+                  locked ? Icons.lock_outline_rounded : Icons.chevron_right_rounded,
+                  size: locked ? 18 : 20,
+                  color: kTextMuted,
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  final String text;
-  final Color color;
-  const _Tag({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 9.5, color: color, fontWeight: FontWeight.w600, letterSpacing: 0.4),
       ),
     );
   }

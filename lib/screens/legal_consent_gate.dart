@@ -51,20 +51,24 @@ class _LegalConsentGateState extends State<LegalConsentGate> {
       backgroundColor: kBg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(kGutter, 24, kGutter, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(child: BrandLogo(width: 160)),
+              const Center(child: BrandLogo(width: 132)),
               const SizedBox(height: 28),
-              Text('Before you continue',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
-                      color: kTextPrimary, letterSpacing: -0.5)),
-              const SizedBox(height: 6),
-              Text(
+              Semantics(
+                header: true,
+                child: const Text('Before you continue',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700,
+                        color: kTextPrimary, letterSpacing: -0.6, height: 1.15)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
                 'We have updated our Terms & Conditions and Privacy Policy. '
                 'Please review and accept them to keep using SolidCore.',
-                style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.5),
+                style: TextStyle(fontSize: 15, color: kTextSecondary, height: 1.45),
               ),
               const SizedBox(height: 24),
 
@@ -72,61 +76,59 @@ class _LegalConsentGateState extends State<LegalConsentGate> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: kCard,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: kBorder),
+                  borderRadius: BorderRadius.circular(kRadius),
+                  border: Border.all(color: kBorder, width: 0.6),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.medical_information_outlined, size: 16, color: kWarn),
-                      const SizedBox(width: 8),
-                      Text('Not medical advice',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                              color: kTextPrimary)),
+                      Icon(Icons.medical_information_outlined, size: 20, color: kTextSecondary),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text('Not medical advice',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
+                                color: kTextPrimary)),
+                      ),
                     ]),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       'SolidCore is a recording and analytical tool for sports '
                       'performance. Its scores, workload ratios, and fatigue '
                       'metrics are not a diagnosis and do not replace advice from '
                       'your physician or physiotherapist, and using it does not '
                       'create a clinician-patient relationship.',
-                      style: TextStyle(fontSize: 12.5, color: kTextSecondary, height: 1.55),
+                      style: TextStyle(fontSize: 14, color: kTextSecondary, height: 1.5),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
 
               LegalAgreementCheckbox(
                 value: _agreedLegal,
                 onChanged: (v) => setState(() => _agreedLegal = v),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
               TrackingConsentCheckbox(
                 value: _trackingConsent,
                 onChanged: (v) => setState(() => _trackingConsent = v),
               ),
-              const SizedBox(height: 26),
+              const SizedBox(height: 24),
 
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _agreedLegal && !_saving ? _accept : null,
-                  style: ElevatedButton.styleFrom(
-                    disabledBackgroundColor: kAccent.withValues(alpha: 0.25),
-                    disabledForegroundColor: kOnAccent.withValues(alpha: 0.5),
-                  ),
-                  child: const Text('Accept & Continue'),
-                ),
+              ElevatedButton(
+                onPressed: _agreedLegal && !_saving ? () { hapticConfirm(); _accept(); } : null,
+                child: _saving
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: kTextPrimary))
+                    : const Text('Accept & Continue'),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Center(
                 child: TextButton(
                   onPressed: _saving ? null : widget.onSignOut,
-                  child: Text('Sign out instead',
-                      style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                  child: const Text('Sign out instead',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kTextSecondary)),
                 ),
               ),
             ],

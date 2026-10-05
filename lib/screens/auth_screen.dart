@@ -149,20 +149,26 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
+/// Shown while the stored session is validated: the mark and a small spinner,
+/// nothing else.
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: kBg,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            BrandLogo(width: 200),
-            const SizedBox(height: 28),
-            CircularProgressIndicator(color: kAccent, strokeWidth: 2),
+            BrandLogo(width: 160),
+            SizedBox(height: 32),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: kTextSecondary),
+            ),
           ],
         ),
       ),

@@ -76,19 +76,12 @@ class _UnitsLanguagePageState extends State<UnitsLanguagePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text('LANGUAGE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: IconThemeData(color: kTextPrimary),
-        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
-      ),
+      appBar: AppBar(title: const Text('Language')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
         children: [
           // ── Language ─────────────────────────────────────────────
-          const _SectionLabel('LANGUAGE'),
-          const SizedBox(height: 8),
           _Group(children: [
             for (final (code, label) in _languages)
               _RadioTile(
@@ -104,33 +97,26 @@ class _UnitsLanguagePageState extends State<UnitsLanguagePage> {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: kTextSecondary),
-  );
-}
-
 class _Group extends StatelessWidget {
   final List<Widget> children;
   const _Group({required this.children});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: kBorder),
+    return Material(
+      color: kCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadius),
+        side: const BorderSide(color: kBorder, width: 0.6),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
-        children: List.generate(children.length, (i) => Column(children: [
-          children[i],
-          if (i < children.length - 1) Divider(height: 1, color: kBorder),
-        ])),
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(height: 0.6, thickness: 0.6, indent: 16, color: kBorder),
+            children[i],
+          ],
+        ],
       ),
     );
   }
@@ -144,28 +130,40 @@ class _RadioTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: TextStyle(fontSize: 14, color: selected ? kTextPrimary : kTextSecondary, fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: kTextSecondary)),
-                ],
-              ),
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: () { if (!selected) hapticSelect(); onTap(); },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary)),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(subtitle, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 22,
+                  child: selected
+                      ? const Icon(Icons.check_rounded, size: 22, color: kAccent)
+                      : null,
+                ),
+              ],
             ),
-            Icon(
-              selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              size: 20,
-              color: selected ? kAccent : kTextMuted,
-            ),
-          ],
+          ),
         ),
       ),
     );

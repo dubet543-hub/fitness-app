@@ -27,7 +27,7 @@ void main() {
 
     // The shell keeps every tab alive in an IndexedStack, so presence alone
     // proves nothing — assert on which one is actually on top.
-    expect(find.text('ACCOUNT'), findsNothing);
+    expect(find.text('Account'), findsNothing);
 
     final avatar = find.descendant(
       of: find.byType(HomeTab),
@@ -39,6 +39,6 @@ void main() {
     await t.pump(const Duration(milliseconds: 400));
 
     // A Profile-only heading is now visible.
-    expect(find.text('ACCOUNT'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
   });
 }

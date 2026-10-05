@@ -67,99 +67,76 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text('PERSONAL INFO', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: IconThemeData(color: kTextPrimary),
+        title: const Text('Personal info'),
         actions: [
           TextButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? 'Saving…' : 'Save',
-                style: TextStyle(color: _saving ? kTextMuted : kAccent, fontWeight: FontWeight.w700, fontSize: 14)),
+            onPressed: _saving ? null : () { hapticConfirm(); _save(); },
+            child: Text(_saving ? 'Saving…' : 'Save'),
           ),
+          const SizedBox(width: 4),
         ],
-        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1, color: kBorder)),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
           children: [
             // ── Avatar ───────────────────────────────────────────
             Center(
-              child: Stack(
-                children: [
-                  Container(
-                    width: 80, height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: kAccent, width: 2),
-                      color: kCard,
-                    ),
-                    child: Center(
-                      child: Text(
-                        _initials,
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary),
-                      ),
-                    ),
+              child: Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: kBorderBright, width: 1),
+                  color: kCard,
+                ),
+                child: Center(
+                  child: Text(
+                    _initials,
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: kTextPrimary, letterSpacing: -0.4),
                   ),
-                  Positioned(
-                    bottom: 0, right: 0,
-                    child: Container(
-                      width: 28, height: 28,
-                      decoration: BoxDecoration(
-                        color: kAccent, shape: BoxShape.circle,
-                        border: Border.all(color: kBg, width: 2),
-                      ),
-                      child: Icon(Icons.camera_alt_rounded, size: 14, color: kOnAccent),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 28),
 
             // ── Fields ───────────────────────────────────────────
-            const _FieldLabel('FIRST NAME'),
-            const SizedBox(height: 6),
+            const _FieldLabel('First name'),
             _FormField(
               controller: _firstNameCtrl,
               hint: 'First name',
               validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
 
-            const _FieldLabel('LAST NAME'),
-            const SizedBox(height: 6),
+            const _FieldLabel('Last name'),
             _FormField(
               controller: _lastNameCtrl,
               hint: 'Last name',
               validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
 
-            const _FieldLabel('EMAIL'),
-            const SizedBox(height: 6),
+            const _FieldLabel('Email'),
             _FormField(
               controller: _emailCtrl,
               hint: 'you@example.com',
               keyboardType: TextInputType.emailAddress,
               enabled: false,
             ),
-            const SizedBox(height: 4),
-            Text('Email can\'t be changed here — contact support to update it.',
-                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
-            const SizedBox(height: 14),
-
-            const SizedBox(height: 28),
-            SizedBox(
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _save,
-                child: const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-              ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text('Email can\'t be changed here — contact support to update it.',
+                  style: TextStyle(fontSize: 13, color: kTextMuted, height: 1.4)),
             ),
+
             const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () { hapticConfirm(); _save(); },
+              child: const Text('Save changes'),
+            ),
           ],
         ),
       ),
@@ -172,9 +149,12 @@ class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary),
+    ),
   );
 }
 
@@ -189,23 +169,21 @@ class _FormField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Filled kCard, radius 12 and hairline borders come from the theme; only
+    // the read-only state is tuned so it reads as clearly non-editable.
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
       enabled: enabled,
-      style: TextStyle(fontSize: 14, color: enabled ? kTextPrimary : kTextMuted),
+      style: TextStyle(fontSize: 16, color: enabled ? kTextPrimary : kTextSecondary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: kTextMuted, fontSize: 14),
-        filled: true,
-        fillColor: enabled ? kCard : kCard.withValues(alpha: 0.5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
-        disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kBorder)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kAccent, width: 1.5)),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: kDanger)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        fillColor: enabled ? kCard : kCardAlt,
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          borderSide: const BorderSide(color: kBorder, width: 0.6),
+        ),
       ),
     );
   }

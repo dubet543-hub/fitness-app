@@ -28,7 +28,7 @@ void main() {
 
     expect(find.byType(NotificationsPage), findsNothing);
 
-    await t.tap(find.byIcon(Icons.notifications_outlined));
+    await t.tap(find.byTooltip('Notifications'));
     await t.pump();                                    // start the route push
     await t.pump(const Duration(milliseconds: 600));   // finish the transition
 

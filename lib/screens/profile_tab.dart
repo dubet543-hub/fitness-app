@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../services/dashboard_metrics.dart';
+import '../widgets/common_widgets.dart' show SectionHeader;
 import 'personal_info_page.dart';
 import 'notifications_page.dart';
 import 'privacy_security_page.dart';
@@ -107,92 +108,89 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text(
-          'PROFILE',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
-        ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(kGutter, 12, kGutter, 32),
           children: [
-            // ── Hero ─────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              child: Row(
-                children: [
-                  Stack(
+            // ── Title ───────────────────────────────────────────────────────
+            Semantics(
+              header: true,
+              child: const Text(
+                'Profile',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.6, height: 1.15),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Identity ────────────────────────────────────────────────────
+            Row(
+              children: [
+                ExcludeSemantics(
+                  child: InkResponse(
+                    onTap: () { hapticSelect(); _goPersonal(); },
+                    radius: 36,
+                    child: _Avatar(initials: _initials, photoUrl: widget.photoUrl),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _Avatar(initials: _initials, photoUrl: widget.photoUrl),
-                      Positioned(
-                        bottom: 0, right: 0,
-                        child: GestureDetector(
-                          onTap: _goPersonal,
-                          child: Container(
-                            width: 26, height: 26,
-                            decoration: BoxDecoration(
-                              color: kAccent,
-                              shape: BoxShape.circle,
-                              border: Border.fromBorderSide(BorderSide(color: kBg, width: 2)),
-                            ),
-                            child: Icon(Icons.edit_rounded, size: 12, color: kOnAccent),
-                          ),
+                      Text(
+                        _name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, color: kTextSecondary),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: kCard,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: kBorder, width: 0.6),
+                        ),
+                        child: const Text(
+                          'Athlete',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: kTextSecondary),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _name,
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(_email, style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: kAccent.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: kAccent.withValues(alpha: 0.25)),
-                          ),
-                          child: Text(
-                            'Athlete',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kAccent, letterSpacing: 0.3),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () { hapticSelect(); _goPersonal(); },
+                  child: const Text('Edit'),
+                ),
+              ],
             ),
+            const SizedBox(height: 20),
 
-            // ── Stats ─────────────────────────────────────────────
+            // ── Stats ───────────────────────────────────────────────────────
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 color: kCard,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: kBorder),
+                borderRadius: BorderRadius.circular(kRadius),
+                border: Border.all(color: kBorder, width: 0.6),
               ),
               child: Row(
                 children: [
                   _StatCell(value: _sessionsStat,  label: 'Sessions'),
-                  Container(width: 1, height: 36, color: kBorder),
+                  const _StatDivider(),
                   _StatCell(value: _thisMonthStat, label: 'This month'),
-                  Container(width: 1, height: 36, color: kBorder),
+                  const _StatDivider(),
                   _StatCell(value: _avgScoreStat,  label: 'Avg score'),
                 ],
               ),
@@ -200,82 +198,61 @@ class _ProfileTabState extends State<ProfileTab> {
 
             const SizedBox(height: 28),
 
-            // ── Account ───────────────────────────────────────────
-            _SectionLabel('ACCOUNT'),
-            const SizedBox(height: 8),
+            // ── Account ─────────────────────────────────────────────────────
+            const _GroupLabel('Account'),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.person_outline_rounded, iconColor: kSky, label: 'Personal info',      onTap: _goPersonal),
-              _MenuItem(icon: Icons.workspace_premium_outlined, iconColor: kAccent, label: 'Subscription',       onTap: () => _go((_) => const SubscriptionPage())),
-              _MenuItem(icon: Icons.notifications_outlined,  iconColor: kWarn, label: 'Notifications',      onTap: () => _go((_) => const NotificationsPage())),
-              _MenuItem(icon: Icons.lock_outline_rounded,    iconColor: kViolet, label: 'Privacy & security', onTap: () => _go((_) => PrivacySecurityPage(onLoggedOut: widget.onLogout))),
+              _MenuItem(icon: Icons.person_outline_rounded,     label: 'Personal info',      onTap: _goPersonal),
+              _MenuItem(icon: Icons.workspace_premium_outlined, label: 'Subscription',       onTap: () => _go((_) => const SubscriptionPage())),
+              _MenuItem(icon: Icons.notifications_none_rounded, label: 'Notifications',      onTap: () => _go((_) => const NotificationsPage())),
+              _MenuItem(icon: Icons.lock_outline_rounded,       label: 'Privacy & security', onTap: () => _go((_) => PrivacySecurityPage(onLoggedOut: widget.onLogout))),
             ]),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Preferences ───────────────────────────────────────
-            _SectionLabel('PREFERENCES'),
-            const SizedBox(height: 8),
+            // ── Preferences ─────────────────────────────────────────────────
+            const _GroupLabel('Preferences'),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.language_rounded,  iconColor: kTextSecondary, label: 'Language', onTap: () => _go((_) => UnitsLanguagePage())),
+              _MenuItem(icon: Icons.language_rounded, label: 'Language', onTap: () => _go((_) => const UnitsLanguagePage())),
             ]),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Support ───────────────────────────────────────────
-            _SectionLabel('SUPPORT'),
-            const SizedBox(height: 8),
+            // ── Support ─────────────────────────────────────────────────────
+            const _GroupLabel('Support'),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.help_outline_rounded,  iconColor: kTextSecondary, label: 'Help center',      onTap: () => _go((_) => HelpCenterPage())),
-              _MenuItem(icon: Icons.feedback_outlined,     iconColor: kTextSecondary, label: 'Send feedback',    onTap: () => _go((_) => FeedbackPage())),
-              _MenuItem(icon: Icons.info_outline_rounded,  iconColor: kTextSecondary, label: 'About SolidCore',  onTap: () => _go((_) => AboutPage())),
+              _MenuItem(icon: Icons.help_outline_rounded, label: 'Help center',     onTap: () => _go((_) => const HelpCenterPage())),
+              _MenuItem(icon: Icons.chat_bubble_outline_rounded, label: 'Send feedback', onTap: () => _go((_) => const FeedbackPage())),
+              _MenuItem(icon: Icons.info_outline_rounded, label: 'About SolidCore', onTap: () => _go((_) => const AboutPage())),
             ]),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Legal ─────────────────────────────────────────────
-            _SectionLabel('LEGAL'),
-            const SizedBox(height: 8),
+            // ── Legal ───────────────────────────────────────────────────────
+            const _GroupLabel('Legal'),
             _MenuGroup(items: [
-              _MenuItem(icon: Icons.description_outlined,   iconColor: kTextSecondary, label: 'Terms & Conditions', onTap: () => _go((_) => const TermsPage())),
-              _MenuItem(icon: Icons.privacy_tip_outlined,   iconColor: kTextSecondary, label: 'Privacy Policy',     onTap: () => _go((_) => const PrivacyPolicyPage())),
+              _MenuItem(icon: Icons.description_outlined, label: 'Terms & conditions', onTap: () => _go((_) => const TermsPage())),
+              _MenuItem(icon: Icons.privacy_tip_outlined, label: 'Privacy policy',     onTap: () => _go((_) => const PrivacyPolicyPage())),
             ]),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 32),
 
-            // ── Sign out ──────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: GestureDetector(
+            // ── Sign out ────────────────────────────────────────────────────
+            _MenuGroup(items: [
+              _MenuItem(
+                icon: Icons.logout_rounded,
+                label: 'Sign out',
+                destructive: true,
                 onTap: widget.onLogout,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                  decoration: BoxDecoration(
-                    color: kCard,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout_rounded, size: 18, color: kDanger),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Sign out',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kDanger),
-                      ),
-                    ],
-                  ),
-                ),
               ),
-            ),
+            ]),
 
-            const SizedBox(height: 16),
-            Center(
+            const SizedBox(height: 20),
+            const Center(
               child: Text(
                 'v1.0.0 · SolidCore AMS',
-                style: TextStyle(fontSize: 11, color: kTextMuted),
+                style: TextStyle(fontSize: 12, color: kTextMuted),
               ),
             ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -296,17 +273,17 @@ class _Avatar extends StatelessWidget {
     final url      = (photoUrl ?? '').trim();
     final hasPhoto = url.isNotEmpty;
     return Container(
-      width: 76, height: 76,
+      width: 64, height: 64,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: kAccent, width: 2),
+        border: Border.all(color: kBorderBright, width: 1),
       ),
       child: CircleAvatar(
-        radius: 38,
+        radius: 32,
         backgroundColor: kCard,
         backgroundImage: hasPhoto ? NetworkImage(url) : null,
         child: !hasPhoto
-            ? Text(initials, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary))
+            ? Text(initials, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: kTextPrimary, letterSpacing: -0.4))
             : null,
       ),
     );
@@ -320,13 +297,14 @@ class _StatCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Semantics(
+        label: '$label $value',
+        excludeSemantics: true,
         child: Column(
           children: [
-            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
+            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.8, height: 1.1)),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
           ],
         ),
       ),
@@ -334,20 +312,23 @@ class _StatCell extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: kTextSecondary),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      Container(width: 0.6, height: 36, color: kBorder);
+}
+
+class _GroupLabel extends StatelessWidget {
+  final String text;
+  const _GroupLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+    child: SectionHeader(text),
+  );
 }
 
 class _MenuGroup extends StatelessWidget {
@@ -356,25 +337,20 @@ class _MenuGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: kBorder),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: List.generate(items.length, (i) {
-            return Column(
-              children: [
-                items[i],
-                if (i < items.length - 1) Divider(height: 1, indent: 54, color: kBorder),
-              ],
-            );
-          }),
-        ),
+    return Material(
+      color: kCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadius),
+        side: const BorderSide(color: kBorder, width: 0.6),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const Divider(height: 0.6, thickness: 0.6, indent: 52, color: kBorder),
+            items[i],
+          ],
+        ],
       ),
     );
   }
@@ -382,34 +358,32 @@ class _MenuGroup extends StatelessWidget {
 
 class _MenuItem extends StatelessWidget {
   final IconData   icon;
-  final Color      iconColor;
   final String     label;
+  final bool       destructive;
   final VoidCallback? onTap;
 
-  const _MenuItem({required this.icon, required this.iconColor, required this.label, this.onTap});
+  const _MenuItem({required this.icon, required this.label, this.destructive = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final fg = destructive ? kDanger : kTextPrimary;
     return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
+      onTap: onTap == null ? null : () { hapticSelect(); onTap!(); },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 54),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: destructive ? kDanger : kTextSecondary),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: fg)),
               ),
-              child: Icon(icon, size: 16, color: iconColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary)),
-            ),
-            Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
-          ],
+              if (!destructive)
+                const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
+            ],
+          ),
         ),
       ),
     );

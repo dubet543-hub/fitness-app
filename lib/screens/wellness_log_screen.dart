@@ -168,7 +168,7 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
       if (mounted) {
         setState(() => _alreadyLogged = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Wellness log saved'), backgroundColor: kSuccess),
+          const SnackBar(content: Text('Wellness log saved')),
         );
         Navigator.of(context).pop();
       }
@@ -198,172 +198,113 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text('WELLNESS LOG', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4)),
-        iconTheme: IconThemeData(color: kTextPrimary),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
+        title: const Text('Wellness log'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 8, kGutter, 40),
         children: [
           // ── Readiness Ratings ───────────────────────────────────────────
-          _SectionHeader(title: 'Daily Readiness', subtitle: '1 = Excellent · 5 = Very Poor'),
+          const _SectionHeader(title: 'Daily readiness', subtitle: '1 = Excellent · 5 = Very poor'),
           const SizedBox(height: 12),
-          _RatingSlider(label: 'Sleep Quality',  value: _sleepScore, onChanged: (v) => setState(() => _sleepScore = v)),
-          _RatingSlider(label: 'Wellness',       value: _wellness,   onChanged: (v) => setState(() => _wellness   = v)),
-          _RatingSlider(label: 'Muscle Soreness',value: _soreness,   onChanged: (v) => setState(() => _soreness   = v)),
-          _RatingSlider(label: 'Fatigue',        value: _fatigue,    onChanged: (v) => setState(() => _fatigue    = v)),
+          _Group(children: [
+            _RatingSlider(label: 'Sleep quality',   value: _sleepScore, onChanged: (v) => setState(() => _sleepScore = v)),
+            _RatingSlider(label: 'Wellness',        value: _wellness,   onChanged: (v) => setState(() => _wellness   = v)),
+            _RatingSlider(label: 'Muscle soreness', value: _soreness,   onChanged: (v) => setState(() => _soreness   = v)),
+            _RatingSlider(label: 'Fatigue',         value: _fatigue,    onChanged: (v) => setState(() => _fatigue    = v)),
+          ]),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           // ── Sleep Details ───────────────────────────────────────────────
-          _SectionHeader(title: 'Sleep Details'),
+          const _SectionHeader(title: 'Sleep details'),
           const SizedBox(height: 12),
 
           // Time to bed / Fell asleep
           Row(
             children: [
               Expanded(child: _TimePickerTile(
-                label: 'Time to Bed',
+                label: 'Time to bed',
                 value: _fmt12(_timeToBed),
                 onTap: () => _pickTime(_SleepClock.bed),
               )),
               const SizedBox(width: 12),
               Expanded(child: _TimePickerTile(
-                label: 'Fell Asleep',
+                label: 'Fell asleep',
                 value: _fmt12(_sleepTime),
                 onTap: () => _pickTime(_SleepClock.asleep),
               )),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           // Wake-up / Out of bed
           Row(
             children: [
               Expanded(child: _TimePickerTile(
-                label: 'Wake-up Time',
+                label: 'Wake-up time',
                 value: _fmt12(_wakeUpTime),
                 onTap: () => _pickTime(_SleepClock.wake),
               )),
               const SizedBox(width: 12),
               Expanded(child: _TimePickerTile(
-                label: 'Out of Bed',
+                label: 'Out of bed',
                 value: _fmt12(_outOfBedTime),
                 onTap: () => _pickTime(_SleepClock.outOfBed),
               )),
             ],
           ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: kCard, borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorder),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.bedtime_outlined, size: 16, color: kTextSecondary),
-                    const SizedBox(width: 8),
-                    Text('Sleep Time', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                    const Spacer(),
-                    Text(formatHhMm(_night.sleepMinutes),
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.king_bed_outlined, size: 16, color: kTextSecondary),
-                    const SizedBox(width: 8),
-                    Text('Time in Bed', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                    const Spacer(),
-                    Text(formatHhMm(_night.timeInBedMinutes),
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.insights_rounded, size: 16, color: kTextSecondary),
-                    const SizedBox(width: 8),
-                    Text('Sleep Efficiency', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                    const Spacer(),
-                    Text('${(_night.efficiency * 100).toStringAsFixed(0)}%',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kAccent)),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 12),
+          // Derived figures (read-only)
+          _Group(children: [
+            _ValueRow(label: 'Sleep time',       value: formatHhMm(_night.sleepMinutes)),
+            _ValueRow(label: 'Time in bed',      value: formatHhMm(_night.timeInBedMinutes)),
+            _ValueRow(label: 'Sleep efficiency', value: '${(_night.efficiency * 100).toStringAsFixed(0)}%'),
+          ]),
           const SizedBox(height: 12),
 
           // Disturbances
           _ToggleTile(
-            label: 'Sleep Disturbances?',
+            label: 'Sleep disturbances?',
             value: _disturbances,
             onChanged: (v) => setState(() => _disturbances = v),
           ),
           if (_disturbances) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _InputField(controller: _disturbanceCtrl, hint: 'Describe disturbance (e.g. Cramps, Noisy)'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _InputField(
               controller: _disturbanceMinutesCtrl,
               hint: 'Minutes awake during disturbance (e.g. 15)',
-              label: 'Time Awake During Disturbance',
+              label: 'Time awake during disturbance',
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
 
           // Room Conditions
-          _SectionLabel('Room Conditions'),
+          const _SectionLabel('Room conditions'),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _InputField(controller: _roomTempCtrl,  hint: 'Temperature (e.g. 20°C)',   label: 'Temp')),
-              const SizedBox(width: 8),
-              Expanded(child: _InputField(controller: _roomNoiseCtrl, hint: 'Noise (e.g. Silent)',       label: 'Noise')),
-              const SizedBox(width: 8),
-              Expanded(child: _InputField(controller: _roomLightCtrl, hint: 'Light (e.g. Pitch Black)',  label: 'Light')),
-            ],
-          ),
+          _Group(children: [
+            _InlineField(controller: _roomTempCtrl,  label: 'Temp',  hint: 'Temperature (e.g. 20°C)'),
+            _InlineField(controller: _roomNoiseCtrl, label: 'Noise', hint: 'Noise (e.g. Silent)'),
+            _InlineField(controller: _roomLightCtrl, label: 'Light', hint: 'Light (e.g. Pitch Black)'),
+          ]),
 
           // ── Extended Questions (when wellness >= 3 OR fatigue >= 3) ────
           if (_showExtended) ...[
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: kAccent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: kAccent.withValues(alpha: 0.30)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 16, color: kAccent),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Wellness or fatigue concern detected — please complete the additional questions below.',
-                      style: TextStyle(fontSize: 12, color: kTextSecondary),
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 32),
+            const _Notice(
+              icon: Icons.info_outline_rounded,
+              iconColor: kTextSecondary,
+              text: 'Wellness or fatigue concern detected — please complete the additional questions below.',
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 28),
 
             // ── Mood Questions ────────────────────────────────────────
-            _SectionHeader(title: 'Mood Assessment'),
-            const SizedBox(height: 12),
+            const _SectionHeader(title: 'Mood assessment'),
+            const SizedBox(height: 16),
 
-            _SectionLabel('1. Current motivation level for training & competition'),
+            const _SectionLabel('1. Current motivation level for training & competition'),
             const SizedBox(height: 8),
             _OptionGroup(
               value: _motivation,
@@ -376,9 +317,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
               },
               onChanged: (v) => setState(() => _motivation = v),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            _SectionLabel('2. Significant changes in appetite recently?'),
+            const _SectionLabel('2. Significant changes in appetite recently?'),
             const SizedBox(height: 8),
             _OptionGroup(
               value: _appetite,
@@ -389,9 +330,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
               },
               onChanged: (v) => setState(() => _appetite = v),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            _SectionLabel('3. External factors impacting your mood? (Select all that apply)'),
+            const _SectionLabel('3. External factors impacting your mood? (Select all that apply)'),
             const SizedBox(height: 8),
             _MultiOptionGroup(
               values: _externalFactors,
@@ -409,9 +350,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
                 _externalFactors.addAll(v);
               }),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            _SectionLabel('4. Do you need to speak with a sports psychologist this week?'),
+            const _SectionLabel('4. Do you need to speak with a sports psychologist this week?'),
             const SizedBox(height: 8),
             _OptionGroup(
               value: _needsPsych,
@@ -423,13 +364,13 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
               },
               onChanged: (v) => setState(() => _needsPsych = v),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             // ── Fatigue Questions ──────────────────────────────────────
-            _SectionHeader(title: 'Fatigue Assessment'),
-            const SizedBox(height: 12),
+            const _SectionHeader(title: 'Fatigue assessment'),
+            const SizedBox(height: 16),
 
-            _SectionLabel('1. Physical symptoms of fatigue you are currently experiencing? (Select all)'),
+            const _SectionLabel('1. Physical symptoms of fatigue you are currently experiencing? (Select all)'),
             const SizedBox(height: 8),
             _MultiOptionGroup(
               values: _fatigueSymptoms,
@@ -448,9 +389,9 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
                 _fatigueSymptoms.addAll(v);
               }),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            _SectionLabel('2. Performance change in recent training / competitions?'),
+            const _SectionLabel('2. Performance change in recent training / competitions?'),
             const SizedBox(height: 8),
             _OptionGroup(
               value: _perfDecrease,
@@ -463,8 +404,8 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
               onChanged: (v) => setState(() => _perfDecrease = v),
             ),
             if (_perfDecrease == 'significant' || _perfDecrease == 'slight') ...[
-              const SizedBox(height: 12),
-              _SectionLabel('3. Describe the nature of the performance decrease:'),
+              const SizedBox(height: 24),
+              const _SectionLabel('3. Describe the nature of the performance decrease:'),
               const SizedBox(height: 8),
               _InputField(
                 controller: _perfDescCtrl,
@@ -476,50 +417,27 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
 
           const SizedBox(height: 32),
           if (_error != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF450A0A),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: kDanger),
-              ),
-              child: Text(_error!, style: TextStyle(color: kDanger, fontSize: 13)),
-            ),
+            _Notice(icon: Icons.error_outline_rounded, iconColor: kDanger, text: _error!),
             const SizedBox(height: 12),
           ],
           if (_alreadyLogged) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: kAccent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kAccent.withValues(alpha: 0.30)),
-              ),
-              child: Row(children: [
-                Icon(Icons.check_circle_rounded, size: 18, color: kAccent),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Recovery already logged today. The next entry unlocks after midnight.',
-                    style: TextStyle(fontSize: 12.5, color: kTextSecondary),
-                  ),
-                ),
-              ]),
+            const _Notice(
+              icon: Icons.check_circle_rounded,
+              iconColor: kSuccess,
+              text: 'Recovery already logged today. The next entry unlocks after midnight.',
             ),
             const SizedBox(height: 12),
           ],
           SizedBox(
             width: double.infinity,
-            height: 54,
+            height: 52,
             child: ElevatedButton(
-              onPressed: (_submitting || _alreadyLogged) ? null : _submit,
+              onPressed: (_submitting || _alreadyLogged) ? null : () { hapticConfirm(); _submit(); },
               child: _submitting
-                  ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: kOnAccent))
-                  : Text(_alreadyLogged ? 'Logged for Today' : 'Save Wellness Log',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kTextSecondary))
+                  : Text(_alreadyLogged ? 'Logged for today' : 'Save wellness log'),
             ),
           ),
-          const SizedBox(height: 32),
         ],
       ),
     );
@@ -528,6 +446,7 @@ class _WellnessLogScreenState extends State<WellnessLogScreen> {
 
 // ── Reusable widgets ─────────────────────────────────────────────────────────
 
+/// Major section title (e.g. "Sleep details") with an optional caption.
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -537,23 +456,86 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.3)),
+      Semantics(
+        header: true,
+        child: Text(title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4)),
+      ),
       if (subtitle != null) ...[
         const SizedBox(height: 2),
-        Text(subtitle!, style: TextStyle(fontSize: 12, color: kTextSecondary)),
+        Text(subtitle!, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
       ],
     ],
   );
 }
 
+/// Label above a group or question: 13 w600 secondary, sentence case.
 class _SectionLabel extends StatelessWidget {
   final String text;
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary, height: 1.35),
+    ),
+  );
+}
+
+/// One flat card holding several rows, separated by hairlines.
+class _Group extends StatelessWidget {
+  final List<Widget> children;
+  final double dividerIndent;
+  const _Group({required this.children, this.dividerIndent = 16});
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: kCard,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(kRadius),
+      side: const BorderSide(color: kBorder, width: 0.6),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (int i = 0; i < children.length; i++) ...[
+          if (i > 0) Divider(height: 0.6, indent: dividerIndent),
+          children[i],
+        ],
+      ],
+    ),
+  );
+}
+
+/// Status / info line: a small coloured icon carries the meaning, the text
+/// stays neutral.
+class _Notice extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String text;
+  const _Notice({required this.icon, required this.iconColor, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    decoration: BoxDecoration(
+      color: kCard,
+      borderRadius: BorderRadius.circular(kRadiusSm),
+      border: Border.all(color: kBorder, width: 0.6),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: iconColor),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(text, style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4)),
+        ),
+      ],
+    ),
   );
 }
 
@@ -563,6 +545,8 @@ class _RatingSlider extends StatelessWidget {
   final ValueChanged<int> onChanged;
   const _RatingSlider({required this.label, required this.value, required this.onChanged});
 
+  // Kept as a small status dot next to the value: green = good, amber =
+  // moderate, red = poor.
   Color get _color {
     if (value <= 2) return kSuccess;
     if (value == 3) return kWarn;
@@ -580,46 +564,40 @@ class _RatingSlider extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    decoration: BoxDecoration(
-      color: kCard, borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorder),
-    ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontSize: 13, color: kTextPrimary, fontWeight: FontWeight.w600)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: _color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-              child: Text('$value — $_label', style: TextStyle(fontSize: 12, color: _color, fontWeight: FontWeight.w700)),
+            Expanded(
+              child: Text(label, style: const TextStyle(fontSize: 16, color: kTextPrimary, fontWeight: FontWeight.w500)),
             ),
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: _color, shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            Text('$value', style: const TextStyle(fontSize: 15, color: kTextPrimary, fontWeight: FontWeight.w700)),
+            Text(' · $_label', style: const TextStyle(fontSize: 14, color: kTextSecondary)),
           ],
         ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: _color,
-            thumbColor: _color,
-            inactiveTrackColor: kBorder,
-            overlayColor: _color.withValues(alpha: 0.12),
-            trackHeight: 4,
-          ),
-          child: Slider(
-            min: 1, max: 5, divisions: 4,
-            value: value.toDouble(),
-            onChanged: (v) => onChanged(v.round()),
-          ),
+        Slider(
+          min: 1, max: 5, divisions: 4,
+          value: value.toDouble(),
+          onChanged: (v) {
+            final next = v.round();
+            if (next != value) hapticSelect();
+            onChanged(next);
+          },
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('1 Excellent', style: TextStyle(fontSize: 10, color: kTextMuted)),
-            Text('5 Very Poor', style: TextStyle(fontSize: 10, color: kTextMuted)),
-          ],
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('1 Excellent', style: TextStyle(fontSize: 12, color: kTextMuted)),
+              Text('5 Very poor', style: TextStyle(fontSize: 12, color: kTextMuted)),
+            ],
+          ),
         ),
       ],
     ),
@@ -633,25 +611,50 @@ class _TimePickerTile extends StatelessWidget {
   const _TimePickerTile({required this.label, required this.value, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorder),
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '$label, $value. Change time',
+    excludeSemantics: true,
+    child: Material(
+      color: kCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        side: const BorderSide(color: kBorder, width: 0.6),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
-          const SizedBox(height: 4),
-          Row(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () { hapticSelect(); onTap(); },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.access_time_rounded, size: 16, color: kAccent),
-              const SizedBox(width: 6),
-              Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kTextPrimary)),
+              Text(label, style: const TextStyle(fontSize: 13, color: kTextSecondary, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: kTextPrimary, letterSpacing: -0.4)),
             ],
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Read-only label / value row inside a [_Group].
+class _ValueRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _ValueRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(minHeight: 52),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 15, color: kTextSecondary))),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kTextPrimary)),
         ],
       ),
     ),
@@ -666,21 +669,21 @@ class _ToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    constraints: const BoxConstraints(minHeight: 56),
+    padding: const EdgeInsets.only(left: 16, right: 8),
     decoration: BoxDecoration(
-      color: kCard, borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorder),
+      color: kCard,
+      borderRadius: BorderRadius.circular(kRadius),
+      border: Border.all(color: kBorder, width: 0.6),
     ),
     child: Row(
       children: [
-        Text(label, style: TextStyle(fontSize: 13, color: kTextPrimary, fontWeight: FontWeight.w600)),
-        const Spacer(),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 16, color: kTextPrimary, fontWeight: FontWeight.w500)),
+        ),
         Switch(
           value: value,
-          onChanged: onChanged,
-          activeThumbColor: kAccent,
-          activeTrackColor: kAccent.withValues(alpha: 0.25),
-          inactiveThumbColor: kTextMuted,
-          inactiveTrackColor: kBorder,
+          onChanged: (v) { hapticSelect(); onChanged(v); },
         ),
       ],
     ),
@@ -704,30 +707,64 @@ class _InputField extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (label != null) ...[
-        Text(label!, style: TextStyle(fontSize: 11, color: kTextSecondary)),
-        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(label!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary)),
+        ),
+        const SizedBox(height: 6),
       ],
       TextField(
         controller: controller,
         maxLines: maxLines,
         keyboardType: keyboardType,
         onChanged: onChanged,
-        style: TextStyle(color: kTextPrimary, fontSize: 13),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: kTextMuted, fontSize: 12),
-          filled: true,
-          fillColor: kCard,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kBorder)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: kAccent)),
-        ),
+        style: const TextStyle(color: kTextPrimary, fontSize: 16),
+        decoration: InputDecoration(hintText: hint),
       ),
     ],
   );
 }
 
+/// Label + borderless text field on one row, for use inside a [_Group].
+class _InlineField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  const _InlineField({required this.controller, required this.label, required this.hint});
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(minHeight: 52),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(label, style: const TextStyle(fontSize: 16, color: kTextPrimary, fontWeight: FontWeight.w500)),
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              style: const TextStyle(color: kTextPrimary, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: hint,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Single-choice list: one card, one row per option, a neutral radio mark on
+/// the left and the selected row in bold.
 class _OptionGroup extends StatelessWidget {
   final String value;
   final Map<String, String> options;
@@ -735,29 +772,15 @@ class _OptionGroup extends StatelessWidget {
   const _OptionGroup({required this.value, required this.options, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => _Group(
+    dividerIndent: 48,
     children: options.entries.map((e) {
       final selected = value == e.key;
-      return GestureDetector(
+      return _OptionRow(
+        text: e.value,
+        selected: selected,
+        icon: selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
         onTap: () => onChanged(e.key),
-        child: Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: BoxDecoration(
-            color: selected ? kAccent.withValues(alpha: 0.12) : kCard,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: selected ? kAccent : kBorder),
-          ),
-          child: Text(
-            e.value,
-            style: TextStyle(
-              fontSize: 13,
-              color: selected ? kAccent : kTextPrimary,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-        ),
       );
     }).toList(),
   );
@@ -770,10 +793,14 @@ class _MultiOptionGroup extends StatelessWidget {
   const _MultiOptionGroup({required this.values, required this.options, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => _Group(
+    dividerIndent: 48,
     children: options.entries.map((e) {
       final selected = values.contains(e.key);
-      return GestureDetector(
+      return _OptionRow(
+        text: e.value,
+        selected: selected,
+        icon: selected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
         onTap: () {
           final updated = Set<String>.from(values);
           if (selected) {
@@ -788,29 +815,38 @@ class _MultiOptionGroup extends StatelessWidget {
           }
           onChanged(updated);
         },
-        child: Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: BoxDecoration(
-            color: selected ? kAccent.withValues(alpha: 0.12) : kCard,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: selected ? kAccent : kBorder),
-          ),
+      );
+    }).toList(),
+  );
+}
+
+class _OptionRow extends StatelessWidget {
+  final String text;
+  final bool selected;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _OptionRow({required this.text, required this.selected, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    button: true,
+    child: InkWell(
+      onTap: () { hapticSelect(); onTap(); },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 50),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
             children: [
-              Icon(
-                selected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                size: 18,
-                color: selected ? kAccent : kTextMuted,
-              ),
-              const SizedBox(width: 10),
+              Icon(icon, size: 20, color: selected ? kTextPrimary : kTextMuted),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  e.value,
+                  text,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: selected ? kAccent : kTextPrimary,
+                    fontSize: 15,
+                    color: kTextPrimary,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
@@ -818,7 +854,7 @@ class _MultiOptionGroup extends StatelessWidget {
             ],
           ),
         ),
-      );
-    }).toList(),
+      ),
+    ),
   );
 }

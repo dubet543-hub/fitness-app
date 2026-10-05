@@ -67,64 +67,81 @@ void showFeatureLockSheet(BuildContext context, String feature) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
-    builder: (ctx) => Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.fromLTRB(22, 26, 22, 18),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Icon(Icons.lock_rounded, size: 34, color: kWarn),
-          const SizedBox(height: 14),
-          Text(
-            '${featureDisplayName(feature)} is locked',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kTextPrimary),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.5),
-          ),
-          if (unlockPlan != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: kAccent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kAccent.withValues(alpha: 0.35)),
-              ),
-              child: Text(
-                'Included in ${unlockPlan.name} — ${formatInr(unlockPlan.priceInr)}/year',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: kAccent),
+    // Size to the content (not the default 9/16 cap) so long messages and
+    // large text settings never overflow on small phones.
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: kBorder, width: 0.6),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(color: kBorderBright, borderRadius: BorderRadius.circular(2)),
               ),
             ),
-          ],
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 48,
-            child: ElevatedButton(
+            const SizedBox(height: 24),
+            const Icon(Icons.lock_outline_rounded, size: 40, color: kTextMuted),
+            const SizedBox(height: 14),
+            Semantics(
+              header: true,
+              child: Text(
+                '${featureDisplayName(feature)} is locked',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.3),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45),
+            ),
+            if (unlockPlan != null) ...[
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: kCard,
+                  borderRadius: BorderRadius.circular(kRadiusSm),
+                  border: Border.all(color: kBorder, width: 0.6),
+                ),
+                child: Text(
+                  'Included in ${unlockPlan.name} — ${formatInr(unlockPlan.priceInr)}/year',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            ElevatedButton(
               onPressed: () {
+                hapticConfirm();
                 Navigator.pop(ctx);
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const SubscriptionPage()));
               },
               child: const Text('View plans'),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Not now', style: TextStyle(color: kTextSecondary, fontSize: 13)),
-          ),
-        ],
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Not now', style: TextStyle(color: kTextSecondary, fontSize: 15, fontWeight: FontWeight.w500)),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -151,9 +168,9 @@ class FeatureGuard extends StatelessWidget {
               )),
       builder: (context, snap) {
         if (!snap.hasData) {
-          return Scaffold(
+          return const Scaffold(
             backgroundColor: kBg,
-            body: Center(child: CircularProgressIndicator(color: kAccent, strokeWidth: 2)),
+            body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           );
         }
         if (snap.data!.has(feature)) return child;
@@ -172,37 +189,37 @@ class _LockedScreen extends StatelessWidget {
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
       backgroundColor: kBg,
-      appBar: canPop
-          ? AppBar(
-              backgroundColor: kBg,
-              elevation: 0,
-              iconTheme: IconThemeData(color: kTextPrimary),
-            )
-          : null,
+      appBar: canPop ? AppBar() : null,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_rounded, size: 44, color: kWarn),
+              const Icon(Icons.lock_outline_rounded, size: 40, color: kTextMuted),
               const SizedBox(height: 16),
-              Text(
-                '${featureDisplayName(feature)} is locked',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kTextPrimary),
+              Semantics(
+                header: true,
+                child: Text(
+                  '${featureDisplayName(feature)} is locked',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary),
+                ),
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'Upgrade your plan to unlock this feature. Your existing data is '
                 'safely retained and will be right here when you do.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.5),
+                style: TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SubscriptionPage())),
+                onPressed: () {
+                  hapticConfirm();
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SubscriptionPage()));
+                },
                 child: const Text('View plans'),
               ),
             ],

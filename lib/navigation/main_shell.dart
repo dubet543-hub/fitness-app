@@ -101,9 +101,9 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-// ── Magic Nav Bar ─────────────────────────────────────────────────────────────
-// Active icon lifts into a floating accent circle with a glowing dot beneath it
-// and a label that slides in — inspired by the "magic navigation" CSS effect.
+// ── Nav bar ───────────────────────────────────────────────────────────────────
+// Minimal tab bar: every tab always shows icon + label, the active tab is
+// bright, and the centre Log button is a plain filled circle. Haptic on change.
 
 class _MagicNavBar extends StatelessWidget {
   final int currentIndex;
@@ -118,47 +118,27 @@ class _MagicNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kSurface,
-        border: Border(top: BorderSide(color: kBorder, width: 0.5)),
+    void select(int i) {
+      if (i != currentIndex) hapticSelect();
+      onTap(i);
+    }
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: kBg,
+        border: Border(top: BorderSide(color: kBorder, width: 0.6)),
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 76,
+          height: 60,
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _MagicTab(
-                active: currentIndex == 0,
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home_rounded,
-                label: 'Home',
-                onTap: () => onTap(0),
-              ),
-              _MagicTab(
-                active: currentIndex == 1,
-                icon: Icons.center_focus_weak_rounded,
-                activeIcon: Icons.center_focus_strong_rounded,
-                label: 'Motion',
-                onTap: () => onTap(1),
-              ),
-              _LogButton(onTap: onLog),
-              _MagicTab(
-                active: currentIndex == 2,
-                icon: Icons.dashboard_outlined,
-                activeIcon: Icons.dashboard_rounded,
-                label: 'Dashboard',
-                onTap: () => onTap(2),
-              ),
-              _MagicTab(
-                active: currentIndex == 3,
-                icon: Icons.person_outline_rounded,
-                activeIcon: Icons.person_rounded,
-                label: 'Profile',
-                onTap: () => onTap(3),
-              ),
+              _MagicTab(active: currentIndex == 0, icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home', onTap: () => select(0)),
+              _MagicTab(active: currentIndex == 1, icon: Icons.center_focus_weak_rounded, activeIcon: Icons.center_focus_strong_rounded, label: 'Motion', onTap: () => select(1)),
+              _LogButton(onTap: () { hapticConfirm(); onLog(); }),
+              _MagicTab(active: currentIndex == 2, icon: Icons.insert_chart_outlined_rounded, activeIcon: Icons.insert_chart_rounded, label: 'Dashboard', onTap: () => select(2)),
+              _MagicTab(active: currentIndex == 3, icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Profile', onTap: () => select(3)),
             ],
           ),
         ),
@@ -181,94 +161,34 @@ class _MagicTab extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _dur   = Duration(milliseconds: 420);
-  static const _curve = Curves.easeOutBack;
-
   @override
   Widget build(BuildContext context) {
+    final color = active ? kTextPrimary : kTextMuted;
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            // Lifting accent circle holding the icon.
-            AnimatedAlign(
-              duration: _dur,
-              curve: _curve,
-              alignment: active ? const Alignment(0, -0.55) : Alignment.center,
-              child: AnimatedContainer(
-                duration: _dur,
-                curve: Curves.easeOut,
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: active ? kAccent : Colors.transparent,
-                  boxShadow: active
-                      ? [
-                          BoxShadow(
-                            color: kAccent.withValues(alpha: 0.45),
-                            blurRadius: 16,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Icon(
-                  active ? activeIcon : icon,
-                  size: 22,
-                  color: active ? kOnAccent : kTextMuted,
-                ),
+      child: Semantics(
+        button: true,
+        selected: active,
+        label: '$label tab',
+        excludeSemantics: true,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 32,
+          highlightShape: BoxShape.circle,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                child: Icon(active ? activeIcon : icon, key: ValueKey(active), size: 24, color: color),
               ),
-            ),
-
-            // Label fades/slides in below the lifted icon.
-            Positioned(
-              bottom: 14,
-              child: AnimatedSlide(
-                duration: _dur,
-                curve: Curves.easeOut,
-                offset: active ? Offset.zero : const Offset(0, 0.6),
-                child: AnimatedOpacity(
-                  duration: _dur,
-                  opacity: active ? 1 : 0,
-                  child: Text(
-                    label.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: kAccent,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 3),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 160),
+                style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: color, letterSpacing: 0),
+                child: Text(label),
               ),
-            ),
-
-            // Glowing dot indicator at the bottom.
-            Positioned(
-              bottom: 6,
-              child: AnimatedContainer(
-                duration: _dur,
-                curve: Curves.easeOut,
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: active ? kAccent : kTextMuted.withValues(alpha: 0.4),
-                  boxShadow: active
-                      ? [
-                          BoxShadow(color: kAccent, blurRadius: 6, spreadRadius: 1),
-                          BoxShadow(color: kAccent.withValues(alpha: 0.6), blurRadius: 14, spreadRadius: 2),
-                        ]
-                      : null,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -276,7 +196,7 @@ class _MagicTab extends StatelessWidget {
 }
 
 // ── Log Menu Sheet ────────────────────────────────────────────────────────────
-// Tapping the centre LOG (+) button opens this picker so the user can choose
+// Tapping the centre Log (+) button opens this picker so the user can choose
 // which kind of entry to log.
 
 class _LogMenuSheet extends StatelessWidget {
@@ -288,63 +208,63 @@ class _LogMenuSheet extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        padding: const EdgeInsets.fromLTRB(6, 8, 6, 6),
         decoration: BoxDecoration(
           color: kSurface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: kBorder, width: 0.5),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: kBorder, width: 0.6),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
             Container(
               width: 36,
               height: 4,
-              decoration: BoxDecoration(
-                color: kTextMuted,
-                borderRadius: BorderRadius.circular(2),
-              ),
+              decoration: BoxDecoration(color: kBorderBright, borderRadius: BorderRadius.circular(2)),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(8, 12, 8, 4),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(14, 14, 14, 6),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  'NEW LOG',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: kTextSecondary,
-                    letterSpacing: 1.4,
-                  ),
-                ),
+                child: Text('New log', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.3)),
               ),
             ),
             _LogMenuItem(
               icon: Icons.fitness_center_rounded,
-              title: 'Training Load Log',
-              subtitle: 'Sessions, RPE & skill workload',
+              title: 'Training load',
+              subtitle: 'Sessions, RPE and skill workload',
               onTap: () => onSelect(FeatureKeys.loadModulation, () => const TrainingLoadScreen()),
             ),
+            const _ItemDivider(),
             _LogMenuItem(
-              icon: Icons.favorite_rounded,
-              title: 'Wellness Log',
-              subtitle: 'Sleep, soreness, fatigue & mood',
+              icon: Icons.favorite_border_rounded,
+              title: 'Wellness',
+              subtitle: 'Sleep, soreness, fatigue and mood',
               onTap: () => onSelect(FeatureKeys.recovery, () => const WellnessLogScreen()),
             ),
+            const _ItemDivider(),
             _LogMenuItem(
-              icon: Icons.monitor_weight_rounded,
-              title: 'Body Composition',
-              subtitle: 'Weight, skinfolds & measurements',
+              icon: Icons.monitor_weight_outlined,
+              title: 'Body composition',
+              subtitle: 'Weight and body measurements',
               onTap: () => onSelect(FeatureKeys.bodyComposition, () => const BodyCompositionScreen()),
             ),
+            const SizedBox(height: 4),
           ],
         ),
       ),
     );
   }
+}
+
+class _ItemDivider extends StatelessWidget {
+  const _ItemDivider();
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.only(left: 64),
+    child: Divider(height: 0.6, color: kBorder),
+  );
 }
 
 class _LogMenuItem extends StatelessWidget {
@@ -361,51 +281,31 @@ class _LogMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: kBorder, width: 0.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: kAccent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () { hapticSelect(); onTap(); },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              SizedBox(width: 36, child: Icon(icon, size: 24, color: kTextPrimary)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kTextPrimary)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+                  ],
+                ),
               ),
-              child: Icon(icon, size: 22, color: kAccent),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: kTextPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 11.5, color: kTextSecondary),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
-          ],
+              const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
+            ],
+          ),
         ),
       ),
     );
@@ -419,38 +319,24 @@ class _LogButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(
-                color: kAccent,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: kAccent.withValues(alpha: 0.40),
-                    blurRadius: 14,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: Icon(Icons.add_rounded, size: 24, color: kOnAccent),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'LOG',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: kAccent,
-                letterSpacing: 0.8,
+      child: Semantics(
+        button: true,
+        label: 'New log',
+        excludeSemantics: true,
+        child: Center(
+          child: Material(
+            color: kAccent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onTap,
+              child: const SizedBox(
+                width: 46,
+                height: 46,
+                child: Icon(Icons.add_rounded, size: 26, color: kOnAccent),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

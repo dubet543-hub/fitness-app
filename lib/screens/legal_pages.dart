@@ -32,35 +32,29 @@ class LegalDocPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: kTextPrimary),
-        title: Text(title,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                color: kTextSecondary, letterSpacing: 1.4)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 12, kGutter, 40),
         children: [
           Text('Effective $effective',
-              style: TextStyle(fontSize: 12, color: kTextMuted)),
-          const SizedBox(height: 20),
+              style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+          const SizedBox(height: 24),
           for (final s in sections) ...[
-            Text(s.heading,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
-                    color: kTextPrimary)),
+            Semantics(
+              header: true,
+              child: Text(s.heading,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600,
+                      color: kTextPrimary, letterSpacing: -0.2, height: 1.3)),
+            ),
             const SizedBox(height: 8),
             Text(s.body,
-                style: TextStyle(fontSize: 13.5, color: kTextSecondary, height: 1.6)),
-            const SizedBox(height: 22),
+                style: const TextStyle(fontSize: 15, color: kTextSecondary, height: 1.55)),
+            const SizedBox(height: 28),
           ],
-          const SizedBox(height: 4),
-          Center(
+          const Divider(height: 0.6, thickness: 0.6, color: kBorder),
+          const SizedBox(height: 20),
+          const Center(
             child: Text('© 2026 Tushar Dube',
                 style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
@@ -77,7 +71,7 @@ class TermsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const LegalDocPage(
-    title: 'TERMS & CONDITIONS',
+    title: 'Terms & conditions',
     effective: kLegalEffective,
     sections: [
       (
@@ -204,7 +198,7 @@ class PrivacyPolicyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const LegalDocPage(
-    title: 'PRIVACY POLICY',
+    title: 'Privacy policy',
     effective: kLegalEffective,
     sections: [
       (

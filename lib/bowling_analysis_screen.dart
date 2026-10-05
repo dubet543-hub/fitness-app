@@ -428,9 +428,9 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
 
   Widget _gatedBody(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBg,
       appBar: AppBar(
-        title: const Text("Bowling Analysis"),
-        centerTitle: true,
+        title: const Text("Bowling analysis"),
       ),
       body: switch (_phase) {
         _Phase.typeSelect => _buildTypeSelect(),
@@ -445,57 +445,51 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   // ── Type Select ───────────────────────────────────────────────────────────
 
   Widget _buildTypeSelect() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-          Icon(Icons.sports_cricket, size: 64, color: kSuccess),
-          const SizedBox(height: 16),
-          const Text(
-            "Select Bowling Type",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 12, kGutter, 24),
+      children: [
+        Semantics(
+          header: true,
+          child: const Text(
+            "Select bowling type",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4),
           ),
-          const SizedBox(height: 6),
-          Text(
-            "Choose the type of bowling to analyse",
-            style: TextStyle(fontSize: 14, color: kTextSecondary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 36),
-          _TypeCard(
-            title: "Fast Bowling",
-            subtitle: "Pace, seam & swing bowlers",
-            icon: Icons.flash_on,
-            color: kWarn,
-            metrics: const [
-              "Trunk Lean",
-              "Arm Arc",
-              "Front Knee",
-              "Head Position",
-              "Shoulder Tilt"
-            ],
-            onTap: () => _selectType(BowlingType.fast),
-          ),
-          const SizedBox(height: 16),
-          _TypeCard(
-            title: "Spin Bowling",
-            subtitle: "Off-spin, leg-spin & left-arm spin",
-            icon: Icons.rotate_right,
-            color: kViolet,
-            metrics: const [
-              "Body Rotation",
-              "Arm Arc",
-              "Pivot Angle",
-              "Head Position",
-              "Release Tilt"
-            ],
-            onTap: () => _selectType(BowlingType.spin),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          "Choose the type of bowling to analyse",
+          style: TextStyle(fontSize: 15, color: kTextSecondary, height: 1.4),
+        ),
+        const SizedBox(height: 24),
+        _TypeCard(
+          title: "Fast bowling",
+          subtitle: "Pace, seam & swing bowlers",
+          icon: Icons.flash_on_rounded,
+          metrics: const [
+            "Trunk lean",
+            "Arm arc",
+            "Front knee",
+            "Head position",
+            "Shoulder tilt"
+          ],
+          onTap: () => _selectType(BowlingType.fast),
+        ),
+        const SizedBox(height: 12),
+        _TypeCard(
+          title: "Spin bowling",
+          subtitle: "Off-spin, leg-spin & left-arm spin",
+          icon: Icons.rotate_right_rounded,
+          metrics: const [
+            "Body rotation",
+            "Arm arc",
+            "Pivot angle",
+            "Head position",
+            "Release tilt"
+          ],
+          onTap: () => _selectType(BowlingType.spin),
+        ),
+      ],
     );
   }
 
@@ -510,93 +504,89 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       );
     }
     final isFast = _bowlingType == BowlingType.fast;
-    final color = isFast ? kWarn : kViolet;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 12),
-          Icon(isFast ? Icons.flash_on : Icons.rotate_right,
-              size: 52, color: color),
-          const SizedBox(height: 10),
-          Text(
-            isFast ? "Fast Bowling Analysis" : "Spin Bowling Analysis",
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 12, kGutter, 24),
+      children: [
+        Semantics(
+          header: true,
+          child: Text(
+            isFast ? "Fast bowling analysis" : "Spin bowling analysis",
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4),
           ),
-          const SizedBox(height: 20),
-          _InfoCard(
-            color: color,
-            icon: Icons.videocam,
-            title: "Camera Setup",
-            items: const [
-              "Place phone on a stable surface at hip height",
-              "Film from the SIDE — perpendicular to run-up",
-              "Full body must be visible in frame",
-              "Good, even lighting is essential",
-            ],
-          ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            color: color,
-            icon: isFast ? Icons.flash_on : Icons.rotate_right,
-            title: isFast ? "Fast Bowling Tips" : "Spin Bowling Tips",
-            items: isFast
-                ? const [
-                    "Bowl at full pace — natural action",
-                    "Complete full delivery + follow-through",
-                    "Record 3–5 deliveries for best accuracy",
-                    "Wear fitted clothing for better detection",
-                  ]
-                : const [
-                    "Bowl with full spinning action",
-                    "Include complete pivot & follow-through",
-                    "Record 3–5 deliveries for best accuracy",
-                    "Wear fitted clothing for better detection",
-                  ],
-          ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            color: kSky,
-            icon: Icons.analytics_outlined,
-            title: "What We Analyse",
-            items: isFast
-                ? const [
-                    "Trunk lean at delivery stride",
-                    "Bowling arm arc & elevation",
-                    "Front knee angle — braced vs collapsed",
-                    "Head position & alignment",
-                    "Shoulder line tilt (side-on vs front-on)",
-                  ]
-                : const [
-                    "Body rotation at delivery",
-                    "Bowling arm arc & elevation",
-                    "Pivot angle & hip drive",
-                    "Head position & alignment",
-                    "Lateral tilt at release",
-                  ],
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _camReady ? _startRecording : null,
-            icon: const Icon(Icons.fiber_manual_record, color: Colors.red),
-            label: const Text("Start Recording"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: kOnAccent,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => setState(() => _phase = _Phase.typeSelect),
-            child: const Text("← Change bowling type"),
-          ),
-          const SizedBox(height: 12),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        const _InfoCard(
+          icon: Icons.videocam_outlined,
+          title: "Camera setup",
+          items: [
+            "Place phone on a stable surface at hip height",
+            "Film from the side — perpendicular to run-up",
+            "Full body must be visible in frame",
+            "Good, even lighting is essential",
+          ],
+        ),
+        const SizedBox(height: 12),
+        _InfoCard(
+          icon: isFast ? Icons.flash_on_rounded : Icons.rotate_right_rounded,
+          title: isFast ? "Fast bowling tips" : "Spin bowling tips",
+          items: isFast
+              ? const [
+                  "Bowl at full pace — natural action",
+                  "Complete full delivery + follow-through",
+                  "Record 3–5 deliveries for best accuracy",
+                  "Wear fitted clothing for better detection",
+                ]
+              : const [
+                  "Bowl with full spinning action",
+                  "Include complete pivot & follow-through",
+                  "Record 3–5 deliveries for best accuracy",
+                  "Wear fitted clothing for better detection",
+                ],
+        ),
+        const SizedBox(height: 12),
+        _InfoCard(
+          icon: Icons.analytics_outlined,
+          title: "What we analyse",
+          items: isFast
+              ? const [
+                  "Trunk lean at delivery stride",
+                  "Bowling arm arc & elevation",
+                  "Front knee angle — braced vs collapsed",
+                  "Head position & alignment",
+                  "Shoulder line tilt (side-on vs front-on)",
+                ]
+              : const [
+                  "Body rotation at delivery",
+                  "Bowling arm arc & elevation",
+                  "Pivot angle & hip drive",
+                  "Head position & alignment",
+                  "Lateral tilt at release",
+                ],
+        ),
+        const SizedBox(height: 28),
+        ElevatedButton.icon(
+          onPressed: _camReady
+              ? () {
+                  hapticConfirm();
+                  _startRecording();
+                }
+              : null,
+          icon: const Icon(Icons.fiber_manual_record_rounded, size: 18),
+          label: const Text("Start recording"),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: () {
+            hapticSelect();
+            setState(() => _phase = _Phase.typeSelect);
+          },
+          style: TextButton.styleFrom(foregroundColor: kTextSecondary),
+          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+          label: const Text("Change bowling type"),
+        ),
+      ],
     );
   }
 
@@ -752,16 +742,16 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: kSuccess),
-          const SizedBox(height: 20),
+          const CircularProgressIndicator(strokeWidth: 2),
+          const SizedBox(height: 16),
           Text(
             "Analysing ${_bowlingType == BowlingType.fast ? 'fast' : 'spin'} bowling action...",
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             "$_frameCount frames captured",
-            style: TextStyle(fontSize: 13, color: kTextSecondary),
+            style: const TextStyle(fontSize: 14, color: kTextSecondary),
           ),
         ],
       ),
@@ -773,109 +763,119 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   Widget _buildResults() {
     final m = _results!;
     final isFast = m.type == BowlingType.fast;
-    final color = isFast ? kWarn : kViolet;
     final overall = _overallFeedback(m);
+    final cards = isFast ? _fastCards(m) : _spinCards(m);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withValues(alpha: 0.4)),
-            ),
-            child: Row(
-              children: [
-                Icon(isFast ? Icons.flash_on : Icons.rotate_right,
-                    size: 40, color: color),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isFast
-                            ? "Fast Bowling Results"
-                            : "Spin Bowling Results",
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: color),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(overall.label,
-                          style: TextStyle(
-                              fontSize: 13, color: overall.color)),
-                      Text("${m.framesAnalyzed} frames analysed",
-                          style: TextStyle(
-                              fontSize: 11, color: kTextSecondary)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 12, kGutter, 24),
+      children: [
+        // Header
+        Semantics(
+          header: true,
+          child: Text(
+            isFast ? "Fast bowling results" : "Spin bowling results",
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4),
           ),
-          const SizedBox(height: 14),
-
-          // Metric cards
-          ...(isFast ? _fastCards(m) : _spinCards(m)),
-
-          const SizedBox(height: 16),
-          // Consult-specialist advisory
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: overall.color, shape: BoxShape.circle),
             ),
-            child: Row(children: [
-              Icon(Icons.sports_cricket_rounded, color: color, size: 20),
-              const SizedBox(width: 10),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                overall.label,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kTextPrimary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          "${m.framesAnalyzed} frames analysed",
+          style: const TextStyle(fontSize: 13, color: kTextSecondary),
+        ),
+        const SizedBox(height: 20),
+
+        // Metric rows
+        Container(
+          decoration: BoxDecoration(
+            color: kCard,
+            borderRadius: BorderRadius.circular(kRadius),
+            border: Border.all(color: kBorder, width: 0.6),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < cards.length; i++) ...[
+                if (i > 0)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 16),
+                    child: Divider(height: 0.6, thickness: 0.6, color: kBorder),
+                  ),
+                cards[i],
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+        // Consult-specialist advisory
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: kCard,
+            borderRadius: BorderRadius.circular(kRadiusSm),
+            border: Border.all(color: kBorder, width: 0.6),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.sports_cricket_rounded, color: kTextSecondary, size: 20),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'This analysis flags difficulties in your bowling action only. Consult your Bowling Coach to address them.',
-                  style: TextStyle(fontSize: 11.5, color: kTextPrimary, height: 1.35),
-                ),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      setState(() => _phase = _Phase.typeSelect),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text("Change Type"),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => setState(() {
-                    _phase = _Phase.setup;
-                    _results = null;
-                  }),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text("Analyse Again"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: color,
-                    foregroundColor: kOnAccent,
-                  ),
+                  style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.4),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  hapticSelect();
+                  setState(() => _phase = _Phase.typeSelect);
+                },
+                icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+                label: const Text("Change type"),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  hapticConfirm();
+                  setState(() {
+                    _phase = _Phase.setup;
+                    _results = null;
+                  });
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                label: const Text("Analyse again"),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -883,77 +883,67 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
 
   List<Widget> _fastCards(_BowlingMetrics m) => [
         _card(
-          title: "Trunk Lean",
+          title: "Trunk lean",
           value: "${m.trunkLean.toStringAsFixed(1)}°",
           ideal: "Ideal: 15–25°",
           info: _trunkFast(m.trunkLean),
-          icon: Icons.straighten,
         ),
         _card(
-          title: "Bowling Arm Arc",
+          title: "Bowling arm arc",
           value: _arcLabel(m.armArc),
-          ideal: "Ideal: High arm action (> 45°)",
+          ideal: "Ideal: high arm action (> 45°)",
           info: _armFast(m.armArc),
-          icon: Icons.change_history,
         ),
         _card(
-          title: "Front Knee Angle",
+          title: "Front knee angle",
           value: "${m.frontKnee.toStringAsFixed(1)}°",
           ideal: "Ideal: 150–175° (braced leg)",
           info: _kneeFast(m.frontKnee),
-          icon: Icons.accessibility_new,
         ),
         _card(
-          title: "Head Position",
+          title: "Head position",
           value: "${m.headPosition.toStringAsFixed(1)}°",
           ideal: "Ideal: < 8° forward tilt",
           info: _headInfo(m.headPosition),
-          icon: Icons.person,
         ),
         _card(
-          title: "Shoulder Tilt",
+          title: "Shoulder tilt",
           value: "${m.bodyTilt.toStringAsFixed(1)}°",
           ideal: "Ideal: 10–25° (side-on action)",
           info: _tiltFast(m.bodyTilt),
-          icon: Icons.swap_vert,
         ),
       ];
 
   List<Widget> _spinCards(_BowlingMetrics m) => [
         _card(
-          title: "Body Rotation",
+          title: "Body rotation",
           value: "${m.trunkLean.toStringAsFixed(1)}°",
           ideal: "Ideal: 10–20° at delivery",
           info: _trunkSpin(m.trunkLean),
-          icon: Icons.rotate_right,
         ),
         _card(
-          title: "Bowling Arm Arc",
+          title: "Bowling arm arc",
           value: _arcLabel(m.armArc),
-          ideal: "Ideal: Full arc over shoulder",
+          ideal: "Ideal: full arc over shoulder",
           info: _armSpin(m.armArc),
-          icon: Icons.change_history,
         ),
         _card(
-          title: "Pivot / Hip Drive",
+          title: "Pivot / hip drive",
           value: "${m.frontKnee.toStringAsFixed(1)}°",
           ideal: "Ideal: > 140° pivot",
           info: _kneeSpin(m.frontKnee),
-          icon: Icons.sync,
         ),
         _card(
-          title: "Head Position",
+          title: "Head position",
           value: "${m.headPosition.toStringAsFixed(1)}°",
           ideal: "Ideal: < 8° forward tilt",
           info: _headInfo(m.headPosition),
-          icon: Icons.person,
         ),
         _card(
-          title: "Release Tilt",
+          title: "Release tilt",
           value: "${m.bodyTilt.toStringAsFixed(1)}°",
           ideal: "Ideal: 5–15° lateral tilt",
           info: _tiltSpin(m.bodyTilt),
-          icon: Icons.swap_vert,
         ),
       ];
 
@@ -962,69 +952,62 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
     required String value,
     required String ideal,
     required _Info info,
-    required IconData icon,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: info.color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: info.color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: info.color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: info.color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                        fontSize: 12, color: kTextSecondary)),
-                const SizedBox(height: 3),
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(value,
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: info.color)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: info.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(info.label,
-                          style: TextStyle(
-                              fontSize: 10, color: info.color)),
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: kTextPrimary)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                              color: info.color, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(info.label,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: kTextSecondary)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(info.tip,
-                    style: TextStyle(
-                        fontSize: 11, color: kTextSecondary)),
-                Text(ideal,
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: kTextSecondary.withValues(alpha: 0.55))),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary,
+                      letterSpacing: -0.4)),
+            ],
           ),
+          const SizedBox(height: 8),
+          Text(info.tip,
+              style: const TextStyle(
+                  fontSize: 14, color: kTextSecondary, height: 1.4)),
+          const SizedBox(height: 4),
+          Text(ideal,
+              style: const TextStyle(fontSize: 13, color: kTextMuted)),
         ],
       ),
     );
@@ -1033,45 +1016,45 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   // ── Status helpers ────────────────────────────────────────────────────────
 
   _Info _trunkFast(double v) {
-    if (v < 10) return _Info(kWarn, "Too Upright", "Increase forward lean for power");
+    if (v < 10) return _Info(kWarn, "Too upright", "Increase forward lean for power");
     if (v <= 25) return _Info(kSuccess, "Optimal", "Good delivery stride lean");
-    return _Info(kDanger, "Excessive Lean", "Reduce lean — lower back stress risk");
+    return _Info(kDanger, "Excessive lean", "Reduce lean — lower back stress risk");
   }
 
   _Info _trunkSpin(double v) {
     if (v < 5) return _Info(kWarn, "Upright", "Add body drive for more revolutions");
-    if (v <= 20) return _Info(kSuccess, "Good Rotation", "Well-balanced body drive");
+    if (v <= 20) return _Info(kSuccess, "Good rotation", "Well-balanced body drive");
     return _Info(kWarn, "Over-rotated", "Control body tilt through delivery");
   }
 
   _Info _armFast(double v) {
-    if (v >= 45) return _Info(kSuccess, "High Action", "Excellent arm arc — over the top");
-    if (v >= 15) return _Info(kWarn, "Medium Action", "Work on higher arm position");
+    if (v >= 45) return _Info(kSuccess, "High action", "Excellent arm arc — over the top");
+    if (v >= 15) return _Info(kWarn, "Medium action", "Work on higher arm position");
     return _Info(kDanger, "Low / Round-arm", "High injury risk — raise the arm");
   }
 
   _Info _armSpin(double v) {
-    if (v >= 30) return _Info(kSuccess, "Full Arc", "Good arm over the shoulder");
-    if (v >= 10) return _Info(kWarn, "Partial Arc", "Extend arm higher for more revs");
-    return _Info(kDanger, "Flat Arc", "Improve arm elevation for flight & spin");
+    if (v >= 30) return _Info(kSuccess, "Full arc", "Good arm over the shoulder");
+    if (v >= 10) return _Info(kWarn, "Partial arc", "Extend arm higher for more revs");
+    return _Info(kDanger, "Flat arc", "Improve arm elevation for flight & spin");
   }
 
   _Info _kneeFast(double v) {
     if (v >= 150) return _Info(kSuccess, "Braced", "Strong front leg brace — good power transfer");
-    if (v >= 130) return _Info(kWarn, "Soft Knee", "Work on bracing the front leg at delivery");
+    if (v >= 130) return _Info(kWarn, "Soft knee", "Work on bracing the front leg at delivery");
     return _Info(kDanger, "Collapsed", "Front knee buckling — high injury risk");
   }
 
   _Info _kneeSpin(double v) {
-    if (v >= 140) return _Info(kSuccess, "Good Pivot", "Strong hip drive through delivery");
-    if (v >= 110) return _Info(kWarn, "Partial Pivot", "Improve pivot follow-through");
+    if (v >= 140) return _Info(kSuccess, "Good pivot", "Strong hip drive through delivery");
+    if (v >= 110) return _Info(kWarn, "Partial pivot", "Improve pivot follow-through");
     return _Info(kDanger, "Restricted", "Work on hip flexibility & rotation");
   }
 
   _Info _headInfo(double v) {
     if (v < 5) return _Info(kSuccess, "Neutral", "Good head & cervical alignment");
-    if (v <= 10) return _Info(kWarn, "Slight Forward", "Keep chin slightly tucked");
-    return _Info(kDanger, "Forward Head", "Focus on neutral cervical alignment");
+    if (v <= 10) return _Info(kWarn, "Slight forward", "Keep chin slightly tucked");
+    return _Info(kDanger, "Forward head", "Focus on neutral cervical alignment");
   }
 
   _Info _tiltFast(double v) {
@@ -1083,7 +1066,7 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
   _Info _tiltSpin(double v) {
     if (v >= 5 && v <= 15) return _Info(kSuccess, "Optimal", "Good lateral tilt at release");
     if (v < 5) return _Info(kWarn, "Upright", "More side tilt for better loop & flight");
-    return _Info(kWarn, "Excessive Tilt", "Reduce lateral lean slightly");
+    return _Info(kWarn, "Excessive tilt", "Reduce lateral lean slightly");
   }
 
   String _arcLabel(double v) {
@@ -1117,10 +1100,10 @@ class _BowlingAnalysisScreenState extends State<BowlingAnalysisScreen> {
       _countIssues(_tiltSpin(m.bodyTilt));
     }
 
-    if (issues >= 5) return _OverallInfo(kDanger, "Significant Issues Detected");
-    if (issues >= 3) return _OverallInfo(kWarn, "Needs Improvement");
-    if (issues >= 1) return _OverallInfo(kWarn, "Minor Adjustments Needed");
-    return _OverallInfo(kSuccess, "Good Bowling Action");
+    if (issues >= 5) return _OverallInfo(kDanger, "Significant issues detected");
+    if (issues >= 3) return _OverallInfo(kWarn, "Needs improvement");
+    if (issues >= 1) return _OverallInfo(kWarn, "Minor adjustments needed");
+    return _OverallInfo(kSuccess, "Good bowling action");
   }
 }
 
@@ -1130,7 +1113,6 @@ class _TypeCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final Color color;
   final List<String> metrics;
   final VoidCallback onTap;
 
@@ -1138,69 +1120,69 @@ class _TypeCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.color,
     required this.metrics,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
+    return Semantics(
+      button: true,
+      label: '$title. $subtitle.',
+      child: Material(
+        color: kCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadius),
+          side: const BorderSide(color: kBorder, width: 0.6),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: color)),
-                  Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 12, color: kTextSecondary)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: metrics
-                        .map((m) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(m,
-                                  style: TextStyle(
-                                      fontSize: 10, color: color)),
-                            ))
-                        .toList(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            hapticSelect();
+            onTap();
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(icon, color: kTextSecondary, size: 22),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: kTextPrimary,
+                              letterSpacing: -0.2)),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              fontSize: 14, color: kTextSecondary)),
+                      const SizedBox(height: 8),
+                      Text(
+                        metrics.join('  ·  '),
+                        style: const TextStyle(
+                            fontSize: 13, color: kTextMuted, height: 1.4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(Icons.chevron_right_rounded,
+                      size: 20, color: kTextMuted),
+                ),
+              ],
             ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: color),
-          ],
+          ),
         ),
       ),
     );
@@ -1210,13 +1192,11 @@ class _TypeCard extends StatelessWidget {
 // ── Info Card ─────────────────────────────────────────────────────────────────
 
 class _InfoCard extends StatelessWidget {
-  final Color color;
   final IconData icon;
   final String title;
   final List<String> items;
 
   const _InfoCard({
-    required this.color,
     required this.icon,
     required this.title,
     required this.items,
@@ -1225,43 +1205,52 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
       decoration: BoxDecoration(
-        color: kTextPrimary.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
+        color: kCard,
+        borderRadius: BorderRadius.circular(kRadius),
+        border: Border.all(color: kBorder, width: 0.6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
+              Icon(icon, color: kTextSecondary, size: 20),
+              const SizedBox(width: 10),
               Text(title,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: kTextSecondary)),
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary)),
             ],
           ),
           const SizedBox(height: 10),
           ...items.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("• ", style: TextStyle(color: color)),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 8, 12, 0),
+                      child: Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                            color: kTextMuted, shape: BoxShape.circle),
+                      ),
+                    ),
                     Expanded(
                       child: Text(item,
-                          style: TextStyle(
-                              fontSize: 12, color: kTextSecondary)),
+                          style: const TextStyle(
+                              fontSize: 14,
+                              color: kTextSecondary,
+                              height: 1.4)),
                     ),
                   ],
                 ),
               )),
         ],
-
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../core/theme.dart';
 import '../api_service.dart';
 import '../services/dashboard_metrics.dart';
 import '../services/sleep_metrics.dart';
+import '../widgets/common_widgets.dart';
 import 'workload_monitor_screen.dart';
 import '../services/entitlements.dart';
 import '../widgets/feature_gate.dart';
@@ -79,33 +80,33 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text(
-          'DASHBOARD',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.4),
-        ),
+        title: const Text('Dashboard'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(child: _athleteToggle()),
+          ),
+        ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(49),
-          child: Column(children: [
-            Divider(height: 1, color: kBorder),
-            TabBar(
+          preferredSize: const Size.fromHeight(48),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: kBorder, width: 0.6)),
+            ),
+            child: TabBar(
               controller: _tabs,
-              labelColor: kAccent,
-              unselectedLabelColor: kTextSecondary,
-              indicatorColor: kAccent,
-              indicatorSize: TabBarIndicatorSize.label,
+              onTap: (_) => hapticSelect(),
               tabs: const [
-                Tab(icon: Icon(Icons.show_chart_rounded, size: 15),               text: 'Performance'),
-                Tab(icon: Icon(Icons.favorite_rounded, size: 15),                 text: 'Recovery'),
-                Tab(icon: Icon(Icons.local_fire_department_rounded, size: 15),    text: 'Today'),
+                Tab(text: 'Performance'),
+                Tab(text: 'Recovery'),
+                Tab(text: 'Today'),
               ],
             ),
-          ]),
+          ),
         ),
       ),
       body: _metrics == null
-          ? Center(child: CircularProgressIndicator(color: kAccent))
+          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : TabBarView(
               controller: _tabs,
               children: [_performanceTab(), _recoveryTab(), _todayTab()],
@@ -119,36 +120,32 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     if (!_m.hasLoadData || _totalData.isEmpty) {
       return _emptyState(
         icon: Icons.show_chart_rounded,
-        accent: kSky,
         title: 'No training data yet',
         hint: 'Log sessions to see your workload stats here.',
       );
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _athleteToggle(),
-          const SizedBox(height: 12),
           _rangeBar(),
           const SizedBox(height: 16),
-          _acwrPanel('Training Workload', _trainData, kSky),
+          _acwrPanel('Training workload', _trainData, kSky),
           const SizedBox(height: 12),
-          _acwrPanel('Skill Workload',    _skillData, kSuccess),
+          _acwrPanel('Skill workload',    _skillData, kSuccess),
           const SizedBox(height: 12),
-          _acwrPanel('Daily Total',       _totalData, kViolet),
-          const SizedBox(height: 18),
+          _acwrPanel('Daily total',       _totalData, kViolet),
+          const SizedBox(height: 28),
 
-          Text('LOAD VS EXERTION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                  color: kTextSecondary, letterSpacing: 1.4)),
-          const SizedBox(height: 10),
-          _loadExertionPanel('Training Load vs Exertion', _trainData, kSky),
+          const SectionHeader('Load vs exertion'),
+          const SizedBox(height: 8),
+          _loadExertionPanel('Training load vs exertion', _trainData, kSky),
           const SizedBox(height: 12),
-          _loadExertionPanel('Skill Load vs Exertion',    _skillData, kSuccess),
+          _loadExertionPanel('Skill load vs exertion',    _skillData, kSuccess),
           const SizedBox(height: 12),
-          _loadExertionPanel('Daily Load vs Exertion',    _totalData, kViolet),
+          _loadExertionPanel('Daily load vs exertion',    _totalData, kViolet),
         ],
       ),
     );
@@ -157,18 +154,15 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   Widget _loadExertionPanel(String title, List<_WP> data, Color color) {
     if (data.isEmpty) return const SizedBox.shrink();
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Container(width: 3, height: 16,
-          margin: const EdgeInsets.only(right: 8),
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-        Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
+      _seriesTitle(title, color),
+      const SizedBox(height: 8),
+      Wrap(spacing: 16, runSpacing: 6, children: [
+        _ldot(color,             'Load'),
+        _ldot(Colors.pinkAccent, 'Exertion'),
       ]),
-      const SizedBox(height: 4),
-      Text('Colored line = Load  ·  Pink line = Exertion',
-          style: TextStyle(fontSize: 10, color: kTextSecondary)),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       SizedBox(
-        height: 124,
+        height: 130,
         child: CustomPaint(
           painter: _LoadExertionPainter(data: data, barColor: color),
           size: Size.infinite,
@@ -182,37 +176,27 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final last   = data.last;
     final zColor = _acwrColor(last.acwr);
     final zLabel = _acwrZone(last.acwr);
-    return GestureDetector(
-      onTap: () => FeatureGate.push(context, FeatureKeys.workloadMonitoring,
-          () => const WorkloadMonitorScreen()),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: kBorder),
-        ),
+    return Semantics(
+      button: true,
+      hint: 'Opens workload monitor',
+      child: _panel(
+        onTap: () => FeatureGate.push(context, FeatureKeys.workloadMonitoring,
+            () => const WorkloadMonitorScreen()),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Container(width: 3, height: 16,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-            Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: zColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: zColor.withValues(alpha: 0.35)),
-              ),
-              child: Text('ACWR ${last.acwr.toStringAsFixed(2)}',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: zColor)),
-            ),
-            const SizedBox(width: 6),
-            Icon(Icons.arrow_forward_ios_rounded, size: 11, color: kTextMuted),
+            Expanded(child: _seriesTitle(title, color)),
+            const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
           ]),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          Row(children: [
+            Text.rich(TextSpan(children: [
+              TextSpan(text: last.acwr.toStringAsFixed(2), style: _kHeroValue),
+              const TextSpan(text: '  ACWR', style: _kUnit),
+            ])),
+            const Spacer(),
+            _StatusDot(color: zColor, label: zLabel),
+          ]),
+          const SizedBox(height: 14),
           SizedBox(
             height: 92,
             child: CustomPaint(
@@ -220,23 +204,10 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
               size: Size.infinite,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Row(children: [
-            _statPill('Load', last.load > 0 ? last.load.toStringAsFixed(0) : '—', color),
-            const SizedBox(width: 8),
-            _statPill('Exertion', last.exertion.toStringAsFixed(1), Colors.pinkAccent),
-            const SizedBox(width: 8),
-            Expanded(child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: zColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: zColor.withValues(alpha: 0.28)),
-              ),
-              child: Text(zLabel,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: zColor)),
-            )),
+            Expanded(child: _statPill('Load', last.load > 0 ? last.load.toStringAsFixed(0) : '—')),
+            Expanded(child: _statPill('Exertion', last.exertion.toStringAsFixed(1))),
           ]),
         ]),
       ),
@@ -248,8 +219,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   Widget _recoveryTab() {
     if (!_m.hasRecoveryData) {
       return _emptyState(
-        icon: Icons.favorite_rounded,
-        accent: kAccent,
+        icon: Icons.favorite_outline_rounded,
         title: 'No recovery data yet',
         hint: 'Complete a wellness check-in to see your recovery stats here.',
       );
@@ -261,39 +231,43 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final rColor = todayR >= 0.60 ? kAccent : todayR >= 0.35 ? kWarn : kDanger;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _athleteToggle(),
-        const SizedBox(height: 14),
-
         // Readiness score card
         _panel(child: Row(children: [
-          SizedBox(
-            width: 88, height: 88,
-            child: Stack(alignment: Alignment.center, children: [
-              CustomPaint(
-                painter: _ReadinessRingPainter(pct: avgPct, color: rColor),
-                size: const Size(88, 88),
-              ),
-              Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('${(avgPct * 100).round()}',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: rColor, letterSpacing: -1)),
-                Text('%', style: TextStyle(fontSize: 9, color: rColor.withValues(alpha: 0.7))),
+          Semantics(
+            label: 'Readiness ${(avgPct * 100).round()} percent',
+            excludeSemantics: true,
+            child: SizedBox(
+              width: 88, height: 88,
+              child: Stack(alignment: Alignment.center, children: [
+                CustomPaint(
+                  painter: _ReadinessRingPainter(pct: avgPct, color: rColor),
+                  size: const Size(88, 88),
+                ),
+                Text.rich(TextSpan(children: [
+                  TextSpan(
+                    text: '${(avgPct * 100).round()}',
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: kTextPrimary,
+                        letterSpacing: -0.8, height: 1),
+                  ),
+                  const TextSpan(text: '%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kTextSecondary)),
+                ])),
               ]),
-            ]),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('READINESS SCORE',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2)),
-            const SizedBox(height: 5),
+            const Text('Readiness score', style: _kLabel),
+            const SizedBox(height: 4),
             Text(_readinessLabel(avgPct),
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: rColor, letterSpacing: -0.3)),
-            const SizedBox(height: 3),
-            Text('7-day avg  ·  Today ${(todayR * 100).round()}%',
-                style: TextStyle(fontSize: 11, color: kTextSecondary)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 6, runSpacing: 6, children: [
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4)),
+            const SizedBox(height: 2),
+            Text('7-day avg · Today ${(todayR * 100).round()}%',
+                style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 12, runSpacing: 6, children: [
               _microBadge('Sleep',    well.last.sleep),
               _microBadge('Wellness', well.last.wellness),
               _microBadge('Soreness', well.last.soreness),
@@ -301,25 +275,25 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
             ]),
           ])),
         ])),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         // Cumulative recovery score (PDF: total of 4 metrics, lines at 8 & 13)
         // Sliced to the last 14 check-ins so the chart keeps its density now
         // that the real series can span up to ~90 days.
         _cumulativeScorePanel(well.sublist(max(0, well.length - 14))),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         // Sleep summary (efficiency, debt, overall summary)
         _sleepData.isEmpty ? _noSleepNote() : _sleepSummaryPanel(_sleepData),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
-        _metricBars('Sleep Quality',    well.map((r) => r.sleep).toList(),    kSleep,              well.map((r) => r.d).toList()),
-        const SizedBox(height: 10),
-        _metricBars('Wellness',         well.map((r) => r.wellness).toList(), kAccent,             well.map((r) => r.d).toList()),
-        const SizedBox(height: 10),
-        _metricBars('Muscle Soreness',  well.map((r) => r.soreness).toList(), kWarn, well.map((r) => r.d).toList()),
-        const SizedBox(height: 10),
-        _metricBars('Fatigue',          well.map((r) => r.fatigue).toList(),  kDanger,    well.map((r) => r.d).toList()),
+        _metricBars('Sleep quality',   well.map((r) => r.sleep).toList(),    kSleep,  well.map((r) => r.d).toList()),
+        const SizedBox(height: 12),
+        _metricBars('Wellness',        well.map((r) => r.wellness).toList(), kAccent, well.map((r) => r.d).toList()),
+        const SizedBox(height: 12),
+        _metricBars('Muscle soreness', well.map((r) => r.soreness).toList(), kWarn,   well.map((r) => r.d).toList()),
+        const SizedBox(height: 12),
+        _metricBars('Fatigue',         well.map((r) => r.fatigue).toList(),  kDanger, well.map((r) => r.d).toList()),
       ]),
     );
   }
@@ -331,23 +305,15 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final col    = cur <= 2 ? kAccent : cur == 3 ? kWarn : kDanger;
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Container(width: 3, height: 14, margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-        Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-              color: col.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-          child: Text('$cur — ${_ratingLabel(cur)}',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: col)),
-        ),
+        Expanded(child: _seriesTitle(title, color)),
+        const SizedBox(width: 8),
+        _StatusDot(color: col, label: '$cur — ${_ratingLabel(cur)}'),
       ]),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       SizedBox(
-        // Tall enough that one point of score is worth ~15px of bar. At the
-        // previous 68 it was ~10px, which read as noise against the bar width.
-        height: 100,
+        // Bars get 68px of height (top 16 for the value labels, bottom 20 for
+        // the day labels), so one point of score is worth ~15px of bar.
+        height: 104,
         child: CustomPaint(
           painter: _MetricBarsPainter(values: last7v, labels: last7d, color: color),
           size: Size.infinite,
@@ -362,29 +328,22 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final totals = well.map((r) => r.sleep + r.wellness + r.soreness + r.fatigue).toList();
     final cur    = totals.last;
     final col    = cur <= 8 ? kAccent : cur <= 13 ? kWarn : kDanger;
-    final zone   = cur <= 8 ? 'Optimal Recovery' : cur <= 13 ? 'Monitor — Moderate Load' : 'High Exertion — Intervene';
+    final zone   = cur <= 8 ? 'Optimal recovery' : cur <= 13 ? 'Monitor — moderate load' : 'High exertion — intervene';
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _cardTitle('Cumulative recovery score'),
+      const SizedBox(height: 10),
       Row(children: [
-        Icon(Icons.stacked_line_chart_rounded, size: 14, color: kTextSecondary),
-        const SizedBox(width: 6),
-        Text('Cumulative Recovery Score',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: col.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: col.withValues(alpha: 0.35)),
-          ),
-          child: Text('$cur / 20',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: col)),
-        ),
+        Text.rich(TextSpan(children: [
+          TextSpan(text: '$cur', style: _kHeroValue),
+          const TextSpan(text: ' / 20', style: _kUnit),
+        ])),
+        const SizedBox(width: 12),
+        Flexible(child: _StatusDot(color: col, label: zone, flexible: true)),
       ]),
       const SizedBox(height: 4),
-      Text('Total of Sleep + Wellness + Soreness + Fatigue · $zone',
-          style: TextStyle(fontSize: 10, color: col)),
-      const SizedBox(height: 12),
+      const Text('Total of Sleep + Wellness + Soreness + Fatigue',
+          style: TextStyle(fontSize: 13, color: kTextSecondary)),
+      const SizedBox(height: 14),
       SizedBox(
         height: 150,
         child: CustomPaint(
@@ -392,11 +351,11 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
           size: Size.infinite,
         ),
       ),
-      const SizedBox(height: 8),
-      Wrap(spacing: 14, runSpacing: 4, children: [
-        _ldot(kAccent,             '≤ 8  Optimal'),
-        _ldot(kWarn, '8–13  Caution'),
-        _ldot(kDanger,    '> 13  Risk'),
+      const SizedBox(height: 10),
+      Wrap(spacing: 14, runSpacing: 6, children: [
+        _ldot(kAccent, '≤ 8 Optimal'),
+        _ldot(kWarn,   '8–13 Caution'),
+        _ldot(kDanger, '> 13 Risk'),
       ]),
     ]));
   }
@@ -429,75 +388,62 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
 
     return _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Icon(Icons.bedtime_rounded, size: 14, color: kSleep),
-        const SizedBox(width: 6),
-        Text('Sleep Summary',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
-        const Spacer(),
+        Expanded(child: _cardTitle('Sleep summary')),
         Text('In bed ${formatHhMm(last.timeInBedMinutes)}',
-            style: TextStyle(fontSize: 10, color: kTextSecondary)),
+            style: const TextStyle(fontSize: 13, color: kTextSecondary)),
       ]),
-      const SizedBox(height: 12),
-      Row(children: [
-        Expanded(child: _sleepStat('Sleep Time', formatHhMm(last.sleepMinutes), 'last night', kSleep)),
-        const SizedBox(width: 10),
+      const SizedBox(height: 16),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: _sleepStat('Sleep time', formatHhMm(last.sleepMinutes), 'last night')),
+        const SizedBox(width: 12),
         Expanded(child: _sleepStat(
-          '7-Day Average',
+          '7-day average',
           avgMins == null ? '—' : formatHhMm(avgMins),
           avgMins == null ? 'needs 7 nights' : 'rolling',
-          kSleep,
         )),
       ]),
-      const SizedBox(height: 10),
-      Row(children: [
-        Expanded(child: _sleepStat('Efficiency', '${effPct.toStringAsFixed(0)}%', 'asleep / in bed', effCol)),
-        const SizedBox(width: 10),
+      const SizedBox(height: 16),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: _sleepStat('Efficiency', '${effPct.toStringAsFixed(0)}%', 'asleep / in bed',
+            status: effCol)),
+        const SizedBox(width: 12),
         Expanded(child: _sleepStat(
-          'Sleep Debt',
+          'Sleep debt',
           debt == null ? '—' : formatHhMm(debt),
           avgMins == null ? 'needs 7 nights' : (debt == null ? 'at or above avg' : 'vs 7-day avg'),
-          debtCol,
+          // No dot until there is a 7-day average to measure debt against.
+          status: avgMins == null ? null : debtCol,
         )),
       ]),
-      const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: kSleep.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: kSleep.withValues(alpha: 0.2)),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(Icons.lightbulb_outline_rounded, size: 14, color: kSleep),
-          const SizedBox(width: 8),
-          Expanded(child: Text(summary,
-              style: TextStyle(fontSize: 11.5, color: kTextSecondary, height: 1.4))),
-        ]),
-      ),
+      const SizedBox(height: 16),
+      const Divider(height: 0.6, thickness: 0.6, color: kBorder),
+      const SizedBox(height: 14),
+      Text(summary, style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45)),
     ]));
   }
 
-  Widget _sleepStat(String label, String value, String sub, Color color) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: color.withValues(alpha: 0.22)),
-    ),
+  /// One sleep figure: label (with a status dot when it carries a verdict),
+  /// value, and a small qualifier underneath.
+  Widget _sleepStat(String label, String value, String sub, {Color? status}) => MergeSemantics(
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5)),
+      Row(children: [
+        if (status != null) ...[_dot(status), const SizedBox(width: 6)],
+        Flexible(child: Text(label, style: _kLabel, maxLines: 1, overflow: TextOverflow.ellipsis)),
+      ]),
+      const SizedBox(height: 4),
+      Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: kTextPrimary,
+          letterSpacing: -0.6, height: 1.1, fontFeatures: _kTabular)),
       const SizedBox(height: 2),
-      Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kTextPrimary)),
-      Text(sub, style: TextStyle(fontSize: 9, color: kTextSecondary)),
+      Text(sub, style: const TextStyle(fontSize: 12, color: kTextMuted)),
     ]),
   );
 
-  Widget _noSleepNote() => _panel(child: Row(children: [
-    Icon(Icons.bedtime_rounded, size: 14, color: kSleep),
-    const SizedBox(width: 8),
+  Widget _noSleepNote() => _panel(child: const Row(children: [
+    Icon(Icons.bedtime_outlined, size: 20, color: kTextSecondary),
+    SizedBox(width: 12),
     Expanded(child: Text(
         'No sleep data logged yet — log bed and wake times to see sleep stats here.',
-        style: TextStyle(fontSize: 11.5, color: kTextSecondary, height: 1.4))),
+        style: TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4))),
   ]));
 
   // ── Today Tab ─────────────────────────────────────────────────────────────
@@ -507,8 +453,7 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     // covers all three.
     if (_m.total.isEmpty) {
       return _emptyState(
-        icon: Icons.local_fire_department_rounded,
-        accent: kViolet,
+        icon: Icons.local_fire_department_outlined,
         title: 'No data for today yet',
         hint: "Log a session or wellness check-in to see today's summary here.",
       );
@@ -517,29 +462,25 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
     final skill = _m.skill.last;
     final total = _m.total.last;
     final well  = _m.recovery.isEmpty ? null : _m.recovery.last;
+    final readyCol = well == null
+        ? kTextMuted
+        : well.readinessPct >= 0.6 ? kAccent
+        : well.readinessPct >= 0.35 ? kWarn
+        : kDanger;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(kGutter, 16, kGutter, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _athleteToggle(),
-        const SizedBox(height: 14),
-
         // Date header
-        _panel(child: Row(children: [
-          Icon(Icons.calendar_today_rounded, size: 15, color: kTextSecondary),
-          const SizedBox(width: 8),
-          Text(_fmtLongDate(total.date),
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-                color: kAccent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(8)),
-            child: Text("TODAY'S SUMMARY",
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kAccent, letterSpacing: 0.8)),
-          ),
-        ])),
-        const SizedBox(height: 14),
+        const Text("Today's summary", style: _kLabel),
+        const SizedBox(height: 2),
+        Semantics(
+          header: true,
+          child: Text(_fmtLongDate(total.date),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.4)),
+        ),
+        const SizedBox(height: 16),
 
         // Exertion arc trio
         Row(children: [
@@ -549,46 +490,40 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
           const SizedBox(width: 10),
           Expanded(child: _exertionArc('Total',    total.exertion, kViolet)),
         ]),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         // Session cards
-        _sessionCard('Training',    train, kSky, Icons.fitness_center_rounded),
+        _sessionCard('Training',    train, kSky),
         const SizedBox(height: 10),
-        _sessionCard('Skill',       skill, kSuccess,     Icons.sports_cricket_rounded),
+        _sessionCard('Skill',       skill, kSuccess),
         const SizedBox(height: 10),
-        _sessionCard('Daily Total', total, kViolet,    Icons.stacked_bar_chart_rounded),
-        const SizedBox(height: 14),
+        _sessionCard('Daily total', total, kViolet),
+        const SizedBox(height: 12),
 
         // Readiness today
         well == null
-            ? _panel(child: Row(children: [
-                Icon(Icons.favorite_outline_rounded, size: 14, color: kTextSecondary),
-                const SizedBox(width: 8),
+            ? _panel(child: const Row(children: [
+                Icon(Icons.favorite_outline_rounded, size: 20, color: kTextSecondary),
+                SizedBox(width: 12),
                 Expanded(child: Text(
                     'No wellness check-in yet — complete one to see readiness here.',
-                    style: TextStyle(fontSize: 11.5, color: kTextSecondary, height: 1.4))),
+                    style: TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4))),
               ]))
             : _panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Icon(Icons.favorite_rounded, size: 14, color: kTextSecondary),
+                  Expanded(child: _cardTitle("Today's readiness")),
+                  _dot(readyCol),
                   const SizedBox(width: 6),
-                  Text("Today's Readiness",
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
-                  const Spacer(),
-                  () {
-                    final col = well.readinessPct >= 0.6 ? kAccent
-                        : well.readinessPct >= 0.35 ? kWarn
-                        : kDanger;
-                    return Text('${(well.readinessPct * 100).round()}%',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: col));
-                  }(),
+                  Text('${(well.readinessPct * 100).round()}%',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kTextPrimary,
+                          letterSpacing: -0.3, fontFeatures: _kTabular)),
                 ]),
-                const SizedBox(height: 12),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  _readyBadge('Sleep',    well.sleep),
-                  _readyBadge('Wellness', well.wellness),
-                  _readyBadge('Soreness', well.soreness),
-                  _readyBadge('Fatigue',  well.fatigue),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: _readyBadge('Sleep',    well.sleep)),
+                  Expanded(child: _readyBadge('Wellness', well.wellness)),
+                  Expanded(child: _readyBadge('Soreness', well.soreness)),
+                  Expanded(child: _readyBadge('Fatigue',  well.fatigue)),
                 ]),
               ])),
       ]),
@@ -596,66 +531,64 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
   }
 
   Widget _exertionArc(String label, double exertion, Color color) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-      decoration: BoxDecoration(
-          color: kCard, borderRadius: BorderRadius.circular(14), border: Border.all(color: kBorder)),
-      child: Column(children: [
-        AspectRatio(
-          aspectRatio: 1.0,
-          child: CustomPaint(
-            painter: _ExertionArcPainter(exertion: exertion, color: color),
-            size: Size.infinite,
-          ),
+    return Semantics(
+      label: '$label exertion ${exertion.toStringAsFixed(1)} out of 10',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          border: Border.all(color: kBorder, width: 0.6),
         ),
-        const SizedBox(height: 6),
-        Text(label.toUpperCase(),
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color, letterSpacing: 1.0)),
-      ]),
+        child: Column(children: [
+          AspectRatio(
+            aspectRatio: 1.0,
+            child: CustomPaint(
+              painter: _ExertionArcPainter(exertion: exertion, color: color),
+              size: Size.infinite,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: _kLabel),
+        ]),
+      ),
     );
   }
 
-  Widget _sessionCard(String title, _WP pt, Color color, IconData icon) {
+  Widget _sessionCard(String title, _WP pt, Color color) {
     final zColor = _acwrColor(pt.acwr);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: kCard, borderRadius: BorderRadius.circular(14), border: Border.all(color: kBorder)),
-      child: Row(children: [
-        Container(
-          width: 38, height: 38,
-          decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, color: color, size: 18),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
-          const SizedBox(height: 5),
-          Row(children: [
-            _miniStat('Load',     pt.load > 0 ? pt.load.toStringAsFixed(0) : '—', color),
-            const SizedBox(width: 16),
-            _miniStat('Exertion', pt.exertion.toStringAsFixed(1), Colors.pinkAccent),
-          ]),
-        ])),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(pt.acwr.toStringAsFixed(2),
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: zColor, letterSpacing: -0.5)),
-          Text('ACWR', style: TextStyle(fontSize: 9, color: kTextSecondary, letterSpacing: 0.5)),
-          const SizedBox(height: 3),
-          Text(_acwrZone(pt.acwr),
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: zColor)),
+    return _panel(child: Row(children: [
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _seriesTitle(title, color),
+        const SizedBox(height: 8),
+        Row(children: [
+          _miniStat('Load',     pt.load > 0 ? pt.load.toStringAsFixed(0) : '—'),
+          const SizedBox(width: 16),
+          _miniStat('Exertion', pt.exertion.toStringAsFixed(1)),
         ]),
+      ])),
+      const SizedBox(width: 12),
+      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Text.rich(TextSpan(children: [
+          TextSpan(
+            text: pt.acwr.toStringAsFixed(2),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary,
+                letterSpacing: -0.6, fontFeatures: _kTabular),
+          ),
+          const TextSpan(text: ' ACWR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: kTextSecondary)),
+        ])),
+        const SizedBox(height: 4),
+        _StatusDot(color: zColor, label: _acwrZone(pt.acwr)),
       ]),
-    );
+    ]));
   }
 
   // ── Shared Widgets ─────────────────────────────────────────────────────────
 
-  // Tab-level empty state, styled to match _MotionLabEmpty on the dashboard.
+  // Tab-level empty state: plain icon, title, one line of guidance.
   Widget _emptyState({
     required IconData icon,
-    required Color accent,
     required String title,
     required String hint,
   }) {
@@ -665,20 +598,14 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 64, height: 64,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(icon, size: 30, color: accent),
-            ),
+            Icon(icon, size: 40, color: kTextMuted),
             const SizedBox(height: 16),
             Text(title,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary)),
-            const SizedBox(height: 8),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary)),
+            const SizedBox(height: 6),
             Text(hint, textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: kTextSecondary, height: 1.4)),
+                style: const TextStyle(fontSize: 14, color: kTextSecondary, height: 1.4)),
           ],
         ),
       ),
@@ -687,108 +614,166 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
 
   // Read-only identity chip — shows the signed-in athlete, not a switcher.
   Widget _athleteToggle() {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-          color: kCard, borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorder)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.person_rounded, size: 14, color: kAccent),
-        const SizedBox(width: 6),
-        Text(_athleteLabel,
-            style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w700, color: kAccent)),
-      ]),
+    return Semantics(
+      label: 'Signed in as $_athleteLabel',
+      excludeSemantics: true,
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: kBorder, width: 0.6),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.person_outline_rounded, size: 15, color: kTextSecondary),
+          const SizedBox(width: 5),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              _athleteLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 
+  /// Segmented control for the 7 / 14 / 28-day window.
   Widget _rangeBar() {
     const keys   = ['7d', '14d', '28d'];
-    const labels = ['7 Days', '14 Days', '28 Days'];
-    return Row(children: List.generate(3, (i) {
-      final active = _range == keys[i];
-      return Expanded(child: GestureDetector(
-        onTap: () => setState(() => _range = keys[i]),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-              color: active ? kAccent.withValues(alpha: 0.12) : kCard,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: active ? kAccent : kBorder)),
-          child: Text(labels[i],
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700,
-                  color: active ? kAccent : kTextSecondary)),
-        ),
-      ));
-    }));
-  }
-
-  Widget _statPill(String label, String value, Color color) {
-    return Expanded(child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
+    const labels = ['7 days', '14 days', '28 days'];
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.25))),
-      child: Column(children: [
-        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5)),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 9, color: kTextSecondary)),
-      ]),
-    ));
+        color: kCard,
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        border: Border.all(color: kBorder, width: 0.6),
+      ),
+      child: Row(children: List.generate(3, (i) {
+        final active = _range == keys[i];
+        return Expanded(child: Semantics(
+          button: true,
+          selected: active,
+          label: labels[i],
+          excludeSemantics: true,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(9),
+              onTap: () {
+                if (!active) hapticSelect();
+                setState(() => _range = keys[i]);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: active ? kBorderBright : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(labels[i],
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                      color: active ? kTextPrimary : kTextSecondary,
+                    )),
+              ),
+            ),
+          ),
+        ));
+      })),
+    );
   }
 
-  Widget _miniStat(String label, String value, Color color) => Row(children: [
-    Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
-    const SizedBox(width: 4),
-    Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-  ]);
+  /// Label over value, used under the ACWR sparklines.
+  Widget _statPill(String label, String value) => MergeSemantics(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: _kLabel),
+      const SizedBox(height: 2),
+      Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary,
+          letterSpacing: -0.3, fontFeatures: _kTabular)),
+    ]),
+  );
+
+  Widget _miniStat(String label, String value) => Text.rich(TextSpan(children: [
+    TextSpan(text: '$label ', style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+    TextSpan(text: value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary,
+        fontFeatures: _kTabular)),
+  ]));
 
   Widget _microBadge(String label, int value) {
     final col = value <= 2 ? kAccent : value == 3 ? kWarn : kDanger;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-          color: col.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: col.withValues(alpha: 0.30))),
-      child: Text('$label $value',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: col)),
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      _dot(col, size: 6),
+      const SizedBox(width: 5),
+      Text('$label $value', style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+    ]);
   }
 
   Widget _readyBadge(String label, int value) {
     final col = value <= 2 ? kAccent : value == 3 ? kWarn : kDanger;
-    return Column(children: [
-      Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: col.withValues(alpha: 0.10),
-            border: Border.all(color: col.withValues(alpha: 0.35))),
-        child: Center(child: Text('$value',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: col))),
-      ),
-      const SizedBox(height: 4),
-      Text(label, style: TextStyle(fontSize: 9, color: kTextSecondary)),
-    ]);
+    return MergeSemantics(
+      child: Column(children: [
+        Text('$value', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary,
+            letterSpacing: -0.4)),
+        const SizedBox(height: 4),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          _dot(col, size: 6),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+        ]),
+      ]),
+    );
   }
 
   Widget _ldot(Color color, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
-    Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-    const SizedBox(width: 4),
-    Text(label, style: TextStyle(fontSize: 10, color: kTextSecondary)),
+    _dot(color),
+    const SizedBox(width: 6),
+    Text(label, style: const TextStyle(fontSize: 12, color: kTextSecondary)),
   ]);
 
-  Widget _panel({required Widget child}) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(16), border: Border.all(color: kBorder)),
-    child: child,
+  Widget _dot(Color color, {double size = 7}) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
+
+  /// Card title (17 w600).
+  Widget _cardTitle(String title) => Text(
+    title,
+    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary, letterSpacing: -0.2),
+  );
+
+  /// Card title keyed to its chart series by a small colour dot.
+  Widget _seriesTitle(String title, Color color) => Row(children: [
+    _dot(color, size: 8),
+    const SizedBox(width: 8),
+    Flexible(child: Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary, letterSpacing: -0.2),
+    )),
+  ]);
+
+  /// Flat card with a hairline edge; tappable (with ripple + haptic) when
+  /// [onTap] is given.
+  Widget _panel({required Widget child, VoidCallback? onTap}) => Material(
+    color: kCard,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(kRadius),
+      side: const BorderSide(color: kBorder, width: 0.6),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap == null ? null : () { hapticSelect(); onTap(); },
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
+    ),
   );
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -810,23 +795,80 @@ class _PDS extends State<PlayerStatsScreen> with SingleTickerProviderStateMixin 
 
   String _acwrZone(double v) {
     if (v < 0.8)  return 'Undertraining';
-    if (v <= 1.3) return 'Sweet Spot';
+    if (v <= 1.3) return 'Sweet spot';
     if (v <= 1.5) return 'Caution';
-    return 'Danger Zone';
+    return 'Danger zone';
   }
 
   String _readinessLabel(double pct) {
-    if (pct >= 0.70) return 'Peak Ready';
+    if (pct >= 0.70) return 'Peak ready';
     if (pct >= 0.50) return 'Good';
     if (pct >= 0.35) return 'Moderate';
     return 'Low';
   }
 
   String _ratingLabel(int v) {
-    const labels = {1: 'Excellent', 2: 'Good', 3: 'Moderate', 4: 'Poor', 5: 'Very Poor'};
-    return labels[v] ?? 'Very Poor';
+    const labels = {1: 'Excellent', 2: 'Good', 3: 'Moderate', 4: 'Poor', 5: 'Very poor'};
+    return labels[v] ?? 'Very poor';
   }
 }
+
+// ── Shared styles & widgets ───────────────────────────────────────────────────
+
+/// Large figure (28 w700, tightened).
+const TextStyle _kHeroValue = TextStyle(
+  fontSize: 28, fontWeight: FontWeight.w700, color: kTextPrimary,
+  letterSpacing: -0.8, height: 1.1, fontFeatures: _kTabular,
+);
+
+/// Small unit beside a large figure.
+const TextStyle _kUnit = TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary);
+
+/// Caption / field label.
+const TextStyle _kLabel = TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextSecondary);
+
+/// Chart axis / tick text.
+const TextStyle _kAxis = TextStyle(color: kTextMuted, fontSize: 11);
+
+/// Tabular figures so numbers line up.
+const List<FontFeature> _kTabular = [FontFeature.tabularFigures()];
+
+/// Status = a dot in the status colour + the word in neutral text.
+class _StatusDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  /// Let the label shrink (ellipsis) — only when placed in a bounded slot.
+  final bool flexible;
+  const _StatusDot({required this.color, required this.label, this.flexible = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextPrimary),
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7, height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        flexible ? Flexible(child: text) : text,
+      ],
+    );
+  }
+}
+
+TextPainter _layoutText(String s, TextStyle style) =>
+    TextPainter(text: TextSpan(text: s, style: style), textDirection: TextDirection.ltr)..layout();
+
+/// Hairline horizontal gridline.
+final Paint _kGridPaint = Paint()..color = kBorder..strokeWidth = 0.6;
 
 /// Draws a horizontal-ish dashed line from [a] to [b] — used for threshold
 /// gridlines so they read as reference marks rather than data.
@@ -870,39 +912,31 @@ class _LoadExertionPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
     final n = data.length;
-    const bPad = 18.0, tPad = 12.0;
+    const bPad = 20.0, tPad = 12.0;
     final chartH = size.height - bPad - tPad;
     final slotW = size.width / n;
     double xAt(int i) => i * slotW + slotW / 2;
     final maxLoad = data.fold(0.0, (p, w) => w.load > p ? w.load : p).clamp(1.0, 1e9);
 
-    // Track background
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, tPad, size.width, chartH), const Radius.circular(4)),
-      Paint()..color = kTextPrimary.withValues(alpha: 0.04),
-    );
+    // Hairline grid: top, middle, baseline
+    for (final f in [0.0, 0.5, 1.0]) {
+      final y = tPad + chartH * f;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), _kGridPaint);
+    }
 
     double loadY(double v)  => tPad + chartH * (1 - (v / maxLoad).clamp(0, 1) * 0.82);
     double exertY(double v) => tPad + chartH * (1 - v.clamp(0, 10) / 10.0);
     final loadPts  = List.generate(n, (i) => Offset(xAt(i), loadY(data[i].load)));
     final exertPts = List.generate(n, (i) => Offset(xAt(i), exertY(data[i].exertion)));
 
-    // Smooth line + area fill = load
+    // Smooth line + flat wash = load
     if (n >= 2) {
       final line = _smoothLinePath(loadPts);
       final fill = Path.from(line)
         ..lineTo(loadPts.last.dx, size.height - bPad)
         ..lineTo(loadPts.first.dx, size.height - bPad)
         ..close();
-      canvas.drawPath(
-        fill,
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [barColor.withValues(alpha: 0.22), barColor.withValues(alpha: 0.0)],
-          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
-      );
+      canvas.drawPath(fill, Paint()..color = barColor.withValues(alpha: 0.10));
       canvas.drawPath(
         line,
         Paint()
@@ -936,12 +970,8 @@ class _LoadExertionPainter extends CustomPainter {
     // Date labels
     final step = (n / 5).ceil().clamp(1, n);
     for (int i = 0; i < n; i += step) {
-      final tp = TextPainter(
-        text: TextSpan(text: data[i].d.split('/')[0],
-            style: TextStyle(color: kTextMuted, fontSize: 7.5)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(xAt(i) - tp.width / 2, size.height - bPad + 4));
+      final tp = _layoutText(data[i].d.split('/')[0], _kAxis);
+      tp.paint(canvas, Offset(xAt(i) - tp.width / 2, size.height - bPad + 5));
     }
   }
 
@@ -966,48 +996,38 @@ class _AcwrSparkPainter extends CustomPainter {
     double yAt(double v) => h - (h - 6) * ((v - vMin) / (vMax - vMin)) - 3;
     double xAt(int i) => i * w / (n - 1);
 
-    // Zone bands
+    // Zone bands — a faint flat wash per zone
     void band(double lo, double hi, Color c) =>
         canvas.drawRect(Rect.fromLTRB(0, yAt(hi), w, yAt(lo)), Paint()..color = c);
-    band(1.5, 2.0, kDanger.withValues(alpha: 0.07));
-    band(1.3, 1.5, kWarn.withValues(alpha: 0.07));
-    band(0.8, 1.3, kSuccess.withValues(alpha: 0.07));
-    band(0.0, 0.8, kInfo.withValues(alpha: 0.06));
+    band(1.5, 2.0, kDanger.withValues(alpha: 0.06));
+    band(1.3, 1.5, kWarn.withValues(alpha: 0.06));
+    band(0.8, 1.3, kSuccess.withValues(alpha: 0.06));
+    band(0.0, 0.8, kInfo.withValues(alpha: 0.05));
 
-    // Threshold lines — dashed, colour-matched to the zone they bound, at a
-    // visible weight (the old flat 0.09-alpha grey line was nearly invisible).
+    // Threshold lines — dashed, colour-matched to the zone they bound.
     const thresholds = [(0.8, kInfo), (1.3, kWarn), (1.5, kDanger)];
     for (final (v, c) in thresholds) {
       _drawDashedLine(canvas, Offset(0, yAt(v)), Offset(w, yAt(v)),
-          Paint()..color = c.withValues(alpha: 0.55)..strokeWidth = 1.0);
+          Paint()..color = c.withValues(alpha: 0.5)..strokeWidth = 0.8);
     }
 
     final vals = data.map((p) => p.acwr.clamp(vMin, vMax)).toList();
     final pts  = List.generate(n, (i) => Offset(xAt(i), yAt(vals[i])));
 
-    // Line + area fill
+    // Line + flat wash
     final line = _smoothLinePath(pts);
     final fill = Path.from(line)..lineTo(pts.last.dx, h)..lineTo(pts.first.dx, h)..close();
-    canvas.drawPath(fill, Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter, end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.38), color.withValues(alpha: 0.04)],
-      ).createShader(Rect.fromLTWH(0, 0, w, h)));
+    canvas.drawPath(fill, Paint()..color = color.withValues(alpha: 0.12));
     canvas.drawPath(line, Paint()
-      ..color = color..strokeWidth = 2.2
-      ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+      ..color = color..strokeWidth = 2
+      ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
 
-    // Value tags for all three boundaries, colour-matched to their line.
-    // Alternating left/right keeps 1.3 and 1.5 (close together) from
-    // overlapping. Drawn last, each in an opaque chip, so they stay legible
-    // over the zone bands, the gridlines and the curve.
-    for (final (i, (v, c)) in thresholds.indexed) {
+    // Value tags for all three boundaries. Alternating left/right keeps 1.3
+    // and 1.5 (close together) from overlapping. Drawn last, each on an
+    // opaque chip, so they stay legible over the bands and the curve.
+    for (final (i, (v, _)) in thresholds.indexed) {
       final onLeft = i.isEven;
-      final tp = TextPainter(
-        text: TextSpan(text: v.toStringAsFixed(1),
-            style: TextStyle(color: c, fontSize: 9, fontWeight: FontWeight.w800)),
-        textDirection: TextDirection.ltr,
-      )..layout();
+      final tp = _layoutText(v.toStringAsFixed(1), _kAxis);
       final boxW = tp.width + 6;
       final top = (yAt(v) - tp.height / 2).clamp(0.0, h - tp.height);
       final left = onLeft ? 2.0 : w - boxW - 2;
@@ -1019,28 +1039,9 @@ class _AcwrSparkPainter extends CustomPainter {
       tp.paint(canvas, Offset(left + 3, top));
     }
 
-    // Last dot
-    canvas.drawCircle(pts.last, 4.5, Paint()..color = color);
-    canvas.drawCircle(pts.last, 4.5, Paint()
-      ..color = kTextPrimary.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke..strokeWidth = 1.0);
-
-    // Current ACWR value, in a pill beside the last dot
-    final valTp = TextPainter(
-      text: TextSpan(text: data.last.acwr.toStringAsFixed(2),
-          style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    const padX = 4.0, padY = 2.0;
-    final boxW = valTp.width + padX * 2, boxH = valTp.height + padY * 2;
-    var boxL = pts.last.dx - boxW - 6;
-    if (boxL < 0) boxL = pts.last.dx + 6;
-    var boxT = pts.last.dy - boxH / 2;
-    boxT = boxT.clamp(0.0, h - boxH);
-    final box = RRect.fromRectAndRadius(
-        Rect.fromLTWH(boxL, boxT, boxW, boxH), const Radius.circular(4));
-    canvas.drawRRect(box, Paint()..color = color.withValues(alpha: 0.14));
-    valTp.paint(canvas, Offset(boxL + padX, boxT + padY));
+    // Last point, ringed in the card colour so it reads over the line.
+    canvas.drawCircle(pts.last, 5.5, Paint()..color = kCard);
+    canvas.drawCircle(pts.last, 4.0, Paint()..color = color);
   }
 
   @override
@@ -1063,7 +1064,12 @@ class _MetricBarsPainter extends CustomPainter {
     final n = values.length;
     if (n == 0) return;
     final slotW = size.width / n;
-    const maxH = 0.68;
+    // Room above the bars for the value labels and below for the day labels.
+    const topPad = 16.0, bottomPad = 20.0;
+    final maxBarH = size.height - topPad - bottomPad;
+    final baseY   = topPad + maxBarH;
+
+    canvas.drawLine(Offset(0, baseY), Offset(size.width, baseY), _kGridPaint);
 
     for (int i = 0; i < n; i++) {
       final isLast  = i == n - 1;
@@ -1077,33 +1083,30 @@ class _MetricBarsPainter extends CustomPainter {
       // remain comparable across metrics and athletes.
       final severity = _kMinBar +
           (values[i].clamp(1, 5) - 1) / 4.0 * (1.0 - _kMinBar);
-      final barH    = size.height * maxH * severity;
+      final barH    = maxBarH * severity;
       // Narrow bars: at 0.62 of the slot they came out wider than they were
       // tall, so height differences read as noise next to the block of colour.
       final barW    = slotW * 0.36;
       final x       = i * slotW + (slotW - barW) / 2;
-      final y       = size.height * maxH - barH;
+      final y       = baseY - barH;
 
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(x, y, barW, barH), const Radius.circular(3)),
+        RRect.fromRectAndCorners(Rect.fromLTWH(x, y, barW, barH),
+            topLeft: const Radius.circular(3), topRight: const Radius.circular(3)),
         Paint()..color = color.withValues(alpha: isLast ? 1.0 : 0.40),
       );
 
       // Value above bar
-      final tv = TextPainter(
-        text: TextSpan(text: '${values[i]}', style: TextStyle(
-          color: isLast ? color : color.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w700)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tv.paint(canvas, Offset(i * slotW + slotW / 2 - tv.width / 2, max(0, y - 12)));
+      final tv = _layoutText('${values[i]}', TextStyle(
+        color: isLast ? kTextPrimary : kTextMuted,
+        fontSize: 11,
+        fontWeight: isLast ? FontWeight.w600 : FontWeight.w400,
+      ));
+      tv.paint(canvas, Offset(i * slotW + slotW / 2 - tv.width / 2, max(0, y - 3 - tv.height)));
 
       // Day label
-      final dayLbl = labels[i].split('/')[0];
-      final td = TextPainter(
-        text: TextSpan(text: dayLbl, style: TextStyle(color: kGrid, fontSize: 8.5)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      td.paint(canvas, Offset(i * slotW + slotW / 2 - td.width / 2, size.height * maxH + 4));
+      final td = _layoutText(labels[i].split('/')[0], _kAxis);
+      td.paint(canvas, Offset(i * slotW + slotW / 2 - td.width / 2, baseY + 5));
     }
   }
 
@@ -1124,15 +1127,15 @@ class _ExertionArcPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center   = Offset(size.width / 2, size.height / 2);
-    final radius   = size.width / 2 - 8;
+    final radius   = size.width / 2 - 6;
     final startRad = _startDeg * pi / 180;
     final sweepRad = _sweepDeg * pi / 180;
-    const strokeW  = 9.0;
+    const strokeW  = 7.0;
     final arcRect  = Rect.fromCircle(center: center, radius: radius - strokeW / 2);
 
     // Track
     canvas.drawArc(arcRect, startRad, sweepRad, false, Paint()
-      ..color = color.withValues(alpha: 0.15)
+      ..color = kBorderBright
       ..strokeWidth = strokeW
       ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
 
@@ -1145,24 +1148,19 @@ class _ExertionArcPainter extends CustomPainter {
     }
 
     // Value
-    final fs = size.width * 0.20;
-    final tp = TextPainter(
-      textDirection: TextDirection.ltr,
-      text: TextSpan(text: exertion.toStringAsFixed(1),
-          style: TextStyle(color: kTextPrimary, fontSize: fs, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-    )..layout();
+    final fs = size.width * 0.22;
+    final tp = _layoutText(exertion.toStringAsFixed(1),
+        TextStyle(color: kTextPrimary, fontSize: fs, fontWeight: FontWeight.w700, letterSpacing: -0.6));
     tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2 + 3));
 
     // "/10"
-    final tp2 = TextPainter(
-      text: TextSpan(text: '/10', style: TextStyle(color: kTextSecondary, fontSize: fs * 0.42)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp2.paint(canvas, center - Offset(tp2.width / 2, tp.height / 2 + 3 - fs * 0.90));
+    final tp2 = _layoutText('/10',
+        TextStyle(color: kTextSecondary, fontSize: max(11.0, fs * 0.5), fontWeight: FontWeight.w500));
+    tp2.paint(canvas, center - Offset(tp2.width / 2, tp.height / 2 + 3 - fs * 0.95));
   }
 
   @override
-  bool shouldRepaint(_ExertionArcPainter old) => old.exertion != exertion;
+  bool shouldRepaint(_ExertionArcPainter old) => old.exertion != exertion || old.color != color;
 }
 
 // ── Cumulative Score Painter ──────────────────────────────────────────────────
@@ -1176,7 +1174,7 @@ class _CumulativeScorePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (totals.length < 2) return;
     final n = totals.length;
-    const bPad = 18.0, tPad = 6.0, lPad = 22.0;
+    const bPad = 20.0, tPad = 6.0, lPad = 24.0;
     final chartH = size.height - bPad - tPad;
     final chartW = size.width - lPad;
     const vMin = 4.0, vMax = 20.0;
@@ -1184,66 +1182,46 @@ class _CumulativeScorePainter extends CustomPainter {
     double yAt(double v) => tPad + chartH * (1 - (v - vMin) / (vMax - vMin));
     double xAt(int i) => lPad + chartW * i / (n - 1);
 
-    // Zone bands
+    // Zone bands — a faint flat wash per zone
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(8), size.width, yAt(4)),
-        Paint()..color = kSuccess.withValues(alpha: 0.06));
+        Paint()..color = kSuccess.withValues(alpha: 0.05));
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(13), size.width, yAt(8)),
-        Paint()..color = kWarn.withValues(alpha: 0.06));
+        Paint()..color = kWarn.withValues(alpha: 0.05));
     canvas.drawRect(Rect.fromLTRB(lPad, yAt(20), size.width, yAt(13)),
-        Paint()..color = kDanger.withValues(alpha: 0.06));
+        Paint()..color = kDanger.withValues(alpha: 0.05));
 
-    // Reference lines at 8 and 13 (PDF requirement)
-    for (final entry in [[8.0, kSuccess], [13.0, kDanger]]) {
-      final v = entry[0] as double;
-      final c = entry[1] as Color;
+    // Baseline
+    canvas.drawLine(Offset(lPad, yAt(vMin)), Offset(size.width, yAt(vMin)), _kGridPaint);
+
+    // Reference lines at 8 and 13 (PDF requirement), labelled on the axis
+    for (final (v, c) in [(8.0, kSuccess), (13.0, kDanger)]) {
       final y = yAt(v);
-      double x = lPad;
-      while (x < size.width) {
-        canvas.drawLine(Offset(x, y), Offset(min(x + 5, size.width), y),
-            Paint()..color = c.withValues(alpha: 0.5)..strokeWidth = 1.0);
-        x += 9;
-      }
-      final tp = TextPainter(
-        text: TextSpan(text: v.toStringAsFixed(0),
-            style: TextStyle(color: c.withValues(alpha: 0.8), fontSize: 8.5, fontWeight: FontWeight.w700)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(2, y - tp.height / 2));
-    }
-
-    // Y axis ticks
-    for (final v in [4.0, 12.0, 20.0]) {
-      final tp = TextPainter(
-        text: TextSpan(text: v.toStringAsFixed(0),
-            style: TextStyle(color: kGrid, fontSize: 8)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      if (v != 4 && v != 20) tp.paint(canvas, Offset(2, yAt(v) - tp.height / 2));
+      _drawDashedLine(canvas, Offset(lPad, y), Offset(size.width, y),
+          Paint()..color = c.withValues(alpha: 0.5)..strokeWidth = 0.8);
+      final tp = _layoutText(v.toStringAsFixed(0), _kAxis);
+      tp.paint(canvas, Offset(lPad - 6 - tp.width, y - tp.height / 2));
     }
 
     final pts = List.generate(n, (i) => Offset(xAt(i), yAt(totals[i].toDouble())));
 
     // Smooth line
     canvas.drawPath(_smoothLinePath(pts), Paint()
-      ..color = kViolet..strokeWidth = 2.2
-      ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+      ..color = kViolet..strokeWidth = 2
+      ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
 
-    // Dots, coloured by zone
+    // Dots, coloured by zone; the latest one larger, ringed in the card colour
     for (int i = 0; i < n; i++) {
       final v = totals[i];
       final c = v <= 8 ? kAccent : v <= 13 ? kWarn : kDanger;
+      if (i == n - 1) canvas.drawCircle(pts[i], 5.5, Paint()..color = kCard);
       canvas.drawCircle(pts[i], i == n - 1 ? 4.0 : 2.6, Paint()..color = c);
     }
 
     // Date labels
     final step = max(1, n ~/ 5);
     for (int i = 0; i < n; i += step) {
-      final lbl = dates[i].split('/')[0];
-      final tp = TextPainter(
-        text: TextSpan(text: lbl, style: TextStyle(color: kGrid, fontSize: 7.5)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(xAt(i) - tp.width / 2, size.height - bPad + 4));
+      final tp = _layoutText(dates[i].split('/')[0], _kAxis);
+      tp.paint(canvas, Offset(xAt(i) - tp.width / 2, size.height - bPad + 5));
     }
   }
 
@@ -1261,20 +1239,22 @@ class _ReadinessRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center  = size.center(Offset.zero);
-    final radius  = size.width / 2 - 8;
-    const strokeW = 10.0;
+    const strokeW = 7.0;
+    final radius  = size.width / 2 - strokeW / 2 - 2;
 
     canvas.drawCircle(center, radius, Paint()
-      ..color = color.withValues(alpha: 0.12)
+      ..color = kBorderBright
       ..style = PaintingStyle.stroke..strokeWidth = strokeW);
 
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2, 2 * pi * pct.clamp(0.0, 1.0), false,
-      Paint()
-        ..color = color..strokeWidth = strokeW
-        ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round,
-    );
+    if (pct > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -pi / 2, 2 * pi * pct.clamp(0.0, 1.0), false,
+        Paint()
+          ..color = color..strokeWidth = strokeW
+          ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round,
+      );
+    }
   }
 
   @override

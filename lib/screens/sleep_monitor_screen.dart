@@ -69,8 +69,8 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
       initialTime: current,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: kSleep,
+          colorScheme: const ColorScheme.dark(
+            primary: kAccent,
             surface: kSurface,
             onSurface: kTextPrimary,
           ),
@@ -90,16 +90,13 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
 
   void _save() {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Row(children: [
-          Icon(Icons.check_circle_outline_rounded, color: kSleep, size: 18),
-          const SizedBox(width: 10),
-          Text('Sleep log saved', style: TextStyle(color: kTextPrimary)),
+          Icon(Icons.check_circle_outline_rounded, color: kBg, size: 18),
+          SizedBox(width: 10),
+          Text('Sleep log saved'),
         ]),
-        backgroundColor: kCard,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -123,27 +120,16 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          icon: const BackButtonIcon(),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           onPressed: () => Navigator.of(context).pop(),
-          color: kTextPrimary,
         ),
-        title: Text(
-          'SLEEP MONITOR',
-          style: TextStyle(
-            fontSize: 13, fontWeight: FontWeight.w700,
-            color: kTextSecondary, letterSpacing: 1.4,
-          ),
-        ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
+        title: const Text('Sleep monitor'),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 8, kGutter, 40),
         children: [
 
           // ── Sleep Quality Summary ──────────────────────────────────────────
@@ -152,21 +138,21 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
             bedTime: _fmtTime(_timeToBed),
             wakeTime: _fmtTime(_wakeUpTime),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
           // ── Q1: Time to Bed ───────────────────────────────────────────────
-          _SectionLabel('1. Time to Bed'),
+          const _SectionLabel('1. Time to bed'),
           const SizedBox(height: 8),
           _TimePickerTile(
             label: 'Bedtime',
             value: _fmtTime(_timeToBed),
-            icon: Icons.bedtime_rounded,
+            icon: Icons.bedtime_outlined,
             onTap: () => _pickTime(_Clock.bed),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           // ── Q2: Fall Asleep Duration ──────────────────────────────────────
-          _SectionLabel('2. Approximately how long did it take you to fall asleep?'),
+          const _SectionLabel('2. Approximately how long did it take you to fall asleep?'),
           const SizedBox(height: 8),
           _MinuteStepper(
             value: _fallAsleepMins,
@@ -176,10 +162,10 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
             step: 5,
             onChanged: (v) => setState(() => _fallAsleepMins = v),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           // ── Q3: Wake-up Time ──────────────────────────────────────────────
-          _SectionLabel('3. Wake-up & Out of Bed'),
+          const _SectionLabel('3. Wake-up & out of bed'),
           const SizedBox(height: 8),
           _TimePickerTile(
             label: 'Wake-up',
@@ -194,39 +180,38 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
             icon: Icons.king_bed_outlined,
             onTap: () => _pickTime(_Clock.outOfBed),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           // ── Q4: Total Time in Bed (auto-calculated) ───────────────────────
-          _SectionLabel('4. Total Time in Bed'),
+          const _SectionLabel('4. Total time in bed'),
           const SizedBox(height: 8),
           _InfoTile(
             icon: Icons.schedule_rounded,
             label: 'Bedtime → out of bed',
             value: formatHhMm(_night.timeInBedMinutes),
-            color: kSleep,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           // ── Q5: Disturbances ──────────────────────────────────────────────
-          _SectionLabel('5. Disturbances during sleep'),
+          const _SectionLabel('5. Disturbances during sleep'),
           const SizedBox(height: 8),
           _YesNoTile(
             value: _hadDisturbance,
             onChanged: (v) => setState(() => _hadDisturbance = v),
           ),
           if (_hadDisturbance) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _InputField(
               controller: _disturbanceCtrl,
               hint: 'Describe disturbance (e.g. Noise, Cramps, Stress…)',
               maxLines: 2,
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           // ── Q6: Awake Duration after Disturbance (conditional) ────────────
           if (_hadDisturbance) ...[
-            _SectionLabel('6. How long were you awake after the disturbance?'),
+            const _SectionLabel('6. How long were you awake after the disturbance?'),
             const SizedBox(height: 8),
             _MinuteStepper(
               value: _awakeAfterMins,
@@ -236,12 +221,12 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
               step: 5,
               onChanged: (v) => setState(() => _awakeAfterMins = v),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
           ],
 
           // ── Q7: Room Conditions ───────────────────────────────────────────
-          _SectionLabel('7. Room Conditions'),
-          const SizedBox(height: 10),
+          const _SectionLabel('7. Room conditions'),
+          const SizedBox(height: 8),
           _RoomConditionRow(
             tempCtrl:  _tempCtrl,
             noiseCtrl: _noiseCtrl,
@@ -252,19 +237,11 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
 
           // ── Save Button ───────────────────────────────────────────────────
           SizedBox(
-            height: 54,
+            width: double.infinity,
+            height: 52,
             child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kSleep,
-                foregroundColor: kOnAccent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-              ),
-              onPressed: _save,
-              child: const Text(
-                'Save Sleep Log',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-              ),
+              onPressed: () { hapticConfirm(); _save(); },
+              child: const Text('Save sleep log'),
             ),
           ),
         ],
@@ -272,6 +249,13 @@ class _SleepMonitorScreenState extends State<SleepMonitorScreen> {
     );
   }
 }
+
+// ── Shared card shape ─────────────────────────────────────────────────────────
+
+ShapeBorder _cardShape(double radius) => RoundedRectangleBorder(
+  borderRadius: BorderRadius.circular(radius),
+  side: const BorderSide(color: kBorder, width: 0.6),
+);
 
 // ── Sleep Summary Card ────────────────────────────────────────────────────────
 
@@ -306,46 +290,32 @@ class _SleepSummaryCard extends StatelessWidget {
     final efficiency = (night.efficiency * 100).clamp(0.0, 100.0);
 
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: kSleep.withValues(alpha: 0.35)),
-      ),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      decoration: ShapeDecoration(color: kCard, shape: _cardShape(kRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: kSleep.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.bedtime_rounded, size: 18, color: kSleep),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'TONIGHT\'S SLEEP',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextSecondary, letterSpacing: 1.2),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _qualityColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
+              const Expanded(
                 child: Text(
-                  _qualityLabel,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _qualityColor),
+                  'Tonight\'s sleep',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondary),
                 ),
+              ),
+              // Quality status: dot in the status colour + the word.
+              Container(width: 8, height: 8,
+                  decoration: BoxDecoration(color: _qualityColor, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Text(
+                _qualityLabel,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kTextPrimary),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Effective sleep big number
               Expanded(
@@ -354,13 +324,14 @@ class _SleepSummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       formatHhMm(night.sleepMinutes),
-                      style: TextStyle(
-                        fontSize: 42, fontWeight: FontWeight.w800,
-                        color: _qualityColor, letterSpacing: -1.5, height: 1.0,
+                      style: const TextStyle(
+                        fontSize: 40, fontWeight: FontWeight.w700,
+                        color: kTextPrimary, letterSpacing: -1.2, height: 1.05,
                       ),
                     ),
-                    Text('sleep time (hh:mm)',
-                        style: TextStyle(fontSize: 11, color: kTextSecondary)),
+                    const SizedBox(height: 4),
+                    const Text('sleep time (hh:mm)',
+                        style: TextStyle(fontSize: 13, color: kTextSecondary)),
                   ],
                 ),
               ),
@@ -369,13 +340,15 @@ class _SleepSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _TimeLabel(icon: Icons.bedtime_outlined, label: 'Bed', time: bedTime),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   _TimeLabel(icon: Icons.wb_sunny_outlined, label: 'Wake', time: wakeTime),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 16),
+          const Divider(height: 0.6),
+          const SizedBox(height: 14),
           // Efficiency bar
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,21 +356,21 @@ class _SleepSummaryCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Sleep Efficiency', style: TextStyle(fontSize: 11, color: kTextSecondary)),
+                  const Text('Sleep efficiency', style: TextStyle(fontSize: 13, color: kTextSecondary)),
                   Text(
                     '${efficiency.toStringAsFixed(0)}%',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _qualityColor),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: efficiency / 100,
-                  minHeight: 5,
-                  backgroundColor: kBorder,
-                  valueColor: AlwaysStoppedAnimation<Color>(_qualityColor),
+                  minHeight: 4,
+                  backgroundColor: kBorderBright,
+                  valueColor: const AlwaysStoppedAnimation<Color>(kSleep),
                 ),
               ),
             ],
@@ -418,10 +391,10 @@ class _TimeLabel extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 13, color: kTextMuted),
+      Icon(icon, size: 14, color: kTextMuted),
       const SizedBox(width: 4),
-      Text('$label  ', style: TextStyle(fontSize: 11, color: kTextMuted)),
-      Text(time, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
+      Text('$label  ', style: const TextStyle(fontSize: 12, color: kTextMuted)),
+      Text(time, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
     ],
   );
 }
@@ -433,11 +406,17 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(
-      fontSize: 13, fontWeight: FontWeight.w600,
-      color: kTextPrimary,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: Semantics(
+      header: true,
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13, fontWeight: FontWeight.w600,
+          color: kTextSecondary, height: 1.35,
+        ),
+      ),
     ),
   );
 }
@@ -452,37 +431,36 @@ class _TimePickerTile extends StatelessWidget {
   const _TimePickerTile({required this.label, required this.value, required this.icon, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: kSleep.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 16, color: kSleep),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '$label, $value. Change time',
+    excludeSemantics: true,
+    child: Material(
+      color: kCard,
+      shape: _cardShape(kRadiusSm),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () { hapticSelect(); onTap(); },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          child: Row(
             children: [
-              Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
-              const SizedBox(height: 2),
-              Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -0.5)),
+              Icon(icon, size: 22, color: kTextSecondary),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
+                    const SizedBox(height: 2),
+                    Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.5)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
             ],
           ),
-          const Spacer(),
-          Icon(Icons.edit_outlined, size: 16, color: kTextMuted),
-        ],
+        ),
       ),
     ),
   );
@@ -506,17 +484,14 @@ class _MinuteStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: ShapeDecoration(color: kCard, shape: _cardShape(kRadiusSm)),
       child: Row(
         children: [
           // Decrement
           _StepBtn(
             icon: Icons.remove_rounded,
+            semanticLabel: 'Decrease',
             enabled: value > min,
             onTap: () { if (value > min) onChanged(value - step); },
           ),
@@ -525,15 +500,16 @@ class _MinuteStepper extends StatelessWidget {
             children: [
               Text(
                 '$value',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: kTextPrimary, letterSpacing: -1.0),
+                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -1.0, height: 1.1),
               ),
-              Text(unit, style: TextStyle(fontSize: 11, color: kTextSecondary)),
+              Text(unit, style: const TextStyle(fontSize: 13, color: kTextSecondary)),
             ],
           ),
           const Spacer(),
           // Increment
           _StepBtn(
             icon: Icons.add_rounded,
+            semanticLabel: 'Increase',
             enabled: value < max,
             onTap: () { if (value < max) onChanged(value + step); },
           ),
@@ -545,21 +521,31 @@ class _MinuteStepper extends StatelessWidget {
 
 class _StepBtn extends StatelessWidget {
   final IconData   icon;
+  final String     semanticLabel;
   final bool       enabled;
   final VoidCallback onTap;
-  const _StepBtn({required this.icon, required this.enabled, required this.onTap});
+  const _StepBtn({required this.icon, required this.semanticLabel, required this.enabled, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: enabled ? onTap : null,
-    child: Container(
-      width: 40, height: 40,
-      decoration: BoxDecoration(
-        color: enabled ? kSleep.withValues(alpha: 0.12) : kBorder.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: enabled ? kSleep.withValues(alpha: 0.35) : kBorder),
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    enabled: enabled,
+    label: semanticLabel,
+    excludeSemantics: true,
+    child: Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        side: BorderSide(color: enabled ? kBorderBright : kBorder),
       ),
-      child: Icon(icon, size: 20, color: enabled ? kSleep : kTextMuted),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: enabled ? () { hapticSelect(); onTap(); } : null,
+        child: SizedBox(
+          width: 44, height: 44,
+          child: Icon(icon, size: 20, color: enabled ? kTextPrimary : kTextMuted),
+        ),
+      ),
     ),
   );
 }
@@ -570,34 +556,23 @@ class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String   label;
   final String   value;
-  final Color    color;
-  const _InfoTile({required this.icon, required this.label, required this.value, required this.color});
+  const _InfoTile({required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    decoration: BoxDecoration(
-      color: kCard,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: kBorder),
-    ),
+    constraints: const BoxConstraints(minHeight: 56),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: ShapeDecoration(color: kCard, shape: _cardShape(kRadiusSm)),
     child: Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 16, color: color),
-        ),
-        const SizedBox(width: 12),
+        Icon(icon, size: 22, color: kTextSecondary),
+        const SizedBox(width: 14),
         Expanded(
-          child: Text(label, style: TextStyle(fontSize: 12, color: kTextSecondary)),
+          child: Text(label, style: const TextStyle(fontSize: 15, color: kTextSecondary)),
         ),
         Text(
           value,
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -0.5),
         ),
       ],
     ),
@@ -605,6 +580,7 @@ class _InfoTile extends StatelessWidget {
 }
 
 // ── Yes/No Tile ───────────────────────────────────────────────────────────────
+// Segmented look: the selected half is a light fill with dark text.
 
 class _YesNoTile extends StatelessWidget {
   final bool   value;
@@ -614,9 +590,9 @@ class _YesNoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Expanded(child: _ChoiceChip(label: 'No', selected: !value,  color: kAccent,  onTap: () => onChanged(false))),
+      Expanded(child: _ChoiceChip(label: 'No', selected: !value, onTap: () => onChanged(false))),
       const SizedBox(width: 10),
-      Expanded(child: _ChoiceChip(label: 'Yes', selected: value, color: kDanger, onTap: () => onChanged(true))),
+      Expanded(child: _ChoiceChip(label: 'Yes', selected: value, onTap: () => onChanged(true))),
     ],
   );
 }
@@ -624,27 +600,31 @@ class _YesNoTile extends StatelessWidget {
 class _ChoiceChip extends StatelessWidget {
   final String   label;
   final bool     selected;
-  final Color    color;
   final VoidCallback onTap;
-  const _ChoiceChip({required this.label, required this.selected, required this.color, required this.onTap});
+  const _ChoiceChip({required this.label, required this.selected, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: selected ? color.withValues(alpha: 0.15) : kCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: selected ? color : kBorder, width: selected ? 1.5 : 1.0),
-      ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 14, fontWeight: FontWeight.w700,
-          color: selected ? color : kTextSecondary,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () { if (!selected) hapticSelect(); onTap(); },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? kTextPrimary : kCard,
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          border: Border.all(color: selected ? kTextPrimary : kBorder, width: selected ? 1 : 0.6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w600,
+            color: selected ? kBg : kTextSecondary,
+          ),
         ),
       ),
     ),
@@ -663,21 +643,14 @@ class _InputField extends StatelessWidget {
   Widget build(BuildContext context) => TextField(
     controller: controller,
     maxLines: maxLines,
-    style: TextStyle(color: kTextPrimary, fontSize: 13),
-    decoration: InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: kTextMuted, fontSize: 12),
-      filled: true,
-      fillColor: kCard,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border:         OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kBorder)),
-      enabledBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kBorder)),
-      focusedBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kSleep, width: 1.5)),
-    ),
+    style: const TextStyle(color: kTextPrimary, fontSize: 16),
+    decoration: InputDecoration(hintText: hint),
   );
 }
 
 // ── Room Condition Row ────────────────────────────────────────────────────────
+// One grouped card: label on the left, borderless field on the right,
+// hairlines between rows.
 
 class _RoomConditionRow extends StatelessWidget {
   final TextEditingController tempCtrl;
@@ -686,83 +659,67 @@ class _RoomConditionRow extends StatelessWidget {
   const _RoomConditionRow({required this.tempCtrl, required this.noiseCtrl, required this.lightCtrl});
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      _RoomTile(
-        icon: Icons.thermostat_rounded,
-        label: 'Temperature',
-        hint: 'e.g. 20°C, Cold, Warm',
-        controller: tempCtrl,
-        color: kOrange,
-      ),
-      const SizedBox(height: 8),
-      _RoomTile(
-        icon: Icons.volume_down_rounded,
-        label: 'Noise',
-        hint: 'e.g. Silent, Fan, Traffic',
-        controller: noiseCtrl,
-        color: kSky,
-      ),
-      const SizedBox(height: 8),
-      _RoomTile(
-        icon: Icons.light_mode_outlined,
-        label: 'Light',
-        hint: 'e.g. Pitch Black, Dim, Bright',
-        controller: lightCtrl,
-        color: kWarn,
-      ),
-    ],
+  Widget build(BuildContext context) => Material(
+    color: kCard,
+    shape: _cardShape(kRadius),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      children: [
+        _RoomTile(
+          label: 'Temperature',
+          hint: 'e.g. 20°C, Cold, Warm',
+          controller: tempCtrl,
+        ),
+        const Divider(height: 0.6, indent: 16),
+        _RoomTile(
+          label: 'Noise',
+          hint: 'e.g. Silent, Fan, Traffic',
+          controller: noiseCtrl,
+        ),
+        const Divider(height: 0.6, indent: 16),
+        _RoomTile(
+          label: 'Light',
+          hint: 'e.g. Pitch Black, Dim, Bright',
+          controller: lightCtrl,
+        ),
+      ],
+    ),
   );
 }
 
 class _RoomTile extends StatelessWidget {
-  final IconData   icon;
   final String     label;
   final String     hint;
   final TextEditingController controller;
-  final Color      color;
-  const _RoomTile({required this.icon, required this.label, required this.hint, required this.controller, required this.color});
+  const _RoomTile({required this.label, required this.hint, required this.controller});
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-    decoration: BoxDecoration(
-      color: kCard,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: kBorder),
-    ),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(minHeight: 54),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 104,
+            child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: kTextPrimary)),
           ),
-          child: Icon(icon, size: 16, color: color),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 80,
-          child: Text(label, style: TextStyle(fontSize: 12, color: kTextSecondary)),
-        ),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            style: TextStyle(color: kTextPrimary, fontSize: 13),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(color: kTextMuted, fontSize: 12),
-              filled: false,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
+          Expanded(
+            child: TextField(
+              controller: controller,
+              style: const TextStyle(color: kTextPrimary, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: hint,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

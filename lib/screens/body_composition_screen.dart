@@ -437,9 +437,10 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
 
   Widget _gatedBody(BuildContext context) {
     final body = _loading
-        ? Center(child: CircularProgressIndicator(color: kAccent))
+        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
         : SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(kGutter, 8, kGutter, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -449,33 +450,33 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             if (_error != null) ...[
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(12),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: kDanger.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kDanger.withValues(alpha: 0.4)),
+                  color: kCard,
+                  borderRadius: BorderRadius.circular(kRadiusSm),
+                  border: Border.all(color: kBorder, width: 0.6),
                 ),
-                child: Row(children: [
-                  Icon(Icons.error_outline_rounded, color: kDanger, size: 16),
-                  const SizedBox(width: 8),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.error_outline_rounded, color: kDanger, size: 18),
+                  const SizedBox(width: 10),
                   Expanded(child: Text(_error!,
-                      style: TextStyle(color: kDanger, fontSize: 12.5))),
+                      style: const TextStyle(color: kTextSecondary, fontSize: 14, height: 1.4))),
                 ]),
               ),
             ],
             if (_result != null) ...[
               const SizedBox(height: 28),
               _buildStructuralTable(_result!),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               _buildDonutRow(_result!),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
               _buildMetricGrid(_result!),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
               _buildTrends(_result!),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               _buildInterpretation(_result!),
             ],
-            const SizedBox(height: 40),
           ],
         ),
       );
@@ -486,17 +487,7 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        backgroundColor: kBg,
-        elevation: 0,
-        title: Text(
-          'BODY COMPOSITION',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-              color: kTextSecondary, letterSpacing: 1.4),
-        ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: kBorder),
-        ),
+        title: const Text('Body composition'),
       ),
       body: body,
     );
@@ -506,87 +497,57 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
 
   Widget _buildLockedBanner() {
     final next = _nextAvailable;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: kAccent.withValues(alpha: 0.35)),
-      ),
-      padding: const EdgeInsets.all(20),
+    return _panel(
+      padding: const EdgeInsets.fromLTRB(18, 10, 6, 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: kAccent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(Icons.lock_clock_rounded, size: 18, color: kAccent),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text('ANALYSIS INTERVAL',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                    color: kTextSecondary, letterSpacing: 1.4)),
-          ),
+          const Icon(Icons.lock_clock_rounded, size: 20, color: kTextSecondary),
+          const SizedBox(width: 10),
+          const Expanded(child: _CardTitle('Analysis interval')),
           _infoBtn(),
         ]),
-        const SizedBox(height: 14),
-        Text(
-          'Body composition is assessed once every 2 weeks. Your latest '
-          'interpretation and trends are shown below.',
-          style: TextStyle(fontSize: 13, color: kTextSecondary, height: 1.5),
-        ),
-        if (next != null) ...[
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: kSurface, borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: kBorder),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const SizedBox(height: 4),
+            const Text(
+              'Body composition is assessed once every 2 weeks. Your latest '
+              'interpretation and trends are shown below.',
+              style: TextStyle(fontSize: 14, color: kTextSecondary, height: 1.45),
             ),
-            child: Row(children: [
-              Icon(Icons.event_available_rounded, size: 16, color: kAccent),
-              const SizedBox(width: 10),
-              Text('Next analysis available',
-                  style: TextStyle(fontSize: 12.5, color: kTextSecondary)),
-              const Spacer(),
-              Text(_fmtDate(next),
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
-            ]),
-          ),
-        ],
+            if (next != null) ...[
+              const SizedBox(height: 14),
+              const Divider(height: 0.6),
+              const SizedBox(height: 14),
+              Row(children: [
+                const Expanded(
+                  child: Text('Next analysis available',
+                      style: TextStyle(fontSize: 14, color: kTextSecondary)),
+                ),
+                Text(_fmtDate(next),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary)),
+              ]),
+            ],
+          ]),
+        ),
       ]),
     );
   }
 
   // ── Methodology Info ("i" button) ──────────────────────────────────────────
 
-  Widget _infoBtn() => GestureDetector(
-    onTap: _showMethodologyInfo,
-    behavior: HitTestBehavior.opaque,
-    child: Container(
-      width: 22, height: 22,
-      decoration: BoxDecoration(
-        color: kSurface,
-        shape: BoxShape.circle,
-        border: Border.all(color: kBorder),
-      ),
-      alignment: Alignment.center,
-      child: Icon(Icons.info_outline_rounded, size: 14, color: kTextSecondary),
-    ),
+  Widget _infoBtn() => IconButton(
+    onPressed: () { hapticSelect(); _showMethodologyInfo(); },
+    tooltip: 'How this is calculated',
+    icon: const Icon(Icons.info_outline_rounded, size: 20, color: kTextSecondary),
   );
 
   void _showMethodologyInfo() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (_) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: const EdgeInsets.fromLTRB(kGutter, 10, kGutter, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -595,24 +556,23 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
                 child: Container(
                   width: 36, height: 4,
                   decoration: BoxDecoration(
-                    color: kBorder, borderRadius: BorderRadius.circular(2),
+                    color: kBorderBright, borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              Row(children: [
-                Icon(Icons.info_outline_rounded, size: 18, color: kAccent),
-                const SizedBox(width: 10),
-                Text('HOW THIS IS CALCULATED',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                        color: kTextSecondary, letterSpacing: 1.4)),
-              ]),
-              const SizedBox(height: 14),
-              Text(
+              const SizedBox(height: 20),
+              Semantics(
+                header: true,
+                child: const Text('How this is calculated',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700,
+                        color: kTextPrimary, letterSpacing: -0.3)),
+              ),
+              const SizedBox(height: 10),
+              const Text(
                 'Calculated using validated anthropometric distribution models '
                 '(Janssen et al., Gallagher et al.) mapped to the U.S. Navy '
                 'Circumference framework.',
-                style: TextStyle(fontSize: 13.5, color: kTextPrimary, height: 1.5),
+                style: TextStyle(fontSize: 15, color: kTextSecondary, height: 1.5),
               ),
             ],
           ),
@@ -628,19 +588,8 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        title: Row(children: [
-          Icon(Icons.verified_user_outlined, size: 18, color: kAccent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text('BEFORE YOU BEGIN',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
-                    color: kTextSecondary, letterSpacing: 1.4)),
-          ),
-        ]),
-        content: Text(
+        title: const Text('Before you begin'),
+        content: const Text(
           'This analysis provides an estimate of your body composition derived '
           'from your measurements. It is calculated using validated '
           'anthropometric distribution models (Janssen et al., Gallagher et al.) '
@@ -649,18 +598,18 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
           'and is not a medical diagnosis or a substitute for professional '
           'advice. By continuing you acknowledge and consent to this estimate '
           'being calculated and stored on your device.',
-          style: TextStyle(fontSize: 13.5, color: kTextPrimary, height: 1.5),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+            style: TextButton.styleFrom(foregroundColor: kTextSecondary),
+            child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('I Understand & Agree',
-                style: TextStyle(color: kAccent, fontWeight: FontWeight.w700)),
+            onPressed: () { hapticConfirm(); Navigator.of(ctx).pop(true); },
+            style: TextButton.styleFrom(foregroundColor: kAccent),
+            child: const Text('I understand & agree'),
           ),
         ],
       ),
@@ -670,29 +619,22 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
   // ── Input Card ────────────────────────────────────────────────────────────
 
   Widget _buildInputCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: kBorder),
-      ),
-      padding: const EdgeInsets.all(20),
+    return _panel(
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('MEASUREMENTS', style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700,
-              color: kTextSecondary, letterSpacing: 1.4)),
-          const Spacer(),
-          _infoBtn(),
+          const Expanded(child: _CardTitle('Measurements')),
+          Transform.translate(offset: const Offset(12, 0), child: _infoBtn()),
         ]),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
 
-        // Gender toggle
+        // Gender toggle — segmented control
         Container(
           decoration: BoxDecoration(
-            color: kSurface, borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: kBorder),
+            color: kBg, borderRadius: BorderRadius.circular(kRadiusSm),
+            border: Border.all(color: kBorder, width: 0.6),
           ),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(3),
           child: Row(children: [
             _genderBtn('Male',   true),
             _genderBtn('Female', false),
@@ -719,46 +661,55 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
 
         SizedBox(
           width: double.infinity,
+          height: 52,
           child: ElevatedButton(
-            onPressed: _calculate,
-            child: const Text('CALCULATE'),
+            onPressed: () { hapticConfirm(); _calculate(); },
+            child: const Text('Calculate'),
           ),
         ),
       ]),
     );
   }
 
-  Widget _genderBtn(String label, bool male) => Expanded(
-    child: GestureDetector(
-      onTap: () => setState(() { _isMale = male; _result = null; _error = null; }),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: _isMale == male ? kAccent.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: _isMale == male ? kAccent : Colors.transparent, width: 1.5),
+  Widget _genderBtn(String label, bool male) {
+    final selected = _isMale == male;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (!selected) hapticSelect();
+            setState(() { _isMale = male; _result = null; _error = null; });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 38,
+            decoration: BoxDecoration(
+              color: selected ? kTextPrimary : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            alignment: Alignment.center,
+            child: Text(label, style: TextStyle(
+              color: selected ? kBg : kTextSecondary,
+              fontWeight: FontWeight.w600, fontSize: 14,
+            )),
+          ),
         ),
-        alignment: Alignment.center,
-        child: Text(label, style: TextStyle(
-          color: _isMale == male ? kAccent : kTextSecondary,
-          fontWeight: FontWeight.w700, fontSize: 13,
-        )),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _field(TextEditingController ctrl, String label, String hint) =>
     TextField(
       controller: ctrl,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
-      style: TextStyle(color: kTextPrimary, fontSize: 14),
+      style: const TextStyle(color: kTextPrimary, fontSize: 16),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: TextStyle(color: kTextMuted),
       ),
     );
 
@@ -766,126 +717,154 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
 
   Widget _buildStructuralTable(_BCA r) {
     return _card(
-      title: 'STRUCTURAL LAYER COMPOSITION',
-      child: Column(children: [
+      title: 'Structural layer composition',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _tableHeader(),
+        const Divider(height: 0.6),
         _tableRow('Total Body Weight',     '100.00%', r.weightKg,           bold: true),
         _tableRow('Total Body Fat',        _pct(r.bfPercent),      r.bfKg,    accent: kDanger),
         _tableRow('Lean Body Mass (LBM)',  _pct(100 - r.bfPercent), r.lbm,   accent: kAccent),
-        Divider(height: 20, color: kBorder),
         _tableRow('Total Skeletal Muscle', _pct(r.smmPercent),     r.tsm,    accent: kExertion),
         _tableRow('  Axial Muscle Mass',   _pct(r.axialToTotal),   r.axial),
         _tableRow('  Appendicular (ASM)',  _pct(r.appendicularToTotal), r.asm),
-        _tableRow('Estimated Bone Mass',   _pct(r.bmc / r.weightKg * 100), r.bmc),
-        Divider(height: 20, color: kBorder),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text('LBM COMPONENTS', style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.w700,
-              color: kTextSecondary, letterSpacing: 1.2)),
-        ),
-        const SizedBox(height: 8),
+        _tableRow('Estimated Bone Mass',   _pct(r.bmc / r.weightKg * 100), r.bmc, last: true),
+        const SizedBox(height: 22),
+        const _Label('LBM components'),
+        const SizedBox(height: 6),
+        const Divider(height: 0.6),
         _tableRow('Skeletal Muscle',       _pct(r.tsm / r.lbm * 100), r.tsm,  accent: kExertion),
         _tableRow('Essential Organs',      _pct(r.essentialOrgans / r.lbm * 100), r.essentialOrgans),
         _tableRow('Bone Mineral Content',  _pct(r.bmc / r.lbm * 100), r.bmc),
         _tableRow('Skin & Connective',     _pct(r.skinConnective / r.lbm * 100), r.skinConnective),
-        _tableRow('Non-Muscle Lean Fluids',_pct(r.nonMuscleFluid / r.lbm * 100), r.nonMuscleFluid),
+        _tableRow('Non-Muscle Lean Fluids',_pct(r.nonMuscleFluid / r.lbm * 100), r.nonMuscleFluid, last: true),
       ]),
     );
   }
 
-  Widget _tableHeader() => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Row(children: [
-      Expanded(flex: 5, child: Text('Layer', style: TextStyle(color: kTextMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6))),
-      SizedBox(width: 60, child: Text('%', style: TextStyle(color: kTextMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6), textAlign: TextAlign.right)),
-      SizedBox(width: 60, child: Text('kg', style: TextStyle(color: kTextMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6), textAlign: TextAlign.right)),
-      SizedBox(width: 58, child: Text('lbs', style: TextStyle(color: kTextMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6), textAlign: TextAlign.right)),
-    ]),
-  );
+  static const _tabular = [FontFeature.tabularFigures()];
 
-  Widget _tableRow(String label, String pct, double kg, {bool bold = false, Color? accent}) {
-    final lbs = kg * 2.20462;
-    final textColor = accent ?? kTextPrimary;
-    final style = TextStyle(color: textColor, fontSize: 12.5, fontWeight: bold ? FontWeight.w700 : FontWeight.w400);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.5),
+  Widget _tableHeader() {
+    const h = TextStyle(color: kTextMuted, fontSize: 12, fontWeight: FontWeight.w500);
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 8),
       child: Row(children: [
-        Expanded(flex: 5, child: Row(children: [
-          if (accent != null) Container(width: 3, height: 13, color: accent,
-              margin: const EdgeInsets.only(right: 6)),
-          Expanded(child: Text(label, style: style)),
-        ])),
-        SizedBox(width: 60, child: Text(pct, style: style, textAlign: TextAlign.right)),
-        SizedBox(width: 60, child: Text(kg.toStringAsFixed(2), style: style, textAlign: TextAlign.right)),
-        SizedBox(width: 58, child: Text(lbs.toStringAsFixed(2), style: TextStyle(color: kTextSecondary, fontSize: 11.5), textAlign: TextAlign.right)),
+        Expanded(flex: 5, child: Padding(
+          padding: EdgeInsets.only(left: 16),
+          child: Text('Layer', style: h),
+        )),
+        SizedBox(width: 60, child: Text('%', style: h, textAlign: TextAlign.right)),
+        SizedBox(width: 56, child: Text('kg', style: h, textAlign: TextAlign.right)),
+        SizedBox(width: 56, child: Text('lbs', style: h, textAlign: TextAlign.right)),
       ]),
     );
+  }
+
+  Widget _tableRow(String label, String pct, double kg, {bool bold = false, Color? accent, bool last = false}) {
+    final lbs = kg * 2.20462;
+    final indented = label.startsWith('  ');
+    final style = TextStyle(
+      color: kTextPrimary,
+      fontSize: 13,
+      fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+      fontFeatures: _tabular,
+    );
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(children: [
+          Expanded(flex: 5, child: Row(children: [
+            // Layer key dot; rows without a series colour keep the space so
+            // every label starts on the same line.
+            SizedBox(
+              width: 16,
+              child: accent == null ? null : Align(
+                alignment: Alignment.centerLeft,
+                child: Container(width: 8, height: 8,
+                    decoration: BoxDecoration(color: accent, shape: BoxShape.circle)),
+              ),
+            ),
+            Expanded(child: Padding(
+              padding: EdgeInsets.only(left: indented ? 12 : 0),
+              child: Text(label.trimLeft(),
+                  style: indented ? style.copyWith(color: kTextSecondary) : style),
+            )),
+          ])),
+          SizedBox(width: 60, child: Text(pct, style: style, textAlign: TextAlign.right)),
+          SizedBox(width: 56, child: Text(kg.toStringAsFixed(2), style: style, textAlign: TextAlign.right)),
+          SizedBox(width: 56, child: Text(lbs.toStringAsFixed(2),
+              style: const TextStyle(color: kTextSecondary, fontSize: 12, fontFeatures: _tabular),
+              textAlign: TextAlign.right)),
+        ]),
+      ),
+      if (!last) const Divider(height: 0.6),
+    ]);
   }
 
   // ── Donut Charts Row ───────────────────────────────────────────────────────
 
   Widget _buildDonutRow(_BCA r) {
-    return Row(children: [
-      Expanded(child: _card(
-        title: 'COMPOSITION %',
-        child: Column(children: [
-          SizedBox(
-            height: 140,
-            child: CustomPaint(
-              painter: _DonutPainter(segments: [
-                _Seg(r.bfPercent,        kDanger, 'Body Fat'),
-                _Seg(100 - r.bfPercent,  kAccent,                 'LBM'),
-              ]),
-              child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('${r.bfPercent.toStringAsFixed(1)}%',
-                    style: TextStyle(color: kTextPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
-                Text('Body Fat', style: TextStyle(color: kTextSecondary, fontSize: 10)),
-              ])),
+    return IntrinsicHeight(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Expanded(child: _card(
+          title: 'Composition %',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              height: 128,
+              child: CustomPaint(
+                painter: _DonutPainter(segments: [
+                  _Seg(r.bfPercent,        kDanger, 'Body Fat'),
+                  _Seg(100 - r.bfPercent,  kAccent,                 'LBM'),
+                ]),
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('${r.bfPercent.toStringAsFixed(1)}%',
+                      style: const TextStyle(color: kTextPrimary, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.6)),
+                  const Text('Body fat', style: TextStyle(color: kTextSecondary, fontSize: 12)),
+                ])),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _legend(kDanger, 'Body Fat  ${r.bfPercent.toStringAsFixed(1)}%'),
-          const SizedBox(height: 6),
-          _legend(kAccent, 'LBM  ${(100 - r.bfPercent).toStringAsFixed(1)}%'),
-        ]),
-      )),
-      const SizedBox(width: 12),
-      Expanded(child: _card(
-        title: 'LBM COMPONENTS',
-        child: Column(children: [
-          SizedBox(
-            height: 140,
-            child: CustomPaint(
-              painter: _DonutPainter(segments: [
-                _Seg(r.tsm  / r.lbm * 100, kExertion,                  'Muscle'),
-                _Seg(r.essentialOrgans / r.lbm * 100, kWarn, 'Organs'),
-                _Seg(r.bmc  / r.lbm * 100, kViolet,  'Bone'),
-                _Seg(r.skinConnective / r.lbm * 100, const Color(0xFF4ADE80), 'Skin'),
-                _Seg(r.nonMuscleFluid / r.lbm * 100, kTextSecondary, 'Fluids'),
-              ]),
-              child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(color: kTextPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
-                Text('Muscle', style: TextStyle(color: kTextSecondary, fontSize: 10)),
-              ])),
+            const SizedBox(height: 14),
+            _legend(kDanger, 'Body fat  ${r.bfPercent.toStringAsFixed(1)}%'),
+            const SizedBox(height: 6),
+            _legend(kAccent, 'LBM  ${(100 - r.bfPercent).toStringAsFixed(1)}%'),
+          ]),
+        )),
+        const SizedBox(width: 12),
+        Expanded(child: _card(
+          title: 'LBM components',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              height: 128,
+              child: CustomPaint(
+                painter: _DonutPainter(segments: [
+                  _Seg(r.tsm  / r.lbm * 100, kExertion,                  'Muscle'),
+                  _Seg(r.essentialOrgans / r.lbm * 100, kWarn, 'Organs'),
+                  _Seg(r.bmc  / r.lbm * 100, kViolet,  'Bone'),
+                  _Seg(r.skinConnective / r.lbm * 100, const Color(0xFF4ADE80), 'Skin'),
+                  _Seg(r.nonMuscleFluid / r.lbm * 100, kTextSecondary, 'Fluids'),
+                ]),
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%',
+                      style: const TextStyle(color: kTextPrimary, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.6)),
+                  const Text('Muscle', style: TextStyle(color: kTextSecondary, fontSize: 12)),
+                ])),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _legend(kExertion,                  'Muscle ${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%'),
-          const SizedBox(height: 4),
-          _legend(kWarn, 'Organs ${(r.essentialOrgans / r.lbm * 100).toStringAsFixed(0)}%'),
-          const SizedBox(height: 4),
-          _legend(kViolet, 'Bone ${(r.bmc / r.lbm * 100).toStringAsFixed(0)}%'),
-        ]),
-      )),
-    ]);
+            const SizedBox(height: 14),
+            _legend(kExertion,                  'Muscle ${(r.tsm / r.lbm * 100).toStringAsFixed(0)}%'),
+            const SizedBox(height: 6),
+            _legend(kWarn, 'Organs ${(r.essentialOrgans / r.lbm * 100).toStringAsFixed(0)}%'),
+            const SizedBox(height: 6),
+            _legend(kViolet, 'Bone ${(r.bmc / r.lbm * 100).toStringAsFixed(0)}%'),
+          ]),
+        )),
+      ]),
+    );
   }
 
   Widget _legend(Color color, String text) => Row(children: [
     Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-    const SizedBox(width: 6),
-    Text(text, style: TextStyle(color: kTextSecondary, fontSize: 11)),
+    const SizedBox(width: 8),
+    Flexible(child: Text(text, style: const TextStyle(color: kTextSecondary, fontSize: 12))),
   ]);
 
   // ── Key Metrics Grid ───────────────────────────────────────────────────────
@@ -893,37 +872,36 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
   Widget _buildMetricGrid(_BCA r) {
     final metrics = [
       _MetricData('Fat Percentage',       '${r.bfPercent.toStringAsFixed(1)}%', _gradeBF(r.bfPercent, r.isMale),
-          'Composition balance', Icons.water_drop_rounded),
+          'Composition balance'),
       _MetricData('FFMI',                 r.ffmi.toStringAsFixed(1),  _gradeFFMI(r.ffmi, r.isMale),
-          'Fat-free mass index', Icons.fitness_center_rounded),
+          'Fat-free mass index'),
       _MetricData('Skeletal Muscle %',    '${r.smmPercent.toStringAsFixed(1)}%', _gradeSMM(r.smmPercent, r.isMale),
-          'of total body weight', Icons.accessibility_new_rounded),
+          'of total body weight'),
       _MetricData('Muscle Mass Index',    '${r.smi.toStringAsFixed(2)} kg/m²', _gradeSMI(r.smi, r.isMale),
-          'Sarcopenia screening', Icons.monitor_heart_rounded),
+          'Sarcopenia screening'),
       _MetricData('Relative ASM',         '${r.relativeAsm.toStringAsFixed(1)}%', _gradeRelASM(r.relativeAsm, r.isMale),
-          'Functional limb muscle', Icons.directions_run_rounded),
+          'Functional limb muscle'),
       _MetricData('Muscle-Bone Ratio',    r.mbr.toStringAsFixed(1), _gradeMBR(r.mbr),
-          'LBM / Bone mass', Icons.architecture_rounded),
+          'LBM / Bone mass'),
       _MetricData('Appendicular Ratio',   '${r.appendicularToTotal.toStringAsFixed(1)}%', _gradeAppendicular(r.appendicularToTotal, r.isMale),
-          'Limb muscle vs body', Icons.sports_handball_rounded),
+          'Limb muscle vs body'),
       _MetricData('Axial Ratio',          '${r.axialToTotal.toStringAsFixed(1)}%', _gradeAxial(r.axialToTotal, r.isMale),
-          'Core muscle vs body', Icons.self_improvement_rounded),
+          'Core muscle vs body'),
     ];
 
-    return Column(children: [
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Text('KEY METRICS & ANALYSIS', style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w700,
-            color: kTextSecondary, letterSpacing: 1.4)),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4),
+        child: _Label('Key metrics & analysis'),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
       GridView.builder(
         shrinkWrap: true,
+        padding: EdgeInsets.zero,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, crossAxisSpacing: 10,
-          mainAxisSpacing: 10, childAspectRatio: 1.2,
+          crossAxisCount: 2, crossAxisSpacing: 12,
+          mainAxisSpacing: 12, mainAxisExtent: 164,
         ),
         itemCount: metrics.length,
         itemBuilder: (_, i) => _metricCard(metrics[i]),
@@ -931,46 +909,22 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     ]);
   }
 
-  Widget _metricCard(_MetricData m) => Container(
-    decoration: BoxDecoration(
-      color: kCard, borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: kBorder),
-    ),
-    padding: const EdgeInsets.all(14),
+  Widget _metricCard(_MetricData m) => _panel(
+    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(width: 30, height: 30,
-          decoration: BoxDecoration(
-            color: m.grade.color.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(m.icon, color: m.grade.color, size: 15),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: m.grade.color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(m.grade.label,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                      color: m.grade.color, fontSize: 9, fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ),
-      ]),
+      Text(m.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: kTextSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
+      const SizedBox(height: 6),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(m.value, style: const TextStyle(
+            color: kTextPrimary, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.8)),
+      ),
+      Text(m.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: kTextMuted, fontSize: 12)),
       const Spacer(),
-      Text(m.value, style: TextStyle(
-          color: kTextPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 2),
-      Text(m.name, style: TextStyle(
-          color: kTextPrimary, fontSize: 11.5, fontWeight: FontWeight.w600)),
-      Text(m.subtitle, style: TextStyle(color: kTextSecondary, fontSize: 10)),
+      _GradeTag(grade: m.grade, maxLines: 3),
     ]),
   );
 
@@ -1013,65 +967,65 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     final single  = readings < 2;
 
     return _card(
-      title: 'METRIC TRENDS · $readings READING${readings == 1 ? '' : 'S'} (BI-WEEKLY)',
+      title: 'Metric trends · $readings reading${readings == 1 ? '' : 's'} (bi-weekly)',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Metric selector chips
         Wrap(spacing: 8, runSpacing: 8, children: List.generate(trends.length, (i) {
           final active = i == _trendIdx;
           final t = trends[i];
-          return GestureDetector(
-            onTap: () => setState(() => _trendIdx = i),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-              decoration: BoxDecoration(
-                color: active ? t.color.withValues(alpha: 0.16) : kSurface,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: active ? t.color : kBorder),
-              ),
-              child: Text(t.name,
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: active ? t.color : kTextSecondary)),
+          return ChoiceChip(
+            label: Text(t.name),
+            labelStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+              color: active ? kBg : kTextPrimary,
             ),
+            selected: active,
+            showCheckmark: false,
+            selectedColor: kTextPrimary,
+            backgroundColor: kCard,
+            side: BorderSide(color: active ? kTextPrimary : kBorder),
+            onSelected: (_) {
+              if (!active) hapticSelect();
+              setState(() => _trendIdx = i);
+            },
           );
         })),
-        const SizedBox(height: 16),
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        const SizedBox(height: 18),
+        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
           Text('${last.toStringAsFixed(1)}${m.unit}',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: m.color, letterSpacing: -0.8)),
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: kTextPrimary, letterSpacing: -1.0)),
           const SizedBox(width: 10),
-          if (!single)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(children: [
-                Icon(change == 0 ? Icons.remove_rounded : change > 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                    size: 13, color: chgCol),
-                const SizedBox(width: 2),
-                Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}${m.unit}',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: chgCol)),
-              ]),
-            ),
+          if (!single) ...[
+            Icon(change == 0 ? Icons.remove_rounded : change > 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                size: 14, color: chgCol),
+            const SizedBox(width: 2),
+            Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}${m.unit}',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
+          ],
         ]),
         const SizedBox(height: 4),
         Text(
           single
               ? 'First reading recorded · trend builds from your next analysis'
               : 'From ${first.toStringAsFixed(1)}${m.unit} at first reading · ${improved ? "On track" : "Needs attention"}',
-          style: TextStyle(fontSize: 11, color: kTextSecondary),
+          style: const TextStyle(fontSize: 13, color: kTextSecondary),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         if (single)
           Container(
-            height: 90,
+            height: 96,
+            width: double.infinity,
             alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: kSurface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: kBorder),
+              color: kBg,
+              borderRadius: BorderRadius.circular(kRadiusSm),
+              border: Border.all(color: kBorder, width: 0.6),
             ),
-            child: Text('A chart appears once you have two or more readings',
-                style: TextStyle(fontSize: 11, color: kTextMuted)),
+            child: const Text('A chart appears once you have two or more readings',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: kTextSecondary)),
           )
         else
           SizedBox(
@@ -1081,9 +1035,9 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
               size: Size.infinite,
             ),
           ),
-        const SizedBox(height: 6),
-        Text('Follow-up every 2 weeks · tracks adaptation across the season',
-            style: TextStyle(fontSize: 10, color: kTextMuted)),
+        const SizedBox(height: 10),
+        const Text('Follow-up every 2 weeks · tracks adaptation across the season',
+            style: TextStyle(fontSize: 12, color: kTextMuted)),
       ]),
     );
   }
@@ -1123,42 +1077,37 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     actions.add('Follow-up body composition assessment recommended in 2 weeks to track adaptations.');
 
     return _card(
-      title: 'INTERPRETATION REPORT',
+      title: 'Interpretation report',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Overall impression
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: overallColor.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: overallColor.withValues(alpha: 0.3)),
+        const Text('Overall profile', style: TextStyle(color: kTextSecondary, fontSize: 13)),
+        const SizedBox(height: 6),
+        Row(children: [
+          Container(width: 10, height: 10,
+              decoration: BoxDecoration(color: overallColor, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(overallLabel, style: const TextStyle(
+                color: kTextPrimary, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.4)),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Overall Profile', style: TextStyle(
-                color: overallColor, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
-            const SizedBox(height: 4),
-            Text(overallLabel, style: TextStyle(
-                color: overallColor, fontSize: 16, fontWeight: FontWeight.w800)),
-          ]),
-        ),
-        const SizedBox(height: 18),
+        ]),
+        const SizedBox(height: 24),
 
         // Executive summary
-        _sectionTitle('I. EXECUTIVE SUMMARY'),
-        const SizedBox(height: 10),
+        _sectionTitle('I. Executive summary'),
+        const SizedBox(height: 4),
         _interpretRow('Body Fat', '${r.bfPercent.toStringAsFixed(1)}%', bfGrade),
-        const SizedBox(height: 8),
+        const Divider(height: 0.6),
         _interpretRow('Skeletal Muscle', '${r.smmPercent.toStringAsFixed(1)}%', smmGrade),
-        const SizedBox(height: 8),
+        const Divider(height: 0.6),
         _interpretRow('Functional Limb Muscle', '${r.relativeAsm.toStringAsFixed(1)}%', relGrade),
-        const SizedBox(height: 8),
+        const Divider(height: 0.6),
         _interpretRow('Muscle-Bone Framework', r.mbr.toStringAsFixed(1), mbrGrade),
-        const SizedBox(height: 18),
+        const SizedBox(height: 24),
 
         // Diagnostic insights
-        _sectionTitle('II. ANALYTICAL INSIGHTS'),
-        const SizedBox(height: 10),
+        _sectionTitle('II. Analytical insights'),
+        const SizedBox(height: 12),
         _bullet('Muscle Efficiency',
             'FFMI of ${r.ffmi.toStringAsFixed(1)} kg/m² — ${_gradeFFMI(r.ffmi, r.isMale).label} muscularity relative to height.'),
         _bullet('Skeletal Support',
@@ -1167,84 +1116,78 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
             '$weightDist body architecture (${r.appendicularToTotal.toStringAsFixed(1)}% limb / ${r.axialToTotal.toStringAsFixed(1)}% core muscle of BW).'),
         _bullet('Composition Balance',
             '${r.lbm.toStringAsFixed(1)} kg lean mass vs ${r.bfKg.toStringAsFixed(1)} kg fat mass. LBM constitutes ${(r.lbm / r.weightKg * 100).toStringAsFixed(1)}% of total weight.'),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
 
         // Action plan
-        _sectionTitle('III. SUGGESTIONS'),
-        const SizedBox(height: 10),
+        _sectionTitle('III. Suggestions'),
+        const SizedBox(height: 12),
         ...actions.asMap().entries.map((e) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 22, height: 22,
-              decoration: BoxDecoration(
-                color: kAccent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              alignment: Alignment.center,
-              child: Text('${e.key + 1}', style: TextStyle(
-                  color: kAccent, fontSize: 11, fontWeight: FontWeight.w800)),
+            SizedBox(
+              width: 22,
+              child: Text('${e.key + 1}.', style: const TextStyle(
+                  color: kTextMuted, fontSize: 14, fontWeight: FontWeight.w600, height: 1.5)),
             ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(e.value, style: TextStyle(
-                color: kTextSecondary, fontSize: 12.5, height: 1.5))),
+            Expanded(child: Text(e.value, style: const TextStyle(
+                color: kTextSecondary, fontSize: 14, height: 1.5))),
           ]),
         )),
       ]),
     );
   }
 
-  Widget _sectionTitle(String t) => Text(t, style: TextStyle(
-      fontSize: 10, fontWeight: FontWeight.w700,
-      color: kTextSecondary, letterSpacing: 1.2));
+  Widget _sectionTitle(String t) => _Label(t);
 
-  Widget _interpretRow(String label, String value, _Grade grade) => Row(children: [
-    Container(width: 4, height: 32, color: grade.color, margin: const EdgeInsets.only(right: 10)),
-    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: TextStyle(color: kTextSecondary, fontSize: 11)),
-      Text(value, style: TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
-    ])),
-    Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: grade.color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(grade.label, style: TextStyle(
-          color: grade.color, fontSize: 10, fontWeight: FontWeight.w700)),
-    ),
-  ]);
+  Widget _interpretRow(String label, String value, _Grade grade) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Expanded(flex: 5, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(color: kTextSecondary, fontSize: 13)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+      ])),
+      const SizedBox(width: 12),
+      Expanded(flex: 6, child: Align(
+        alignment: Alignment.centerRight,
+        child: _GradeTag(grade: grade, maxLines: 2, alignEnd: true),
+      )),
+    ]),
+  );
 
   Widget _bullet(String title, String body) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: 12),
     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
-        width: 5, height: 5,
-        margin: const EdgeInsets.only(top: 5.5, right: 10),
-        decoration: BoxDecoration(color: kAccent, shape: BoxShape.circle),
+        width: 4, height: 4,
+        margin: const EdgeInsets.only(top: 9, right: 12, left: 2),
+        decoration: const BoxDecoration(color: kTextMuted, shape: BoxShape.circle),
       ),
-      Expanded(child: RichText(text: TextSpan(children: [
-        TextSpan(text: '$title: ', style: TextStyle(
-            color: kTextPrimary, fontSize: 12.5, fontWeight: FontWeight.w600)),
-        TextSpan(text: body, style: TextStyle(
-            color: kTextSecondary, fontSize: 12.5, height: 1.5)),
+      Expanded(child: Text.rich(TextSpan(children: [
+        TextSpan(text: '$title: ', style: const TextStyle(
+            color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w600, height: 1.5)),
+        TextSpan(text: body, style: const TextStyle(
+            color: kTextSecondary, fontSize: 14, height: 1.5)),
       ]))),
     ]),
   );
 
   // ── Shared Helpers ─────────────────────────────────────────────────────────
 
-  Widget _card({required String title, required Widget child}) => Container(
+  /// Flat card — kCard, hairline border, no shadow.
+  Widget _panel({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(18)}) => Container(
     width: double.infinity,
     decoration: BoxDecoration(
-      color: kCard, borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: kBorder),
+      color: kCard, borderRadius: BorderRadius.circular(kRadius),
+      border: Border.all(color: kBorder, width: 0.6),
     ),
-    padding: const EdgeInsets.all(18),
+    padding: padding,
+    child: child,
+  );
+
+  Widget _card({required String title, required Widget child}) => _panel(
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: TextStyle(
-          fontSize: 11, fontWeight: FontWeight.w700,
-          color: kTextSecondary, letterSpacing: 1.4)),
+      _CardTitle(title),
       const SizedBox(height: 14),
       child,
     ]),
@@ -1253,13 +1196,69 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
   String _pct(double v) => '${v.toStringAsFixed(2)}%';
 }
 
+// ─── Small presentational widgets ──────────────────────────────────────────
+
+/// Card title: 17 w600 primary, sentence case.
+class _CardTitle extends StatelessWidget {
+  final String text;
+  const _CardTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    header: true,
+    child: Text(text, style: const TextStyle(
+        fontSize: 17, fontWeight: FontWeight.w600, color: kTextPrimary, letterSpacing: -0.2)),
+  );
+}
+
+/// Group / sub-section label: 13 w600 secondary, sentence case.
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    header: true,
+    child: Text(text, style: const TextStyle(
+        fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
+  );
+}
+
+/// Grade shown as a small status dot in the grade colour plus the word.
+class _GradeTag extends StatelessWidget {
+  final _Grade grade;
+  final int maxLines;
+  final bool alignEnd;
+  const _GradeTag({required this.grade, this.maxLines = 2, this.alignEnd = false});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(top: 5),
+        child: Container(width: 8, height: 8,
+            decoration: BoxDecoration(color: grade.color, shape: BoxShape.circle)),
+      ),
+      const SizedBox(width: 6),
+      Flexible(
+        child: Text(grade.label,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+            textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+            style: const TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w500, height: 1.3)),
+      ),
+    ],
+  );
+}
+
 // ─── Data Helpers ──────────────────────────────────────────────────────────
 
 class _MetricData {
   final String   name, value, subtitle;
   final _Grade   grade;
-  final IconData icon;
-  const _MetricData(this.name, this.value, this.grade, this.subtitle, this.icon);
+  const _MetricData(this.name, this.value, this.grade, this.subtitle);
 }
 
 class _Seg {
@@ -1289,7 +1288,7 @@ class _TrendChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (values.length < 2) return;
     final n = values.length;
-    const bPad = 18.0, tPad = 10.0, lPad = 4.0, rPad = 4.0;
+    const bPad = 22.0, tPad = 10.0, lPad = 4.0, rPad = 4.0;
     final chartH = size.height - bPad - tPad;
     final chartW = size.width - lPad - rPad;
 
@@ -1299,26 +1298,14 @@ class _TrendChartPainter extends CustomPainter {
     double yAt(double v) => tPad + chartH * (1 - (v - lo) / (hi - lo));
     double xAt(int i) => lPad + chartW * i / (n - 1);
 
-    // Grid lines
+    // Grid lines — hairline
+    final grid = Paint()..color = kBorder..strokeWidth = 0.6;
     for (int g = 0; g <= 3; g++) {
       final y = tPad + chartH * g / 3;
-      canvas.drawLine(Offset(lPad, y), Offset(size.width - rPad, y),
-          Paint()..color = kTextPrimary.withValues(alpha: 0.06)..strokeWidth = 0.5);
+      canvas.drawLine(Offset(lPad, y), Offset(size.width - rPad, y), grid);
     }
 
     final pts = List.generate(n, (i) => Offset(xAt(i), yAt(values[i])));
-
-    // Area fill
-    final fill = Path()..moveTo(pts.first.dx, size.height - bPad)..lineTo(pts.first.dx, pts.first.dy);
-    for (int i = 1; i < n; i++) {
-      fill.lineTo(pts[i].dx, pts[i].dy);
-    }
-    fill..lineTo(pts.last.dx, size.height - bPad)..close();
-    canvas.drawPath(fill, Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter, end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.0)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
 
     // Smooth line
     final path = Path()..moveTo(pts[0].dx, pts[0].dy);
@@ -1330,28 +1317,36 @@ class _TrendChartPainter extends CustomPainter {
       final cp2 = Offset(p2.dx - (p3.dx - p1.dx) / 6, p2.dy - (p3.dy - p1.dy) / 6);
       path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
     }
+
+    // Flat wash under the line (no gradient).
+    final fill = Path.from(path)
+      ..lineTo(pts.last.dx, size.height - bPad)
+      ..lineTo(pts.first.dx, size.height - bPad)
+      ..close();
+    canvas.drawPath(fill, Paint()..color = color.withValues(alpha: 0.12));
+
     canvas.drawPath(path, Paint()
-      ..color = color..strokeWidth = 2.2
-      ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+      ..color = color..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round);
 
     // Reading dots
     for (final p in pts) {
-      canvas.drawCircle(p, 2.0, Paint()..color = color.withValues(alpha: 0.6));
+      canvas.drawCircle(p, 2.0, Paint()..color = color);
     }
-    // Latest highlighted
-    canvas.drawCircle(pts.last, 4.5, Paint()..color = color);
-    canvas.drawCircle(pts.last, 4.5, Paint()
-      ..color = kTextPrimary.withValues(alpha: 0.4)
-      ..style = PaintingStyle.stroke..strokeWidth = 1.2);
+    // Latest reading: solid dot with a card-coloured ring to lift it off the line.
+    canvas.drawCircle(pts.last, 5.5, Paint()..color = kCard);
+    canvas.drawCircle(pts.last, 4, Paint()..color = color);
 
     // Date labels (every ~5th)
     final step = max(1, n ~/ 5);
     for (int i = 0; i < n; i += step) {
       final tp = TextPainter(
-        text: TextSpan(text: dates[i], style: TextStyle(color: kGrid, fontSize: 7.5)),
+        text: TextSpan(text: dates[i], style: const TextStyle(color: kTextMuted, fontSize: 11)),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset((xAt(i) - tp.width / 2).clamp(0.0, size.width - tp.width), size.height - bPad + 4));
+      tp.paint(canvas, Offset((xAt(i) - tp.width / 2).clamp(0.0, size.width - tp.width), size.height - bPad + 6));
     }
   }
 
@@ -1369,8 +1364,8 @@ class _DonutPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = min(size.width, size.height) / 2 - 4;
-    const strokeWidth = 22.0;
-    const gap = 0.025; // radians gap between segments
+    const strokeWidth = 14.0;
+    const gap = 0.03; // radians gap between segments
 
     double total = segments.fold(0, (s, e) => s + e.percent);
     if (total <= 0) return;
@@ -1385,7 +1380,7 @@ class _DonutPainter extends CustomPainter {
         ..color = seg.color
         ..strokeWidth = strokeWidth
         ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
+        ..strokeCap = StrokeCap.butt;
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
