@@ -27,6 +27,10 @@ const ICONS = {
   arrowDown:'M12 5v14M19 12l-7 7-7-7',
   sort:     'M7 15l5 5 5-5M7 9l5-5 5 5',
   info:     'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  logout:   'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  heart:    'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
+  calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
 };
 
 export function Icon({ name, className = 'w-4 h-4', strokeWidth = 2 }) {
@@ -39,8 +43,8 @@ export function Icon({ name, className = 'w-4 h-4', strokeWidth = 2 }) {
 }
 
 const BTN = {
-  primary:   'bg-accent text-white hover:bg-orange-600 border border-accent',
-  secondary: 'bg-card text-tp border border-bdr hover:border-ts',
+  primary:   'bg-accent text-white hover:brightness-110 border border-accent',
+  secondary: 'bg-card text-tp border border-bdr hover:border-ts/60',
   ghost:     'text-ts hover:text-tp hover:bg-card border border-transparent',
   danger:    'text-red-300 border border-red-500/40 hover:bg-red-500/10',
 };
@@ -59,12 +63,13 @@ export function Button({ variant = 'secondary', icon, children, className = '', 
   );
 }
 
-export function PageHeader({ title, subtitle, actions }) {
+export function PageHeader({ title, subtitle, actions, eyebrow }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-bdr">
       <div>
-        <h1 className="text-2xl font-bold text-tp tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-ts mt-1">{subtitle}</p>}
+        {eyebrow && <div className="text-sm text-ts mb-1">{eyebrow}</div>}
+        <h1 className="display text-[40px] leading-none text-tp">{title}</h1>
+        {subtitle && <p className="text-sm text-ts mt-2 max-w-2xl">{subtitle}</p>}
       </div>
       {actions && <div className="flex gap-2 flex-wrap">{actions}</div>}
     </div>
@@ -73,11 +78,11 @@ export function PageHeader({ title, subtitle, actions }) {
 
 export function Card({ title, subtitle, actions, children, className = '', bodyClassName = 'p-5' }) {
   return (
-    <section className={`bg-surface border border-bdr rounded-xl ${className}`}>
+    <section className={`card rounded-xl ${className}`}>
       {(title || actions) && (
-        <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3 border-b border-bdr/70">
+        <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3.5 border-b border-bdr">
           <div className="min-w-0">
-            {title && <h2 className="text-sm font-semibold text-tp">{title}</h2>}
+            {title && <h2 className="display text-[19px] leading-tight text-tp">{title}</h2>}
             {subtitle && <p className="text-xs text-ts mt-0.5">{subtitle}</p>}
           </div>
           {actions}
@@ -91,7 +96,7 @@ export function Card({ title, subtitle, actions, children, className = '', bodyC
 // Toolbar of labelled filter controls; children are <Field>s and buttons.
 export function FilterBar({ children }) {
   return (
-    <div className="bg-surface border border-bdr rounded-xl p-4 flex flex-wrap items-end gap-3">
+    <div className="card rounded-xl p-4 flex flex-wrap items-end gap-3">
       {children}
     </div>
   );
@@ -124,7 +129,7 @@ export function AthleteSelect({ id, athletes, value, onChange, allLabel }) {
 export function Avatar({ name, size = 'w-8 h-8 text-xs' }) {
   const initials = (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join('');
   return (
-    <span className={`${size} shrink-0 rounded-full bg-accent/15 text-accent font-bold inline-flex items-center justify-center`}>
+    <span className={`${size} shrink-0 rounded-full bg-card text-tp ring-1 ring-bdr font-semibold inline-flex items-center justify-center`}>
       {initials}
     </span>
   );
@@ -133,7 +138,7 @@ export function Avatar({ name, size = 'w-8 h-8 text-xs' }) {
 export function EmptyState({ icon = 'chart', title, hint, action }) {
   return (
     <div className="py-14 px-6 flex flex-col items-center text-center">
-      <span className="w-11 h-11 rounded-full bg-card border border-bdr flex items-center justify-center text-ts mb-3">
+      <span className="w-12 h-12 rounded-full card-inset flex items-center justify-center text-ts mb-3">
         <Icon name={icon} className="w-5 h-5" />
       </span>
       <div className="text-sm font-semibold text-tp">{title}</div>
@@ -155,7 +160,7 @@ export function ErrorBanner({ message, onRetry }) {
 }
 
 export function Skeleton({ className = 'h-4 w-full' }) {
-  return <div className={`animate-pulse motion-reduce:animate-none rounded-md bg-card ${className}`} />;
+  return <div className={`animate-pulse motion-reduce:animate-none rounded-lg bg-card ${className}`} />;
 }
 
 export function TableSkeleton({ rows = 5 }) {
@@ -171,12 +176,12 @@ export function TableSkeleton({ rows = 5 }) {
 // pass `status` so it shows as icon + word, never colour alone.
 export function Metric({ label, value, sub, color, status }) {
   return (
-    <div className="rounded-xl p-3.5 min-w-0 bg-bg border border-bdr">
+    <div className="rounded-xl p-3.5 min-w-0 card-inset">
       <div className="flex items-center gap-1.5 text-xs text-ts">
         {color && <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} aria-hidden="true" />}
         <span className="truncate">{label}</span>
       </div>
-      <div className="text-xl font-bold text-tp leading-tight mt-1.5 truncate">{value}</div>
+      <div className="num text-[26px] text-tp leading-none mt-2 truncate">{value}</div>
       {status ? (
         <div className="flex items-center gap-1 text-xs font-semibold mt-0.5 truncate" style={{ color: status.color }}>
           <Icon name={status.icon || 'info'} className="w-3 h-3 shrink-0" />
@@ -252,7 +257,7 @@ export function ToastProvider({ children }) {
       <div aria-live="polite" className="fixed bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 items-end pointer-events-none">
         {toasts.map(t => (
           <div key={t.id} role="status"
-               className="pointer-events-auto flex items-center gap-2.5 bg-card border border-bdr shadow-lg rounded-xl pl-3 pr-4 py-3 text-sm text-tp max-w-sm">
+               className="pointer-events-auto flex items-center gap-2.5 bg-card border border-bdr shadow-2xl rounded-lg pl-3 pr-4 py-3 text-sm text-tp max-w-sm">
             <span className={t.tone === 'error' ? 'text-red-400' : 'text-green-400'}>
               <Icon name={t.tone === 'error' ? 'alert' : 'check'} />
             </span>
@@ -276,4 +281,56 @@ export function downloadCsv(filename, columns, rows) {
   const a = Object.assign(document.createElement('a'), { href: url, download: filename });
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Status as a dot + word — colour never carries the meaning alone.
+export function ConditionChip({ condition, size = 'sm' }) {
+  if (!condition) return null;
+  return (
+    <span className={`inline-flex items-center gap-1.5 font-semibold whitespace-nowrap ${size === 'lg' ? 'text-sm' : 'text-[13px]'}`}
+          style={{ color: condition.color }}>
+      <span className={`${size === 'lg' ? 'w-2.5 h-2.5' : 'w-2 h-2'} rounded-full shrink-0`} style={{ background: condition.color }} aria-hidden="true" />
+      {condition.label}
+    </span>
+  );
+}
+
+// Tiny trend line for table rows; the last point is marked.
+export function Sparkline({ values, width = 96, height = 28, color = 'rgb(var(--c-ts))', label }) {
+  const pts = values.map(v => (v == null ? 0 : v));
+  if (pts.length < 2 || pts.every(v => v === 0)) {
+    return <span className="text-xs text-ts">—</span>;
+  }
+  const max = Math.max(...pts, 1);
+  const step = width / (pts.length - 1);
+  const y = v => height - 3 - (v / max) * (height - 6);
+  const d = pts.map((v, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const lx = (pts.length - 1) * step, ly = y(pts[pts.length - 1]);
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} className="overflow-visible">
+      <path d={`${d} L${lx},${height} L0,${height} Z`} fill={color} opacity="0.08" />
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lx} cy={ly} r="2.5" fill={color} />
+    </svg>
+  );
+}
+
+// Progress ring (0–100) with the value in the middle.
+export function Ring({ value, size = 132, stroke = 10, color = 'rgb(var(--c-accent))', caption }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = value == null ? 0 : Math.max(0, Math.min(100, value));
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--c-card))" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+                strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} style={{ transition: 'stroke-dashoffset .6s ease-out' }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="num text-[38px] leading-none text-tp">{value == null ? '—' : Math.round(value)}<span className="text-lg text-ts">{value == null ? '' : '%'}</span></span>
+        {caption && <span className="label-caps mt-1">{caption}</span>}
+      </div>
+    </div>
+  );
 }

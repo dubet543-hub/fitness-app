@@ -1,0 +1,67 @@
+/* Admin console look — "performance telemetry": neutral near-black, Barlow
+   type with condensed numerals, hairline structure instead of boxes, one
+   accent used sparingly. Everything is scoped under .admin-root so the
+   athlete pages keep their own styling. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap');
+
+.admin-root {
+  --c-bg: 10 10 11;        /* #0A0A0B page */
+  --c-surface: 17 17 19;   /* #111113 panels */
+  --c-card: 24 24 27;      /* #18181B raised / hover */
+  --c-accent: 255 107 53;  /* #FF6B35 brand */
+  --c-bdr: 34 34 38;       /* #222226 hairlines */
+  --c-tp: 237 237 239;     /* #EDEDEF primary ink */
+  --c-ts: 142 142 147;     /* #8E8E93 secondary ink */
+
+  background: rgb(var(--c-bg));
+  font-family: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Condensed display face for headings and big numbers. */
+.admin-root .display {
+  font-family: 'Barlow Condensed', 'Barlow', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.admin-root .num {
+  font-family: 'Barlow Condensed', 'Barlow', sans-serif;
+  font-weight: 600;
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0;
+}
+.admin-root .label-caps {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgb(var(--c-ts));
+}
+
+/* Panels: flat, hairline, no glow. */
+.admin-root .card {
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-bdr));
+}
+.admin-root .card-inset {
+  background: rgb(var(--c-bg));
+  border: 1px solid rgb(var(--c-bdr));
+}
+
+/* Tables: quiet header, hairline rows, tabular figures. */
+.admin-root thead th {
+  background: rgb(var(--c-surface)); color: rgb(var(--c-ts));
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 12px 16px; border-bottom: 1px solid rgb(var(--c-bdr));
+}
+.admin-root tbody tr { border-bottom: 1px solid rgb(var(--c-bdr) / 0.6); }
+.admin-root tbody tr:hover { background: rgb(255 255 255 / 0.02); }
+.admin-root tbody td { padding: 12px 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.admin-root input, .admin-root select, .admin-root textarea {
+  background: rgb(var(--c-bg)); border-color: rgb(var(--c-bdr)); border-radius: 8px; font-size: 14px;
+}
+.admin-root input:hover, .admin-root select:hover { border-color: rgb(60 60 66); }
+.admin-root input:focus, .admin-root select:focus, .admin-root textarea:focus { border-color: rgb(var(--c-accent)); }
+
+/* Load board cells — the sequential ramp lives in utils/adminCharts.js. */
+.admin-root .board-cell { width: 100%; aspect-ratio: 1 / 1; border-radius: 3px; }

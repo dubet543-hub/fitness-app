@@ -14,6 +14,10 @@ export const SERIES = {
 };
 export const SINGLE = SERIES.load; // single-series charts use slot 1
 
+// Sequential load ramp (one hue, dim → bright on the dark surface). Validated
+// as an ordinal ramp: monotone lightness, visible steps, low end ≥ 2:1.
+export const LOAD_RAMP = ['#7a371a', '#9e451d', '#c05221', '#e06025', '#ff7a3d', '#ffa776'];
+
 // Reserved status scale — only where the colour *means* a state, and always
 // paired with a text label or icon.
 export const STATUS = {

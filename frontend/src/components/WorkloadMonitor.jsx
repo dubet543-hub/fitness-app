@@ -9,10 +9,12 @@ import { Card, EmptyState, Icon, Metric, StatusValue } from './ui';
 // Workload Monitor — the mobile app's Training / Skill / Daily Total view,
 // computed from any athlete's logged sessions.
 
+// Tabs share the brand accent; colour is reserved for the data.
+const BRAND = 'rgb(var(--c-accent))';
 const TABS = [
-  { id: 'training', label: 'Training',    accent: '#38BDF8', title: 'Training Session Exertion' },
-  { id: 'skill',    label: 'Skill',       accent: '#34D399', title: 'Skill Session Exertion' },
-  { id: 'total',    label: 'Daily Total', accent: '#A78BFA', title: 'Daily Total Load & Exertion' },
+  { id: 'training', label: 'Training',    accent: BRAND, title: 'Training Session Exertion' },
+  { id: 'skill',    label: 'Skill',       accent: BRAND, title: 'Skill Session Exertion' },
+  { id: 'total',    label: 'Daily Total', accent: BRAND, title: 'Daily Total Load & Exertion' },
 ];
 
 const RANGES = [
@@ -95,7 +97,7 @@ export default function WorkloadMonitor({ athlete, sessions }) {
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
               className="px-4 min-h-[44px] text-sm font-semibold transition-colors border-b-2 -mb-px"
-              style={tab === t.id ? { borderColor: t.accent, color: t.accent } : { borderColor: 'transparent', color: '#8B949E' }}
+              style={tab === t.id ? { borderColor: t.accent, color: 'rgb(var(--c-tp))' } : { borderColor: 'transparent', color: 'rgb(var(--c-ts))' }}
             >
               {t.label}
             </button>
@@ -142,7 +144,7 @@ function SectionView({ series, accent, title }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <span className="w-1 h-5 rounded-full" style={{ background: accent }} />
-        <h3 className="text-sm font-bold text-tp">{title}</h3>
+        <h3 className="display text-[17px] text-tp">{title}</h3>
         <span className="text-xs text-ts">· {fmtDate(latest.date)}</span>
       </div>
 

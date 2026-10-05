@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Default (athlete-facing) palette. Same values as before tokens became vars. */
+:root {
+  --c-bg: 13 17 23;       /* #0D1117 */
+  --c-surface: 22 27 34;  /* #161B22 */
+  --c-card: 28 35 51;     /* #1C2333 */
+  --c-accent: 255 107 53; /* #FF6B35 */
+  --c-bdr: 48 54 61;      /* #30363D */
+  --c-tp: 230 237 243;    /* #E6EDF3 */
+  --c-ts: 139 148 158;    /* #8B949E */
+}
+
 * { box-sizing: border-box; }
 
 body {
