@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { fmtDate, fmtNum } from '../utils/fmt';
 
 const MOTIVATION_LABELS = {
@@ -61,6 +61,19 @@ function InfoRow({ label, value }) {
 }
 
 export default function SessionModal({ session: s, onClose }) {
+  const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const open = !!s;
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.activeElement;
+    closeRef.current?.focus();
+    const onKey = e => { if (e.key === 'Escape') onCloseRef.current(); };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); prev?.focus?.(); };
+  }, [open]);
+
   if (!s) return null;
 
   const hasExtended = s.moodMotivation || s.moodAppetite || s.fatigueSymptoms?.length ||
@@ -74,16 +87,17 @@ export default function SessionModal({ session: s, onClose }) {
       <div
         className="bg-surface border border-bdr rounded-2xl w-full max-w-lg p-6 space-y-5 overflow-y-auto max-h-[90vh]"
         onClick={e => e.stopPropagation()}
+        role="dialog" aria-modal="true" aria-labelledby="session-modal-title"
       >
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-base font-bold text-tp">{fmtDate(s.date)}</div>
+            <div id="session-modal-title" className="text-base font-bold text-tp">{fmtDate(s.date)}</div>
             <div className="text-xs text-ts mt-0.5">
               {s.sessionType || [...(s.primaryTypes || []), ...(s.skillTypes || [])].join(' · ') || 'Training session'}
             </div>
           </div>
-          <button onClick={onClose} className="text-ts hover:text-tp transition text-2xl leading-none">&times;</button>
+          <button ref={closeRef} onClick={onClose} aria-label="Close session details" className="text-ts hover:text-tp transition text-2xl leading-none">&times;</button>
         </div>
 
         {/* Quick stats */}

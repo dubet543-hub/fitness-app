@@ -3,8 +3,8 @@ import { Bar, Line } from 'react-chartjs-2';
 import { monitorSeriesForAthlete } from '../utils/flutterWorkloadMonitorData';
 import { buildDailyRecords, buildFlutterSeries } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
-import { CHART_OPTS, ACWR_OPTS } from '../utils/chartDefaults';
-import { Card, EmptyState, Icon, Metric } from './ui';
+import { SERIES, STATUS, shortDate, chartOptions, lineDataset, barDataset, thresholdDataset } from '../utils/adminCharts';
+import { Card, EmptyState, Icon, Metric, StatusValue } from './ui';
 
 // Workload Monitor — the mobile app's Training / Skill / Daily Total view,
 // computed from any athlete's logged sessions.
@@ -24,23 +24,27 @@ const RANGES = [
   { key: 'all',       label: 'All' },
 ];
 
+// ACWR zones are states, so they wear the reserved status scale — always with
+// an icon and a word next to them.
 export function acwrZone(v) {
-  if (!v || v <= 0) return { color: '#8B949E', label: 'No data' };
-  if (v < 0.8)  return { color: '#60A5FA', label: 'Undertraining' };
-  if (v <= 1.3) return { color: '#34D399', label: 'Sweet spot' };
-  if (v <= 1.5) return { color: '#FBBF24', label: 'Caution' };
-  return { color: '#F87171', label: 'Danger zone' };
+  if (!v || v <= 0) return { color: STATUS.none, label: 'No data', short: '—', icon: 'info' };
+  if (v < 0.8)  return { color: STATUS.info,     label: 'Undertraining', short: 'Under',   icon: 'arrowDown' };
+  if (v <= 1.3) return { color: STATUS.good,     label: 'Sweet spot',    short: 'Sweet',   icon: 'check' };
+  if (v <= 1.5) return { color: STATUS.warning,  label: 'Caution',       short: 'Caution', icon: 'alert' };
+  return              { color: STATUS.critical, label: 'Danger zone',   short: 'Danger',  icon: 'alert' };
 }
 
-const zColor = z => (Math.abs(z) > 2 ? '#F87171' : '#2DD4BF');
+const zStatus = z => (Math.abs(z) > 2
+  ? { color: STATUS.serious, label: 'Flagged — unusual load', short: 'Flag', icon: 'alert' }
+  : { color: STATUS.good,    label: 'Normal',                 short: '',     icon: 'check' });
 
-// Exertion colour scale on the 0–10 grade (matches the app / sheet).
-function exertionColor(v) {
-  if (v >= 9)   return '#F87171';
-  if (v >= 7.5) return '#FB923C';
-  if (v >= 5.5) return '#4ADE80';
-  if (v >= 3.5) return '#86EFAC';
-  return '#8B949E';
+// Exertion band on the 0–10 grade (same cut-offs as the app).
+function exertionStatus(v) {
+  if (v >= 9)   return { color: STATUS.critical, label: 'Very high', icon: 'alert' };
+  if (v >= 7.5) return { color: STATUS.serious,  label: 'High',      icon: 'alert' };
+  if (v >= 5.5) return { color: STATUS.good,     label: 'Moderate',  icon: 'check' };
+  if (v >= 3.5) return { color: STATUS.good,     label: 'Light',     icon: 'check' };
+  return              { color: STATUS.none,     label: 'Minimal',   icon: 'info' };
 }
 const exertionOf = load => (load > 0 ? (Math.log(load) / Math.log(1000)) * 10 : 0);
 
@@ -90,7 +94,7 @@ export default function WorkloadMonitor({ athlete, sessions }) {
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className="px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px"
+              className="px-4 min-h-[44px] text-sm font-semibold transition-colors border-b-2 -mb-px"
               style={tab === t.id ? { borderColor: t.accent, color: t.accent } : { borderColor: 'transparent', color: '#8B949E' }}
             >
               {t.label}
@@ -103,7 +107,7 @@ export default function WorkloadMonitor({ athlete, sessions }) {
               key={r.key}
               aria-pressed={range === r.key}
               onClick={() => setRange(r.key)}
-              className={`px-3 h-8 rounded-lg text-xs font-semibold transition-colors border ${
+              className={`px-3 h-11 sm:h-8 rounded-lg text-xs font-semibold transition-colors border ${
                 range === r.key ? 'bg-accent border-accent text-white' : 'border-bdr text-ts hover:text-tp hover:border-ts'
               }`}
             >
@@ -128,7 +132,11 @@ function SectionView({ series, accent, title }) {
   const targetLow = Math.round(latest.chronic * 0.8);
   const targetHigh = Math.round(latest.chronic * 1.3);
   const z = latest.z ?? 0;
-  const gc = !latest.load ? '#8B949E' : latest.load < targetLow ? '#60A5FA' : latest.load <= targetHigh ? '#34D399' : '#FBBF24';
+  const load = Math.round(latest.load);
+  const target = !latest.load ? { color: STATUS.none, label: 'No load logged on the latest day', icon: 'info' }
+    : latest.load < targetLow ? { color: STATUS.info, label: `Latest load ${load} is below this range`, icon: 'arrowDown' }
+    : latest.load <= targetHigh ? { color: STATUS.good, label: `Latest load ${load} is inside this range`, icon: 'check' }
+    : { color: STATUS.warning, label: `Latest load ${load} is above this range`, icon: 'alert' };
 
   return (
     <div className="space-y-4">
@@ -139,70 +147,71 @@ function SectionView({ series, accent, title }) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <Metric label="Session Load"   value={fmtNum(latest.load)}       sub="AU"            color={accent} />
-        <Metric label="Exertion"       value={exertion.toFixed(1)}       sub="0–10 grade"    color={exertionColor(exertion)} />
-        <Metric label="7-day Acute"    value={fmtNum(latest.acute, 1)}   sub="Rolling"       color="#38BDF8" />
-        <Metric label="Chronic (EWMA)" value={fmtNum(latest.chronic, 1)} sub="28-day"        color="#FBBF24" />
-        <Metric label="ACWR"           value={latest.acwr > 0 ? latest.acwr.toFixed(2) : '—'} sub={zone.label} color={zone.color} />
-        <Metric label="Z-Score"        value={z.toFixed(2)}              sub={Math.abs(z) > 2 ? 'Flagged — unusual load' : 'Normal'} color={zColor(z)} />
+        <Metric label="Session load"   value={fmtNum(latest.load)}       sub="AU"           color={SERIES.load} />
+        <Metric label="Exertion"       value={exertion.toFixed(1)}       status={exertionStatus(exertion)} color={STATUS.none} />
+        <Metric label="7-day acute"    value={fmtNum(latest.acute, 1)}   sub="AU · rolling" color={SERIES.acute} />
+        <Metric label="Chronic (EWMA)" value={fmtNum(latest.chronic, 1)} sub="AU · 28-day"  color={SERIES.chronic} />
+        <Metric label="ACWR"           value={latest.acwr > 0 ? latest.acwr.toFixed(2) : '—'} status={zone} color={STATUS.none} />
+        <Metric label="Z-score"        value={z.toFixed(2)}              status={zStatus(z)} color={STATUS.none} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-xl px-4 py-4 flex items-center gap-3" style={{ background: `${gc}12`, border: `1px solid ${gc}55` }}>
-          <span style={{ color: gc }}><Icon name="target" className="w-6 h-6" /></span>
+        <div className="bg-bg border border-bdr rounded-xl px-4 py-4 flex items-center gap-3">
+          <span className="w-10 h-10 rounded-full bg-card flex items-center justify-center text-tp shrink-0"><Icon name="target" className="w-5 h-5" /></span>
           <div className="flex-1 min-w-0">
-            <div className="text-[11px] text-ts">Tomorrow's Load Target</div>
-            <div className="text-2xl font-extrabold tabular-nums" style={{ color: gc }}>{targetLow} – {targetHigh}</div>
-          </div>
-          <div className="text-right text-[11px] text-ts shrink-0">
-            <div>80% – 130%</div>
-            <div>of chronic {latest.chronic.toFixed(0)}</div>
+            <div className="text-xs text-ts">Tomorrow&apos;s load target · 80–130% of chronic {latest.chronic.toFixed(0)}</div>
+            <div className="text-2xl font-bold text-tp">{targetLow} – {targetHigh} <span className="text-sm font-medium text-ts">AU</span></div>
+            <div className="flex items-center gap-1 text-xs font-semibold mt-0.5" style={{ color: target.color }}>
+              <Icon name={target.icon} className="w-3 h-3" />{target.label}
+            </div>
           </div>
         </div>
-        <div className="bg-card border border-bdr rounded-xl px-4 py-3">
-          <div className="text-[11px] text-ts mb-2">ACWR Zone</div>
+        <div className="bg-bg border border-bdr rounded-xl px-4 py-3">
+          <div className="text-xs text-ts mb-2">ACWR zone</div>
           <AcwrGauge value={latest.acwr} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Panel title="Load History" legend={
+        <Panel title="Load history" sub="Daily load with 7-day acute and 28-day chronic, AU" legend={
           <Legend items={[
-            { label: 'Session load', color: accent, swatch: 'box' },
-            { label: '7-day acute', color: '#38BDF8' },
-            { label: 'Chronic', color: '#FBBF24', dashed: true },
-            { label: 'Exertion', color: '#F472B6' },
+            { label: 'Session load', color: SERIES.load, swatch: 'box' },
+            { label: '7-day acute', color: SERIES.acute },
+            { label: 'Chronic', color: SERIES.chronic },
           ]} />
         }>
-          <div className="h-56"><LoadHistoryChart series={series} accent={accent} /></div>
+          <div className="h-60"><LoadHistoryChart series={series} /></div>
         </Panel>
-        <Panel title="ACWR Trend" legend={
+        <Panel title="ACWR trend" sub="Acute ÷ chronic, with zone thresholds" legend={
           <Legend items={[
-            { label: '0.8 under', color: '#60A5FA', dashed: true },
-            { label: '1.3 sweet', color: '#34D399', dashed: true },
-            { label: '1.5 caution', color: '#F87171', dashed: true },
+            { label: 'ACWR', color: SERIES.load },
+            { label: '0.8 under', color: STATUS.info, dashed: true },
+            { label: '1.3 sweet', color: STATUS.good, dashed: true },
+            { label: '1.5 danger', color: STATUS.critical, dashed: true },
           ]} />
         }>
-          <div className="h-56"><AcwrTrendChart series={series} accent={accent} /></div>
+          <div className="h-60"><AcwrTrendChart series={series} /></div>
         </Panel>
       </div>
 
-      <Panel title={`Daily log (latest ${Math.min(10, series.length)})`}>
+      <Panel title={`Daily log (latest ${Math.min(10, series.length)})`} sub="Table view of the charts above">
         <div className="overflow-x-auto -mx-4">
-          <table>
-            <thead><tr>{['Date', 'Load', 'Exertion', 'Acute', 'Chronic', 'ACWR', 'Z-Score'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+          <table className="static">
+            <thead><tr>{['Date', 'Load', 'Exertion', 'Acute', 'Chronic', 'ACWR', 'Z-score'].map(h => <th key={h}>{h}</th>)}</tr></thead>
             <tbody>
               {[...series].slice(-10).reverse().map(d => {
-                const zz = d.z ?? 0, zn = acwrZone(d.acwr), ex = exertionOf(d.load);
+                const zz = d.z ?? 0, zn = acwrZone(d.acwr), ex = exertionOf(d.load), zs = zStatus(zz);
                 return (
                   <tr key={String(d.date)}>
                     <td className="whitespace-nowrap text-tp">{d.label || fmtDate(d.date)}</td>
-                    <td className="tabular-nums">{fmtNum(d.load)}</td>
-                    <td className="tabular-nums" style={{ color: exertionColor(ex) }}>{ex.toFixed(1)}</td>
-                    <td className="tabular-nums">{fmtNum(d.acute, 1)}</td>
-                    <td className="tabular-nums">{d.chronic.toFixed(1)}</td>
-                    <td className="tabular-nums font-semibold" style={{ color: zn.color }}>{d.acwr > 0 ? d.acwr.toFixed(2) : '—'}</td>
-                    <td className="tabular-nums" style={{ color: zColor(zz) }}>{zz.toFixed(2)}</td>
+                    <td className="text-tp">{fmtNum(d.load)}</td>
+                    <td>{ex.toFixed(1)}</td>
+                    <td>{fmtNum(d.acute, 1)}</td>
+                    <td>{d.chronic.toFixed(1)}</td>
+                    <td><StatusValue value={d.acwr > 0 ? d.acwr.toFixed(2) : '—'} status={zn} /></td>
+                    <td>{zs.short
+                      ? <StatusValue value={zz.toFixed(2)} status={zs} />
+                      : <span className="text-ts">{zz.toFixed(2)}</span>}</td>
                   </tr>
                 );
               })}
@@ -214,11 +223,14 @@ function SectionView({ series, accent, title }) {
   );
 }
 
-function Panel({ title, legend, children }) {
+function Panel({ title, sub, legend, children }) {
   return (
     <div className="bg-card border border-bdr rounded-xl p-4">
       <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
-        <div className="text-sm font-bold text-tp">{title}</div>
+        <div>
+          <div className="text-sm font-bold text-tp">{title}</div>
+          {sub && <div className="text-xs text-ts mt-0.5">{sub}</div>}
+        </div>
         {legend}
       </div>
       {children}
@@ -228,7 +240,7 @@ function Panel({ title, legend, children }) {
 
 function Legend({ items }) {
   return (
-    <div className="flex gap-3 text-[10px] text-ts flex-wrap">
+    <div className="flex gap-3 text-[11px] text-ts flex-wrap">
       {items.map(i => (
         <span key={i.label} className="inline-flex items-center gap-1">
           {i.swatch === 'box'
@@ -247,68 +259,55 @@ export function AcwrGauge({ value }) {
   return (
     <div>
       <div className="relative">
-        <div className="h-3 rounded-full overflow-hidden flex">
-          <div className="bg-blue-400/80"  style={{ flex: 40 }} />
-          <div className="bg-green-400/85" style={{ flex: 25 }} />
-          <div className="bg-amber-400/85" style={{ flex: 10 }} />
-          <div className="bg-red-500/80"   style={{ flex: 25 }} />
+        <div className="h-3 rounded-full overflow-hidden flex gap-[2px]">
+          <div style={{ flex: 40, background: STATUS.info }} />
+          <div style={{ flex: 25, background: STATUS.good }} />
+          <div style={{ flex: 10, background: STATUS.warning }} />
+          <div style={{ flex: 25, background: STATUS.critical }} />
         </div>
         {value > 0 && (
           <span className="absolute -top-1 w-1.5 h-5 rounded-full bg-white shadow ring-2 ring-bg -translate-x-1/2"
                 style={{ left: `${pct}%` }} aria-hidden="true" />
         )}
       </div>
-      <div className="relative h-4 mt-1 text-[10px] text-ts tabular-nums">
+      <div className="relative h-4 mt-1 text-[11px] text-ts tabular-nums">
         {[0, 0.8, 1.3, 1.5, 2].map(t => (
           <span key={t} className="absolute -translate-x-1/2 first:translate-x-0 last:-translate-x-full" style={{ left: `${t * 50}%` }}>
             {t === 2 ? '2.0+' : t}
           </span>
         ))}
       </div>
-      <div className="mt-2 text-xs font-semibold" style={{ color: zone.color }}>
-        {value > 0 ? `ACWR ${value.toFixed(2)} — ${zone.label}` : 'No sessions logged yet'}
+      <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color: zone.color }}>
+        <Icon name={zone.icon} className="w-3.5 h-3.5" />
+        <span className="text-tp">{value > 0 ? `ACWR ${value.toFixed(2)}` : 'No sessions logged yet'}</span>
+        {value > 0 && <span>· {zone.label}</span>}
       </div>
     </div>
   );
 }
 
-function LoadHistoryChart({ series, accent }) {
-  const labels = series.map(d => d.label || fmtDate(d.date));
+function LoadHistoryChart({ series }) {
   const data = {
-    labels,
+    labels: series.map(d => d.label || shortDate(d.date)),
     datasets: [
-      { type: 'bar', label: 'Session load', data: series.map(d => Math.round(d.load)), backgroundColor: `${accent}B3`, borderRadius: 3, order: 3 },
-      { type: 'line', label: '7-day acute', data: series.map(d => Math.round(d.acute * 10) / 10), borderColor: '#38BDF8', tension: 0.4, cubicInterpolationMode: 'monotone', pointRadius: 2, borderWidth: 2, order: 1 },
-      { type: 'line', label: 'Chronic', data: series.map(d => Math.round(d.chronic * 10) / 10), borderColor: '#FBBF24', tension: 0.4, cubicInterpolationMode: 'monotone', borderDash: [5, 3], pointRadius: 0, borderWidth: 1.5, order: 2 },
-      { type: 'line', label: 'Exertion', data: series.map(d => (d.load > 0 ? Math.round(exertionOf(d.load) * 10) / 10 : null)), borderColor: '#F472B6', tension: 0.4, cubicInterpolationMode: 'monotone', pointRadius: 2, borderWidth: 2, yAxisID: 'y1', order: 0, spanGaps: true },
+      { ...lineDataset('7-day acute', series.map(d => Math.round(d.acute * 10) / 10), SERIES.acute), order: 1 },
+      { ...lineDataset('Chronic', series.map(d => Math.round(d.chronic * 10) / 10), SERIES.chronic), order: 2 },
+      { ...barDataset('Session load', series.map(d => Math.round(d.load)), SERIES.load), order: 3 },
     ],
   };
-  const opts = {
-    ...CHART_OPTS,
-    scales: {
-      ...CHART_OPTS.scales,
-      y: { ...CHART_OPTS.scales.y, title: { display: true, text: 'Load (AU)', color: '#8B949E', font: { size: 10 } } },
-      y1: {
-        type: 'linear', position: 'right', min: 0, max: 10,
-        ticks: { color: '#F472B6', font: { size: 10 }, stepSize: 2 },
-        grid: { drawOnChartArea: false },
-        title: { display: true, text: 'Exertion', color: '#F472B6', font: { size: 10 } },
-      },
-    },
-  };
-  return <Bar data={data} options={opts} />;
+  return <Bar data={data} options={chartOptions()} role="img" aria-label="Load history chart; values are in the daily log table" />;
 }
 
-function AcwrTrendChart({ series, accent }) {
+function AcwrTrendChart({ series }) {
   const n = series.length;
   const data = {
-    labels: series.map(d => d.label || fmtDate(d.date)),
+    labels: series.map(d => d.label || shortDate(d.date)),
     datasets: [
-      { label: 'ACWR', data: series.map(d => Math.min(d.acwr, 2.5)), borderColor: accent, backgroundColor: `${accent}1A`, tension: 0.4, cubicInterpolationMode: 'monotone', pointRadius: 2, borderWidth: 2, fill: true },
-      { label: 'Caution', data: Array(n).fill(1.5), borderColor: '#F87171', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false },
-      { label: 'Sweet spot', data: Array(n).fill(1.3), borderColor: '#34D399', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false },
-      { label: 'Under', data: Array(n).fill(0.8), borderColor: '#60A5FA', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false },
+      lineDataset('ACWR', series.map(d => Math.min(Number(d.acwr.toFixed(2)), 2.5)), SERIES.load, { fill: true }),
+      thresholdDataset('Danger above 1.5', 1.5, n, STATUS.critical),
+      thresholdDataset('Sweet spot to 1.3', 1.3, n, STATUS.good),
+      thresholdDataset('Under below 0.8', 0.8, n, STATUS.info),
     ],
   };
-  return <Line data={data} options={ACWR_OPTS} />;
+  return <Line data={data} options={chartOptions({ yMin: 0, yMax: 2.5 })} role="img" aria-label="ACWR trend chart; values are in the daily log table" />;
 }

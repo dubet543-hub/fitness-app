@@ -1,19 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import NavBar from '../components/NavBar';
 import Badge, { readinessColor } from '../components/Badge';
 import SessionModal from '../components/SessionModal';
 import WorkloadMonitor from '../components/WorkloadMonitor';
 import {
   Icon, Button, PageHeader, Card, FilterBar, Field, AthleteSelect, Avatar,
-  EmptyState, ErrorBanner, TableSkeleton, Skeleton, Metric,
+  EmptyState, ErrorBanner, TableSkeleton, Skeleton, Metric, useSort, SortTh,
+  ToastProvider, useToast, downloadCsv,
 } from '../components/ui';
 import { api } from '../api';
 import { downloadAthleteReport } from '../utils/pdfReport';
 import { dayKey } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
-import { CHART_OPTS, DONUT_OPTS, COLORS } from '../utils/chartDefaults';
+import { SINGLE, STATUS, shortDate, chartOptions, lineDataset, barDataset } from '../utils/adminCharts';
 import SubscriptionsSection from './SubscriptionsSection';
 import {
   computeBCA, interpret,
@@ -32,6 +33,28 @@ const NAV = [
 // Enough history for a stable 28-day chronic load.
 const HISTORY_LIMIT = 365;
 
+const ATHLETE_SORT = {
+  name: a => a.name?.toLowerCase(), sport: a => a.sport?.toLowerCase() || null,
+  last: a => (a.lastSession ? +new Date(a.lastSession) : null), load: a => a.lastTotalLoad,
+  readiness: a => a.lastReadiness, status: a => (a.active ? 1 : 0),
+};
+const SESSION_SORT = {
+  date: s => +new Date(s.date), athlete: s => s.athlete?.name?.toLowerCase() || null,
+  sport: s => s.athlete?.sport?.toLowerCase() || null, load: s => s.totalLoad,
+  grade: s => s.scaledGrade, readiness: s => s.readinessPercent,
+};
+
+const SESSION_CSV = [
+  ['Date', s => dayKey(s.date)], ['Athlete', s => s.athlete?.name], ['Sport', s => s.athlete?.sport],
+  ['Types', s => sessionTypes(s)], ['Total load', s => s.totalLoad], ['Grade', s => s.scaledGrade?.toFixed(1)],
+  ['Readiness %', s => s.readinessPercent?.toFixed(0)],
+];
+const RECOVERY_CSV = [
+  ['Date', s => dayKey(s.date)], ['Athlete', s => s.athlete?.name], ['Sleep', s => s.sleep], ['Wellness', s => s.wellness],
+  ['Soreness', s => s.soreness], ['Fatigue', s => s.fatigue], ['Sleep hours', s => s.sleepDuration?.toFixed(1)],
+  ['Sleep efficiency %', s => s.sleepEfficiency?.toFixed(0)], ['Readiness %', s => s.readinessPercent?.toFixed(0)],
+];
+
 const errMsg = (e, what) => `Couldn't load ${what}${e?.message ? ` — ${e.message}` : ''}.`;
 const gradeBadge = g => (g == null ? null : <Badge color={g >= 7 ? 'red' : g >= 4 ? 'yellow' : 'green'}>{g.toFixed(1)}</Badge>);
 const readinessBadge = v => (v == null ? '—' : <Badge color={readinessColor(v)}>{v.toFixed(0)}%</Badge>);
@@ -42,6 +65,10 @@ const inRange = (date, from, to) => {
 };
 
 export default function AdminPage() {
+  return <ToastProvider><AdminShell /></ToastProvider>;
+}
+
+function AdminShell() {
   const [params, setParams] = useSearchParams();
   const section = NAV.some(n => n.id === params.get('section')) ? params.get('section') : 'athletes';
   const athleteParam = params.get('athlete') || '';
@@ -70,11 +97,21 @@ export default function AdminPage() {
   // Every section uses the athlete list (filters, pickers), so keep it loaded.
   useEffect(() => { loadAthletes(); }, [section]);
 
+  const mainRef = useRef(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    mainRef.current?.focus({ preventScroll: true });
+  }, [section, athleteParam]);
+
   const current = NAV.find(n => n.id === section);
   const detailAthlete = section === 'athletes' && athleteParam ? athletes.find(a => a._id === athleteParam) : null;
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-dvh bg-bg">
+      <a href="#admin-main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 bg-accent text-white text-sm font-semibold px-4 py-2 rounded-lg">
+        Skip to content
+      </a>
       <NavBar />
       <div className="flex relative max-w-[1600px] mx-auto">
         <aside
@@ -90,7 +127,7 @@ export default function AdminPage() {
                   key={n.id}
                   onClick={() => go(n.id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                  className={`relative w-full flex items-center gap-3 text-left px-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors
                     ${active ? 'bg-accent/15 text-accent' : 'text-ts hover:text-tp hover:bg-card'}`}
                 >
                   {active && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent" />}
@@ -104,9 +141,9 @@ export default function AdminPage() {
 
         {sideOpen && <div className="fixed inset-0 bg-black/60 z-20 md:hidden" onClick={() => setSideOpen(false)} />}
 
-        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6">
+        <main id="admin-main" ref={mainRef} tabIndex={-1} className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6 outline-none">
           <button
-            className="md:hidden inline-flex items-center gap-2 border border-bdr text-ts px-3 h-9 rounded-lg text-sm"
+            className="md:hidden inline-flex items-center gap-2 border border-bdr text-ts px-4 h-11 rounded-lg text-sm"
             onClick={() => setSideOpen(v => !v)}
             aria-expanded={sideOpen}
           >
@@ -138,6 +175,7 @@ function AthletesList({ athletes, loading, onOpen, onChanged }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [busyId, setBusyId] = useState(null);
+  const toast = useToast();
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -146,6 +184,7 @@ function AthletesList({ athletes, loading, onOpen, onChanged }) {
       (!q || [a.name, a.email, a.sport].some(v => v?.toLowerCase().includes(q))));
   }, [athletes, query, status]);
   const activeCount = athletes.filter(a => a.active).length;
+  const { sorted, sort, toggle } = useSort(shown, ATHLETE_SORT, 'name', 'asc');
 
   async function toggleActive(a) {
     if (a.active && !window.confirm(`Deactivate ${a.name}? They will no longer be able to sign in.`)) return;
@@ -154,8 +193,9 @@ function AthletesList({ athletes, loading, onOpen, onChanged }) {
       if (a.active) await api.delete(`/admin/athletes/${a._id}`);
       else await api.put(`/admin/athletes/${a._id}`, { active: true });
       await onChanged();
+      toast(a.active ? `${a.name} was deactivated.` : `${a.name} is active again.`);
     } catch (e) {
-      window.alert(e.message || 'Could not update the athlete.');
+      toast(`Couldn't update ${a.name}: ${e.message || 'please try again.'}`, 'error');
     } finally {
       setBusyId(null);
     }
@@ -164,9 +204,9 @@ function AthletesList({ athletes, loading, onOpen, onChanged }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3 max-w-xl">
-        <Metric label="Athletes" value={athletes.length} color="#E6EDF3" />
-        <Metric label="Active" value={activeCount} color="#34D399" />
-        <Metric label="Inactive" value={athletes.length - activeCount} color="#8B949E" />
+        <Metric label="Athletes" value={athletes.length} />
+        <Metric label="Active" value={activeCount} color={STATUS.good} />
+        <Metric label="Inactive" value={athletes.length - activeCount} color={STATUS.none} />
       </div>
 
       <Card bodyClassName="p-0">
@@ -176,13 +216,13 @@ function AthletesList({ athletes, loading, onOpen, onChanged }) {
             <input
               type="search" value={query} onChange={e => setQuery(e.target.value)}
               placeholder="Search name, email or sport" aria-label="Search athletes"
-              className="!pl-9 h-9"
+              className="!pl-9 h-11 sm:h-9"
             />
           </div>
           <div className="inline-flex bg-bg border border-bdr rounded-lg p-1 self-start" role="group" aria-label="Status">
             {['all', 'active', 'inactive'].map(s => (
               <button key={s} onClick={() => setStatus(s)} aria-pressed={status === s}
-                      className={`px-3 h-7 rounded-md text-xs font-semibold capitalize transition-colors ${status === s ? 'bg-card text-tp' : 'text-ts hover:text-tp'}`}>
+                      className={`px-3 h-11 sm:h-7 rounded-md text-xs font-semibold capitalize transition-colors ${status === s ? 'bg-card text-tp' : 'text-ts hover:text-tp'}`}>
                 {s}
               </button>
             ))}
@@ -195,9 +235,12 @@ function AthletesList({ athletes, loading, onOpen, onChanged }) {
         ) : (
           <div className="overflow-x-auto">
             <table>
-              <thead><tr>{['Athlete', 'Sport', 'Last session', 'Load', 'Readiness', 'Status', ''].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <thead><tr>
+                {[['Athlete', 'name'], ['Sport', 'sport'], ['Last session', 'last'], ['Load', 'load'], ['Readiness', 'readiness'], ['Status', 'status'], ['', null]]
+                  .map(([h, k]) => <SortTh key={h || 'actions'} label={h} sortKey={k} sort={sort} onSort={toggle} />)}
+              </tr></thead>
               <tbody>
-                {shown.map(a => (
+                {sorted.map(a => (
                   <tr key={a._id} onClick={() => onOpen(a)} tabIndex={0}
                       onKeyDown={e => e.key === 'Enter' && onOpen(a)} aria-label={`Open ${a.name}`}>
                     <td>
@@ -290,10 +333,10 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics }) {
           <Card title="Session log" subtitle={`${log.length} of ${sessions.length} sessions · select a row for full details`} bodyClassName="p-0"
                 actions={
                   <div className="flex items-end gap-2 flex-wrap">
-                    <input type="date" value={from} onChange={e => setFrom(e.target.value)} aria-label="From date" className="!w-auto h-8 text-xs" />
+                    <input type="date" value={from} onChange={e => setFrom(e.target.value)} aria-label="From date" className="!w-auto h-11 sm:h-8 text-xs" />
                     <span className="text-ts text-xs pb-2">to</span>
-                    <input type="date" value={to} onChange={e => setTo(e.target.value)} aria-label="To date" className="!w-auto h-8 text-xs" />
-                    {(from || to) && <Button variant="ghost" className="!h-8" onClick={() => { setFrom(''); setTo(''); }}>Clear</Button>}
+                    <input type="date" value={to} onChange={e => setTo(e.target.value)} aria-label="To date" className="!w-auto h-11 sm:h-8 text-xs" />
+                    {(from || to) && <Button variant="ghost" className="sm:!h-8" onClick={() => { setFrom(''); setTo(''); }}>Clear</Button>}
                   </div>
                 }>
             {log.length === 0 ? <EmptyState icon="list" title="No sessions in this range" /> : (
@@ -324,35 +367,34 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics }) {
 // Readiness over time + the mix of session types, shared by detail & analytics.
 function TrendsRow({ sessions }) {
   const sorted = useMemo(() => [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date)), [sessions]);
-  const typeCounts = useMemo(() => {
+  const mix = useMemo(() => {
     const c = {};
     sessions.forEach(s => [...(s.primaryTypes || []), ...(s.secondaryTypes || []), ...(s.skillTypes || []), ...(s.skillSubTypes || [])]
       .forEach(t => { c[t] = (c[t] || 0) + 1; }));
-    return c;
+    return Object.entries(c).sort((a, b) => b[1] - a[1]);
   }, [sessions]);
   const hasReadiness = sorted.some(s => s.readinessPercent != null);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card title="Readiness trend" subtitle="Daily readiness %, from wellness check-ins" className="lg:col-span-2">
+      <Card title="Readiness trend" subtitle="Readiness % from each wellness check-in" className="lg:col-span-2">
         {hasReadiness ? (
-          <div className="h-56">
+          <div className="h-60">
             <Line
-              data={{
-                labels: sorted.map(s => fmtDate(s.date)),
-                datasets: [{ label: 'Readiness %', data: sorted.map(s => s.readinessPercent ?? null), borderColor: '#818CF8', backgroundColor: 'rgba(129,140,248,.12)', tension: .35, pointRadius: 2, fill: true, spanGaps: true }],
-              }}
-              options={{ ...CHART_OPTS, scales: { ...CHART_OPTS.scales, y: { ...CHART_OPTS.scales.y, min: 0, max: 100 } } }}
+              data={{ labels: sorted.map(s => shortDate(s.date)), datasets: [lineDataset('Readiness %', sorted.map(s => (s.readinessPercent == null ? null : Math.round(s.readinessPercent))), SINGLE, { fill: true })] }}
+              options={chartOptions({ yMin: 0, yMax: 100 })}
+              role="img" aria-label="Readiness trend chart; values are in the session log"
             />
           </div>
         ) : <EmptyState icon="chart" title="No readiness data yet" />}
       </Card>
-      <Card title="Training mix" subtitle="Sessions by type">
-        {Object.keys(typeCounts).length ? (
-          <div className="h-56 flex items-center justify-center">
-            <Doughnut
-              data={{ labels: Object.keys(typeCounts), datasets: [{ data: Object.values(typeCounts), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 6 }] }}
-              options={{ ...DONUT_OPTS, maintainAspectRatio: false }}
+      <Card title="Training mix" subtitle="Sessions logged per type">
+        {mix.length ? (
+          <div style={{ height: Math.max(120, mix.length * 34 + 24) }}>
+            <Bar
+              data={{ labels: mix.map(([t]) => t), datasets: [barDataset('sessions', mix.map(([, n]) => n), SINGLE, { horizontal: true })] }}
+              options={chartOptions({ horizontal: true, yMin: 0 })}
+              role="img" aria-label={mix.map(([t, n]) => `${t}: ${n}`).join(', ')}
             />
           </div>
         ) : <EmptyState icon="chart" title="No session types logged" />}
@@ -364,18 +406,22 @@ function TrendsRow({ sessions }) {
 // ── Sessions ────────────────────────────────────────────────────────────────
 function SessionsSection({ athletes, onSession }) {
   const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [f, setF] = useState({ athlete: '', from: '', to: '' });
 
+  // Refetch keeps the previous rows on screen (dimmed) instead of flashing a skeleton.
   async function load(q = f) {
-    setError(''); setRows(null);
+    setError(''); setBusy(true);
     let url = '/admin/sessions?limit=300';
     if (q.from) url += `&from=${q.from}`;
     if (q.to) url += `&to=${q.to}`;
     if (q.athlete) url += `&athleteId=${q.athlete}`;
     try { setRows(await api.get(url)); }
-    catch (e) { setError(errMsg(e, 'sessions')); setRows([]); }
+    catch (e) { setError(errMsg(e, 'sessions')); setRows(r => r || []); }
+    finally { setBusy(false); }
   }
+  const { sorted, sort, toggle } = useSort(rows || [], SESSION_SORT, 'date', 'desc');
   useEffect(() => { load(); }, []);
 
   const clear = () => { const empty = { athlete: '', from: '', to: '' }; setF(empty); load(empty); };
@@ -387,23 +433,27 @@ function SessionsSection({ athletes, onSession }) {
         <Field label="Athlete" htmlFor="sess-ath">
           <AthleteSelect id="sess-ath" athletes={athletes} value={f.athlete} onChange={v => setF({ ...f, athlete: v })} allLabel="All athletes" />
         </Field>
-        <Field label="From" htmlFor="sess-from"><input id="sess-from" type="date" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} className="!w-auto h-9" /></Field>
-        <Field label="To" htmlFor="sess-to"><input id="sess-to" type="date" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} className="!w-auto h-9" /></Field>
-        <Button variant="primary" onClick={() => load()}>Apply</Button>
-        {filtered && <Button variant="ghost" onClick={clear}>Clear</Button>}
+        <Field label="From" htmlFor="sess-from"><input id="sess-from" type="date" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
+        <Field label="To" htmlFor="sess-to"><input id="sess-to" type="date" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
+        <Button variant="primary" onClick={() => load()} disabled={busy}>{busy ? 'Loading…' : 'Apply'}</Button>
+        {filtered && <Button variant="ghost" onClick={clear} disabled={busy}>Clear</Button>}
       </FilterBar>
 
       <ErrorBanner message={error} onRetry={() => load()} />
 
-      <Card title="Sessions" subtitle={rows ? `${rows.length} session${rows.length === 1 ? '' : 's'}${rows.length >= 300 ? ' (latest 300)' : ''} · select a row for full details` : 'Loading…'} bodyClassName="p-0">
+      <Card title="Sessions" subtitle={rows ? `${rows.length} session${rows.length === 1 ? '' : 's'}${rows.length >= 300 ? ' (latest 300)' : ''} · select a row for full details` : 'Loading…'} bodyClassName="p-0"
+            actions={rows?.length ? <Button icon="download" onClick={() => downloadCsv('sessions.csv', SESSION_CSV, sorted)}>Export CSV</Button> : null}>
         {!rows ? <TableSkeleton rows={8} /> : rows.length === 0 ? (
           <EmptyState icon="list" title="No sessions found" hint={filtered ? 'Try widening the date range or choosing all athletes.' : 'Sessions appear here once athletes log them in the app.'} />
         ) : (
-          <div className="overflow-x-auto max-h-[640px]">
+          <div className={`overflow-x-auto max-h-[640px] transition-opacity ${busy ? 'opacity-50' : ''}`} aria-busy={busy}>
             <table>
-              <thead><tr>{['Date', 'Athlete', 'Sport', 'Types', 'Load', 'Grade', 'Readiness'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <thead><tr>
+                {[['Date', 'date'], ['Athlete', 'athlete'], ['Sport', 'sport'], ['Types', null], ['Load', 'load'], ['Grade', 'grade'], ['Readiness', 'readiness']]
+                  .map(([h, k]) => <SortTh key={h} label={h} sortKey={k} sort={sort} onSort={toggle} />)}
+              </tr></thead>
               <tbody>
-                {rows.map(s => (
+                {sorted.map(s => (
                   <tr key={s._id} onClick={() => onSession(s)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && onSession(s)}>
                     <td className="whitespace-nowrap text-tp">{fmtDate(s.date)}</td>
                     <td className="text-tp">{s.athlete?.name || '—'}</td>
@@ -513,21 +563,25 @@ const fmtAvg = (v, dec) => (v == null ? '—' : v.toFixed(dec));
 
 function RecoverySection({ athletes }) {
   const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [f, setF] = useState({ athlete: '', from: '', to: '' });
+  const [shownFor, setShownFor] = useState('');
 
   async function load(q = f) {
-    setError(''); setRows(null);
+    setError(''); setBusy(true);
     let url = q.athlete ? `/admin/athletes/${q.athlete}/sessions?limit=300` : '/admin/sessions?limit=300';
     if (q.from) url += `&from=${q.from}`;
     if (q.to) url += `&to=${q.to}`;
-    try { setRows(await api.get(url)); }
-    catch (e) { setError(errMsg(e, 'recovery data')); setRows([]); }
+    try { setRows(await api.get(url)); setShownFor(q.athlete); }
+    catch (e) { setError(errMsg(e, 'recovery data')); setRows(r => r || []); }
+    finally { setBusy(false); }
   }
   useEffect(() => { load(); }, []);
 
   const clear = () => { const empty = { athlete: '', from: '', to: '' }; setF(empty); load(empty); };
-  const team = !f.athlete;
+  // Team mode follows the data on screen, not the unsaved dropdown.
+  const team = !shownFor;
   const data = rows || [];
   const log = useMemo(() => [...data].sort((a, b) => new Date(b.date) - new Date(a.date)), [rows]);
 
@@ -549,7 +603,6 @@ function RecoverySection({ athletes }) {
     })).sort((a, b) => (a.readinessPercent ?? 101) - (b.readinessPercent ?? 101));
   }, [rows, athletes]);
 
-  const line = (label, key, color, fill) => ({ label, data: daily.map(d => d[key]), borderColor: color, backgroundColor: `${color}1A`, tension: .35, pointRadius: 2, spanGaps: true, fill });
 
   return (
     <div className="space-y-6">
@@ -557,10 +610,10 @@ function RecoverySection({ athletes }) {
         <Field label="Athlete" htmlFor="rec-ath">
           <AthleteSelect id="rec-ath" athletes={athletes} value={f.athlete} onChange={v => setF({ ...f, athlete: v })} allLabel="All athletes (team averages)" />
         </Field>
-        <Field label="From" htmlFor="rec-from"><input id="rec-from" type="date" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} className="!w-auto h-9" /></Field>
-        <Field label="To" htmlFor="rec-to"><input id="rec-to" type="date" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} className="!w-auto h-9" /></Field>
-        <Button variant="primary" onClick={() => load()}>Apply</Button>
-        {(f.athlete || f.from || f.to) && <Button variant="ghost" onClick={clear}>Clear</Button>}
+        <Field label="From" htmlFor="rec-from"><input id="rec-from" type="date" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
+        <Field label="To" htmlFor="rec-to"><input id="rec-to" type="date" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
+        <Button variant="primary" onClick={() => load()} disabled={busy}>{busy ? 'Loading…' : 'Apply'}</Button>
+        {(f.athlete || f.from || f.to) && <Button variant="ghost" onClick={clear} disabled={busy}>Clear</Button>}
       </FilterBar>
 
       <ErrorBanner message={error} onRetry={() => load()} />
@@ -568,32 +621,30 @@ function RecoverySection({ athletes }) {
       {!rows ? <Skeleton className="h-96 w-full" /> : data.length === 0 ? (
         <Card><EmptyState icon="moon" title="No recovery data found" hint="Check-ins appear here once athletes submit sleep and wellness data in the app." /></Card>
       ) : (
-        <>
+        <div className={`space-y-6 transition-opacity ${busy ? 'opacity-50' : ''}`} aria-busy={busy}>
           <div>
             <div className="text-xs text-ts mb-2">{team ? 'Team averages' : 'Averages'} · {data.length} check-in{data.length === 1 ? '' : 's'}</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
               {REC_FIELDS.map(fl => (
-                <Metric key={fl.key} label={fl.label} value={fmtAvg(mean(data, fl.key), fl.dec)} sub={fl.sub} color={fl.color} />
+                <Metric key={fl.key} label={fl.label} value={fmtAvg(mean(data, fl.key), fl.dec)} sub={fl.sub} />
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <Card title="Wellness ratings" subtitle={`1 best – 5 worst${team ? ' · daily team average' : ''}`}>
-              <div className="h-60">
-                <Line data={{ labels: daily.map(d => fmtDate(d.date)), datasets: REC_FIELDS.slice(0, 4).map(fl => line(fl.label, fl.key, fl.color, false)) }}
-                      options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, legend: { display: true, position: 'bottom', labels: { color: '#8B949E', boxWidth: 10, font: { size: 10 } } } },
-                                 scales: { ...CHART_OPTS.scales, y: { ...CHART_OPTS.scales.y, min: 1, max: 5, reverse: true } } }} />
-              </div>
-            </Card>
-            <Card title="Sleep duration & efficiency" subtitle={`Hours (left) · efficiency % (right)${team ? ' · daily team average' : ''}`}>
-              <div className="h-60">
-                <Line data={{ labels: daily.map(d => fmtDate(d.date)), datasets: [line('Duration (h)', 'sleepDuration', '#38BDF8', true), { ...line('Efficiency (%)', 'sleepEfficiency', '#FF6B35', false), yAxisID: 'y1' }] }}
-                      options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, legend: { display: true, position: 'bottom', labels: { color: '#8B949E', boxWidth: 10, font: { size: 10 } } } },
-                                 scales: { ...CHART_OPTS.scales, y1: { position: 'right', min: 0, max: 100, ticks: { color: '#FF6B35', font: { size: 10 } }, grid: { drawOnChartArea: false } } } }} />
-              </div>
-            </Card>
-          </div>
+          <Card title="Wellness ratings" subtitle={`1 = best, 5 = worst · higher on the chart is better${team ? ' · daily team average' : ''}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+              {REC_FIELDS.slice(0, 4).map(fl => (
+                <MiniTrend key={fl.key} title={fl.label} daily={daily} field={fl.key} opts={{ yMin: 1, yMax: 5, yStep: 1, reverse: true }} dec={1} />
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Sleep" subtitle={`From the sleep check-in${team ? ' · daily team average' : ''}`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <MiniTrend title="Duration (hours)" daily={daily} field="sleepDuration" opts={{ yMin: 0, yMax: 12, yStep: 2 }} dec={1} tall />
+              <MiniTrend title="Efficiency (%)" daily={daily} field="sleepEfficiency" opts={{ yMin: 0, yMax: 100 }} dec={0} tall />
+            </div>
+          </Card>
 
           {team && perAthlete.length > 1 && (
             <Card title="Athlete comparison" subtitle="Averages per athlete for the selected period · lowest readiness first" bodyClassName="p-0">
@@ -603,7 +654,7 @@ function RecoverySection({ athletes }) {
                   <tbody>
                     {perAthlete.map(p => (
                       <tr key={p.id}>
-                        <td><div className="flex items-center gap-2"><Avatar name={p.name} size="w-6 h-6 text-[10px]" /><span className="text-tp">{p.name}</span></div></td>
+                        <td><div className="flex items-center gap-2"><Avatar name={p.name} size="w-6 h-6 text-[11px]" /><span className="text-tp">{p.name}</span></div></td>
                         <td>{p.count}</td>
                         {REC_FIELDS.map(fl => (
                           <td key={fl.key}>{fl.key === 'readinessPercent' ? readinessBadge(p[fl.key]) : fmtAvg(p[fl.key], fl.dec)}</td>
@@ -616,7 +667,8 @@ function RecoverySection({ athletes }) {
             </Card>
           )}
 
-          <Card title="Recovery log" subtitle={`${log.length} check-in${log.length === 1 ? '' : 's'}`} bodyClassName="p-0">
+          <Card title="Recovery log" subtitle={`${log.length} check-in${log.length === 1 ? '' : 's'} · table view of the charts above`} bodyClassName="p-0"
+                actions={<Button icon="download" onClick={() => downloadCsv('recovery-log.csv', RECOVERY_CSV, log)}>Export CSV</Button>}>
             <div className="overflow-x-auto max-h-[560px]">
               <table className="static">
                 <thead><tr>{[...(team ? ['Athlete'] : []), 'Date', 'Sleep', 'Wellness', 'Soreness', 'Fatigue', 'Sleep dur.', 'Sleep eff.', 'Readiness'].map(h => <th key={h}>{h}</th>)}</tr></thead>
@@ -638,8 +690,29 @@ function RecoverySection({ athletes }) {
               </table>
             </div>
           </Card>
-        </>
+        </div>
       )}
+    </div>
+  );
+}
+
+// One measure over time — a small multiple, so each chart has a single scale.
+function MiniTrend({ title, daily, field, opts, dec, tall = false }) {
+  const pts = daily.map(d => (d[field] == null ? null : Number(d[field].toFixed(dec))));
+  const vals = pts.filter(v => v != null);
+  const latest = vals.length ? vals[vals.length - 1] : null;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <div className="text-xs font-semibold text-tp">{title}</div>
+        <div className="text-xs text-ts">latest <span className="text-tp font-semibold">{latest ?? '—'}</span></div>
+      </div>
+      <div className={tall ? 'h-48' : 'h-36'}>
+        {vals.length ? (
+          <Line data={{ labels: daily.map(d => shortDate(d.date)), datasets: [lineDataset(title, pts, SINGLE, { fill: !opts.reverse })] }}
+                options={chartOptions({ xTicks: tall ? 6 : 3, ...opts })} role="img" aria-label={`${title} trend; values are in the recovery log`} />
+        ) : <div className="h-full flex items-center justify-center text-xs text-ts">No data</div>}
+      </div>
     </div>
   );
 }
@@ -652,14 +725,28 @@ function CreateAthlete({ onCreated }) {
   const [ok, setOk] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const [touched, setTouched] = useState({});
+  const toast = useToast();
+
+  const problems = {
+    name: !form.name.trim() ? 'Enter the athlete\'s full name.' : '',
+    email: !form.email.trim() ? 'Enter an email address.' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) ? 'That email address doesn\'t look right — check for typos.' : '',
+    password: form.password.length < 6 ? 'Use at least 6 characters.' : '',
+  };
+  const fieldError = k => (touched[k] ? problems[k] : '');
 
   async function submit(e) {
     e.preventDefault();
+    setTouched({ name: true, email: true, password: true });
+    const firstBad = ['name', 'email', 'password'].find(k => problems[k]);
+    if (firstBad) { document.getElementById(`new-${firstBad}`)?.focus(); return; }
     setErr(''); setOk(''); setBusy(true);
     try {
       await api.post('/admin/athletes', form);
       setOk(`${form.name} was created. They can now sign in with ${form.email}.`);
+      toast(`${form.name} was created.`);
       setForm(empty);
+      setTouched({});
       onCreated();
     } catch (e2) {
       setErr(e2.message || 'Could not create the athlete.');
@@ -675,31 +762,40 @@ function CreateAthlete({ onCreated }) {
 
   return (
     <Card className="max-w-lg" bodyClassName="p-6">
-      <form onSubmit={submit} className="space-y-4" noValidate={false}>
+      <form onSubmit={submit} className="space-y-4" noValidate>
         {err && <div role="alert" className="bg-red-500/10 border border-red-500/40 rounded-lg px-4 py-3 text-red-300 text-sm">{err}</div>}
         {ok && <div role="status" className="flex items-center gap-2 bg-green-500/10 border border-green-500/40 rounded-lg px-4 py-3 text-green-300 text-sm"><Icon name="check" />{ok}</div>}
         {fields.map(fl => (
           <Field key={fl.key} label={<>{fl.label} <span className="text-accent">*</span></>} htmlFor={`new-${fl.key}`}>
             <input id={`new-${fl.key}`} type={fl.type} placeholder={fl.placeholder} autoComplete={fl.auto} required
-                   value={form[fl.key]} onChange={e => setForm(f => ({ ...f, [fl.key]: e.target.value }))} className="h-10" />
+                   aria-invalid={!!fieldError(fl.key)} aria-describedby={fieldError(fl.key) ? `new-${fl.key}-err` : undefined}
+                   onBlur={() => setTouched(t => ({ ...t, [fl.key]: true }))}
+                   value={form[fl.key]} onChange={e => setForm(f => ({ ...f, [fl.key]: e.target.value }))}
+                   className={`h-11 ${fieldError(fl.key) ? '!border-red-500/70' : ''}`} />
+            {fieldError(fl.key) && <span id={`new-${fl.key}-err`} className="text-xs text-red-300">{fieldError(fl.key)}</span>}
           </Field>
         ))}
         <Field label={<>Temporary password <span className="text-accent">*</span></>} htmlFor="new-password">
           <div className="relative">
             <input id="new-password" type={showPw ? 'text' : 'password'} autoComplete="new-password" required
-                   value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="h-10 !pr-10" />
+                   aria-invalid={!!fieldError('password')} aria-describedby="new-password-help"
+                   onBlur={() => setTouched(t => ({ ...t, password: true }))}
+                   value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                   className={`h-11 !pr-12 ${fieldError('password') ? '!border-red-500/70' : ''}`} />
             <button type="button" onClick={() => setShowPw(v => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-ts hover:text-tp">
+                    className="absolute right-0.5 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-ts hover:text-tp">
               <Icon name={showPw ? 'eyeOff' : 'eye'} />
             </button>
           </div>
-          <span className="text-[11px] text-ts">Share it with the athlete; they can change it from the app.</span>
+          <span id="new-password-help" className={`text-xs ${fieldError('password') ? 'text-red-300' : 'text-ts'}`}>
+            {fieldError('password') || 'At least 6 characters. Share it with the athlete; they can change it from the app.'}
+          </span>
         </Field>
         <Field label="Sport (optional)" htmlFor="new-sport">
           <input id="new-sport" type="text" placeholder="Cricket, Running…" value={form.sport}
-                 onChange={e => setForm(f => ({ ...f, sport: e.target.value }))} className="h-10" />
+                 onChange={e => setForm(f => ({ ...f, sport: e.target.value }))} className="h-11" />
         </Field>
-        <Button type="submit" variant="primary" disabled={busy} className="w-full !h-10 !text-sm">
+        <Button type="submit" variant="primary" disabled={busy} className="w-full !h-11 !text-sm">
           {busy ? 'Creating…' : 'Create athlete'}
         </Button>
       </form>
@@ -710,7 +806,7 @@ function CreateAthlete({ onCreated }) {
 // ── Body composition — mirrors the mobile app's analysis view ──────────────
 function GradePill({ grade }) {
   return (
-    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
           style={{ color: grade.color, backgroundColor: `${grade.color}22` }}>
       {grade.label}
     </span>
@@ -788,24 +884,24 @@ function BodyCompositionCard({ data }) {
           <Metric label="Skeletal muscle" value={`${fmt(r.smmPercent)}%`} sub={`${fmt(r.tsm)} kg`}            color="#4AADFF" />
           <Metric label="SMI"             value={fmt(r.smi, 2)}           sub="kg/m²"                         color="#4AADFF" />
           <Metric label="FFMI"            value={fmt(r.ffmi)}             sub="fat-free mass index"           color="#FF6B35" />
-          <Metric label="Weight"          value={`${fmt(r.weightKg)} kg`} sub={`${fmt(r.heightCm, 0)} cm`}    color="#E6EDF3" />
+          <Metric label="Weight"          value={`${fmt(r.weightKg)} kg`} sub={`${fmt(r.heightCm, 0)} cm`} />
         </div>
       </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
         <Card title="Structural layer composition" subtitle="Share of total body weight" className="xl:col-span-3">
-          <div className="flex h-7 rounded-lg overflow-hidden mb-3" role="img"
+          <div className="flex gap-[2px] h-7 rounded-lg overflow-hidden mb-3" role="img"
                aria-label={layers.map(l => `${l.label} ${fmt(l.pct)}%`).join(', ')}>
             {layers.map(l => (
               <div key={l.label} style={{ width: `${l.pct}%`, background: l.color }} title={`${l.label}: ${fmt(l.pct)}%`}
-                   className="flex items-center justify-center text-[10px] font-bold text-bg overflow-hidden">
+                   className="flex items-center justify-center text-[11px] font-bold text-bg overflow-hidden">
                 {l.pct >= 8 ? `${fmt(l.pct, 0)}%` : ''}
               </div>
             ))}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4">
             {layers.map(l => (
-              <span key={l.label} className="inline-flex items-center gap-1.5 text-[11px] text-ts">
+              <span key={l.label} className="inline-flex items-center gap-1.5 text-xs text-ts">
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ background: l.color }} />
                 {l.label} <span className="text-tp font-semibold tabular-nums">{fmt(l.pct)}%</span>
               </span>
@@ -829,14 +925,14 @@ function BodyCompositionCard({ data }) {
         </Card>
 
         <Card title="Interpretation" className="xl:col-span-2">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-ts mb-2">Insights</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-ts mb-2">Insights</div>
           <ul className="text-sm text-ts space-y-2 mb-5 list-disc pl-5">
             <li><span className="text-tp font-semibold">Muscle efficiency:</span> FFMI {fmt(r.ffmi)} kg/m² — {gradeFFMI(r.ffmi, male).label}.</li>
             <li><span className="text-tp font-semibold">Skeletal support:</span> muscle-to-bone ratio {fmt(r.mbr)} — {gradeMBR(r.mbr).label}.</li>
             <li><span className="text-tp font-semibold">Weight distribution:</span> {ip.limbDominant ? 'limb-dominant' : 'core-dominant'} ({fmt(r.appendicularToTotal)}% limb / {fmt(r.axialToTotal)}% core muscle of BW).</li>
             <li><span className="text-tp font-semibold">Composition balance:</span> {fmt(r.lbm)} kg lean vs {fmt(r.bfKg)} kg fat.</li>
           </ul>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-ts mb-2">Suggestions</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-ts mb-2">Suggestions</div>
           <ol className="text-sm text-ts space-y-2 list-decimal pl-5">
             {ip.actions.map((a, i) => <li key={i}>{a}</li>)}
           </ol>
@@ -851,7 +947,7 @@ function BodyCompositionCard({ data }) {
               <div>
                 <div className="text-xl font-extrabold text-tp tabular-nums">{m.value}</div>
                 <div className="text-xs font-semibold text-tp">{m.name}</div>
-                <div className="text-[11px] text-ts">{m.sub}</div>
+                <div className="text-xs text-ts">{m.sub}</div>
               </div>
             </div>
           ))}

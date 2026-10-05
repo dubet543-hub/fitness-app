@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 // Shared admin UI primitives — one icon set, one card, one button system, so
 // every section looks and behaves the same.
@@ -23,6 +23,10 @@ const ICONS = {
   target:   'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   body:     'M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 8h12M12 8v7M9 22l3-7 3 7',
   refresh:  'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+  arrowUp:  'M12 19V5M5 12l7-7 7 7',
+  arrowDown:'M12 5v14M19 12l-7 7-7-7',
+  sort:     'M7 15l5 5 5-5M7 9l5-5 5 5',
+  info:     'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
 };
 
 export function Icon({ name, className = 'w-4 h-4', strokeWidth = 2 }) {
@@ -46,7 +50,7 @@ export function Button({ variant = 'secondary', icon, children, className = '', 
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 h-9 text-xs font-semibold
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 h-11 sm:h-9 text-xs font-semibold
         transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${BTN[variant]} ${className}`}
     >
       {icon && <Icon name={icon} className="w-3.5 h-3.5" />}
@@ -96,7 +100,7 @@ export function FilterBar({ children }) {
 export function Field({ label, htmlFor, children, className = '' }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={htmlFor} className="text-[11px] font-medium text-ts uppercase tracking-wider">{label}</label>
+      <label htmlFor={htmlFor} className="text-xs font-medium text-ts uppercase tracking-wider">{label}</label>
       {children}
     </div>
   );
@@ -104,7 +108,7 @@ export function Field({ label, htmlFor, children, className = '' }) {
 
 export function AthleteSelect({ id, athletes, value, onChange, allLabel }) {
   return (
-    <select id={id} value={value} onChange={e => onChange(e.target.value)} className="!w-auto min-w-[220px] h-9">
+    <select id={id} value={value} onChange={e => onChange(e.target.value)} className="!w-auto min-w-[220px] h-11 sm:h-9">
       {allLabel !== undefined
         ? <option value="">{allLabel}</option>
         : <option value="" disabled>Select an athlete…</option>}
@@ -162,13 +166,114 @@ export function TableSkeleton({ rows = 5 }) {
   );
 }
 
-// Coloured tile for a single number — used for KPI rows across sections.
-export function Metric({ label, value, sub, color = '#8B949E' }) {
+// Stat tile. The number stays in ink (text never wears the data colour); the
+// colour rides a key mark beside the label. When the value *means* a state,
+// pass `status` so it shows as icon + word, never colour alone.
+export function Metric({ label, value, sub, color, status }) {
   return (
-    <div className="rounded-xl p-3.5 min-w-0" style={{ background: `${color}12`, border: `1px solid ${color}40` }}>
-      <div className="text-[11px] text-ts">{label}</div>
-      <div className="text-xl font-extrabold leading-tight mt-1 truncate tabular-nums" style={{ color }}>{value}</div>
-      {sub && <div className="text-[11px] text-ts mt-0.5 truncate">{sub}</div>}
+    <div className="rounded-xl p-3.5 min-w-0 bg-bg border border-bdr">
+      <div className="flex items-center gap-1.5 text-xs text-ts">
+        {color && <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} aria-hidden="true" />}
+        <span className="truncate">{label}</span>
+      </div>
+      <div className="text-xl font-bold text-tp leading-tight mt-1.5 truncate">{value}</div>
+      {status ? (
+        <div className="flex items-center gap-1 text-xs font-semibold mt-0.5 truncate" style={{ color: status.color }}>
+          <Icon name={status.icon || 'info'} className="w-3 h-3 shrink-0" />
+          <span className="truncate">{status.label}</span>
+        </div>
+      ) : sub && <div className="text-xs text-ts mt-0.5 truncate">{sub}</div>}
     </div>
   );
+}
+
+// Status shown as dot + value + word, for table cells.
+export function StatusValue({ value, status }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: status.color }} aria-hidden="true" />
+      <span className="text-tp">{value}</span>
+      <span className="text-xs text-ts">{status.short || status.label}</span>
+    </span>
+  );
+}
+
+// ── Sortable tables ───────────────────────────────────────────────────────────
+// useSort(rows, { key: row => value }, initialKey, initialDir)
+export function useSort(rows, accessors, initialKey, initialDir = 'desc') {
+  const [sort, setSort] = useState({ key: initialKey, dir: initialDir });
+  const sorted = useMemo(() => {
+    const get = accessors[sort.key];
+    if (!get) return rows;
+    const mul = sort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const va = get(a), vb = get(b);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;            // blanks always last
+      if (vb == null) return -1;
+      return (typeof va === 'string' ? va.localeCompare(vb) : va - vb) * mul;
+    });
+  }, [rows, sort, accessors]);
+  const toggle = key => setSort(s => ({ key, dir: s.key === key && s.dir === 'desc' ? 'asc' : s.key === key ? 'desc' : (key === 'name' ? 'asc' : 'desc') }));
+  return { sorted, sort, toggle };
+}
+
+export function SortTh({ label, sortKey, sort, onSort, className = '' }) {
+  if (!sortKey) return <th className={className}>{label}</th>;
+  const active = sort.key === sortKey;
+  return (
+    <th className={className} aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" onClick={() => onSort(sortKey)}
+              className={`inline-flex items-center gap-1 whitespace-nowrap hover:text-tp transition-colors ${active ? 'text-tp' : ''}`}>
+        {label}
+        <Icon name={active ? (sort.dir === 'asc' ? 'arrowUp' : 'arrowDown') : 'sort'} className={`w-3 h-3 ${active ? '' : 'opacity-40'}`} />
+      </button>
+    </th>
+  );
+}
+
+// ── Toasts ────────────────────────────────────────────────────────────────────
+// Brief confirmation of an action; polite live region, never steals focus,
+// auto-dismisses after 4s.
+const ToastCtx = createContext(() => {});
+export const useToast = () => useContext(ToastCtx);
+
+export function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const nextId = useRef(0);
+  const notify = useCallback((message, tone = 'success') => {
+    const id = ++nextId.current;
+    setToasts(t => [...t, { id, message, tone }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4000);
+  }, []);
+  return (
+    <ToastCtx.Provider value={notify}>
+      {children}
+      <div aria-live="polite" className="fixed bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 items-end pointer-events-none">
+        {toasts.map(t => (
+          <div key={t.id} role="status"
+               className="pointer-events-auto flex items-center gap-2.5 bg-card border border-bdr shadow-lg rounded-xl pl-3 pr-4 py-3 text-sm text-tp max-w-sm">
+            <span className={t.tone === 'error' ? 'text-red-400' : 'text-green-400'}>
+              <Icon name={t.tone === 'error' ? 'alert' : 'check'} />
+            </span>
+            {t.message}
+          </div>
+        ))}
+      </div>
+    </ToastCtx.Provider>
+  );
+}
+
+// ── CSV export ────────────────────────────────────────────────────────────────
+// columns: [[header, row => value], ...]
+export function downloadCsv(filename, columns, rows) {
+  const esc = v => {
+    const str = v == null ? '' : String(v);
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const csv = [columns.map(([h]) => esc(h)).join(','), ...rows.map(r => columns.map(([, get]) => esc(get(r))).join(','))].join('\r\n');
+  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
