@@ -6,13 +6,20 @@ const { requireFeature } = require('../middleware/entitlements');
 router.use(authenticate);
 router.use(requireFeature('body_composition'));
 
-// POST /api/body-composition  — athlete syncs a computed estimate
+// POST /api/body-composition  — athlete syncs a computed estimate.
+// Idempotent per measurement timestamp: the app retries unsynced readings, so a
+// re-sent reading updates the stored one instead of adding a duplicate.
 router.post('/', async (req, res) => {
   try {
-    const entry = await BodyComposition.create({
-      ...req.body,
-      athlete: req.user._id,
-    });
+    const { _id, athlete, ...fields } = req.body;
+    const date = fields.date ? new Date(fields.date) : null;
+    const entry = date && !isNaN(date)
+      ? await BodyComposition.findOneAndUpdate(
+          { athlete: req.user._id, date },
+          { $set: { ...fields, date, athlete: req.user._id } },
+          { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
+        )
+      : await BodyComposition.create({ ...fields, athlete: req.user._id });
     res.status(201).json(entry);
   } catch (err) {
     res.status(400).json({ error: err.message });

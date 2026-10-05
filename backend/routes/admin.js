@@ -111,9 +111,19 @@ router.delete('/athletes/:id', async (req, res) => {
 router.get('/athletes/:id/body-composition', async (req, res) => {
   try {
     const { limit = 24 } = req.query;
-    const history = await BodyComposition.find({ athlete: req.params.id })
-      .sort({ date: -1 })
-      .limit(Number(limit));
+    const records = await BodyComposition.find({ athlete: req.params.id })
+      .sort({ date: -1, createdAt: -1 });
+    // Older app builds uploaded each reading twice; collapse records that share
+    // a measurement timestamp so each reading appears once.
+    const seen = new Set();
+    const history = records
+      .filter(r => {
+        const key = r.date?.getTime();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, Number(limit));
     res.json({
       latest:  history[0] || null,
       history: history.slice(1), // older entries only; latest is returned separately

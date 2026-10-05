@@ -162,32 +162,29 @@ _Grade _gradeMBR(double v) {
   return _Grade('Strong / Athletic Framework', kSuccess);
 }
 
+// Appendicular / axial muscle are fixed shares of total skeletal muscle (75% /
+// 25%), so their % of body weight moves in lockstep with SMM %. The cut-offs
+// are the SMM % bands scaled by those shares, keeping the grades consistent
+// with the Skeletal Muscle % grade instead of pinning everyone at Grade 4.
+List<double> _scaledSmmBands(bool male, double share) =>
+    (male ? const [39.0, 43.0, 48.0] : const [32.0, 36.0, 40.0])
+        .map((b) => b * share)
+        .toList();
+
 _Grade _gradeAppendicular(double pct, bool male) {
-  if (male) {
-    if (pct < 44) return _Grade('Grade 4 – At Risk',        kDanger);
-    if (pct < 49) return _Grade('Grade 3 – Compact',        kWarn);
-    if (pct < 54) return _Grade('Grade 2 – Balanced',       kSuccess);
-    return _Grade('Grade 1 – Distal Lever Dominant', kInfo);
-  } else {
-    if (pct < 42) return _Grade('Grade 4 – At Risk',        kDanger);
-    if (pct < 47) return _Grade('Grade 3 – Compact',        kWarn);
-    if (pct < 52) return _Grade('Grade 2 – Balanced',       kSuccess);
-    return _Grade('Grade 1 – Distal Lever Dominant', kInfo);
-  }
+  final b = _scaledSmmBands(male, 0.75);
+  if (pct < b[0]) return _Grade('Grade 4 – At Risk',        kDanger);
+  if (pct < b[1]) return _Grade('Grade 3 – Compact',        kWarn);
+  if (pct < b[2]) return _Grade('Grade 2 – Balanced',       kSuccess);
+  return _Grade('Grade 1 – Distal Lever Dominant', kInfo);
 }
 
 _Grade _gradeAxial(double pct, bool male) {
-  if (male) {
-    if (pct < 40) return _Grade('Grade 4 – Structural Insufficiency', kDanger);
-    if (pct < 46) return _Grade('Grade 3 – Elongated / Locomotive',  kWarn);
-    if (pct < 56) return _Grade('Grade 2 – Balanced Core Base',      kSuccess);
-    return _Grade('Grade 1 – Rotational Anchor', kInfo);
-  } else {
-    if (pct < 42) return _Grade('Grade 4 – Structural Insufficiency', kDanger);
-    if (pct < 48) return _Grade('Grade 3 – Elongated / Locomotive',  kWarn);
-    if (pct < 58) return _Grade('Grade 2 – Balanced Core Base',      kSuccess);
-    return _Grade('Grade 1 – Rotational Anchor', kInfo);
-  }
+  final b = _scaledSmmBands(male, 0.25);
+  if (pct < b[0]) return _Grade('Grade 4 – Structural Insufficiency', kDanger);
+  if (pct < b[1]) return _Grade('Grade 3 – Elongated / Locomotive',  kWarn);
+  if (pct < b[2]) return _Grade('Grade 2 – Balanced Core Base',      kSuccess);
+  return _Grade('Grade 1 – Rotational Anchor', kInfo);
 }
 
 // ─── Calculation Engine ────────────────────────────────────────────────────
@@ -425,12 +422,8 @@ class _BodyCompositionScreenState extends State<BodyCompositionScreen> {
     };
     await LocalLogStore.addBcaEntry(entry);
 
-    // Best-effort sync to the backend so coaches/admins can review it. Runs in
-    // the background and never blocks or fails the on-device result.
-    unawaited(() async {
-      final res = await ApiService.submitBodyComposition(_bcaPayload(entry, result));
-      if (res != null) await LocalLogStore.markBcaSynced(entry['date'] as String);
-    }());
+    // The backend sync happens in _loadHistory below, via _syncPendingBca.
+    // Uploading here as well raced that backfill and stored every reading twice.
 
     if (!mounted) return;
     setState(() { _result = result; _error = null; });

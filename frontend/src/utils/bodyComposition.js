@@ -132,33 +132,31 @@ export function gradeMBR(v) {
   return G('Strong / Athletic Framework', GREEN);
 }
 
+// Appendicular / axial muscle are fixed shares of total skeletal muscle (75% /
+// 25%), so their % of body weight moves in lockstep with SMM %. The cut-offs
+// are the SMM % bands scaled by those shares, keeping the grades consistent
+// with the Skeletal Muscle % grade instead of pinning everyone at Grade 4.
+const SMM_BANDS = { male: [39, 43, 48], female: [32, 36, 40] };
+const scaledBands = (male, share) => SMM_BANDS[male ? 'male' : 'female'].map(b => b * share);
+
 export function gradeAppendicular(pct, male) {
-  if (male) {
-    if (pct < 44) return G('Grade 4 – At Risk', RED);
-    if (pct < 49) return G('Grade 3 – Compact', AMBER);
-    if (pct < 54) return G('Grade 2 – Balanced', GREEN);
-    return G('Grade 1 – Distal Lever Dominant', BLUE);
-  }
-  if (pct < 42) return G('Grade 4 – At Risk', RED);
-  if (pct < 47) return G('Grade 3 – Compact', AMBER);
-  if (pct < 52) return G('Grade 2 – Balanced', GREEN);
+  const [risk, compact, balanced] = scaledBands(male, 0.75);
+  if (pct < risk)     return G('Grade 4 – At Risk', RED);
+  if (pct < compact)  return G('Grade 3 – Compact', AMBER);
+  if (pct < balanced) return G('Grade 2 – Balanced', GREEN);
   return G('Grade 1 – Distal Lever Dominant', BLUE);
 }
 
 export function gradeAxial(pct, male) {
-  if (male) {
-    if (pct < 40) return G('Grade 4 – Structural Insufficiency', RED);
-    if (pct < 46) return G('Grade 3 – Elongated / Locomotive', AMBER);
-    if (pct < 56) return G('Grade 2 – Balanced Core Base', GREEN);
-    return G('Grade 1 – Rotational Anchor', BLUE);
-  }
-  if (pct < 42) return G('Grade 4 – Structural Insufficiency', RED);
-  if (pct < 48) return G('Grade 3 – Elongated / Locomotive', AMBER);
-  if (pct < 58) return G('Grade 2 – Balanced Core Base', GREEN);
+  const [risk, compact, balanced] = scaledBands(male, 0.25);
+  if (pct < risk)     return G('Grade 4 – Structural Insufficiency', RED);
+  if (pct < compact)  return G('Grade 3 – Elongated / Locomotive', AMBER);
+  if (pct < balanced) return G('Grade 2 – Balanced Core Base', GREEN);
   return G('Grade 1 – Rotational Anchor', BLUE);
 }
 
-// Overall interpretation profile + suggestions (mirrors the app's report).
+// ── Interpretation ────────────────────────────────────────────────────────────
+
 export function interpret(r) {
   const male = r.isMale;
   const isAtRisk   = r.bfPercent > (male ? 24 : 31) || r.smmPercent < (male ? 39 : 32);
