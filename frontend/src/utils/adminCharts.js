@@ -64,11 +64,11 @@ const axis = (extra = {}) => ({
   ...extra.rest,
 });
 
-export function chartOptions({ yMin, yMax, yTitle, yStep, xTicks = 7, reverse = false, horizontal = false } = {}) {
+export function chartOptions({ yMin, yMax, yTitle, yStep, xTicks = 7, reverse = false, horizontal = false, zero } = {}) {
   const valueAxis = axis({
     ticks: { maxTicksLimit: 7, padding: 6, stepSize: yStep },
     rest: {
-      min: yMin, max: yMax, reverse, beginAtZero: yMin == null,
+      min: yMin, max: yMax, reverse, beginAtZero: zero ?? yMin == null,
       title: yTitle ? { display: true, text: yTitle, color: chartTheme().ink.muted, font: { size: 10 } } : undefined,
     },
   });

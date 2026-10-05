@@ -12,7 +12,8 @@ import {
 import { api, clearSession, getUser } from '../api';
 import { athleteCondition, relativeDay, CONDITION } from '../utils/athleteStatus';
 import './admin.css';
-import { downloadAthleteReport } from '../utils/pdfReport';
+import { downloadTeamReport } from '../utils/pdfReport';
+import ReportDialog from '../components/ReportDialog';
 import { dayKey } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
 import { SERIES, STATUS, loadRamp, themeName, setChartTheme, shortDate, chartOptions, lineDataset, barDataset } from '../utils/adminCharts';
@@ -179,6 +180,8 @@ function AdminShell() {
   const [athError, setAthError] = useState('');
   const [recent, setRecent] = useState(null); // last ROSTER_WINDOW_DAYS of sessions, all athletes
   const [selSession, setSelSession] = useState(null);
+  const [reportFor, setReportFor] = useState(null); // { athlete, sessions?, bodyComposition? }
+  const [teamBusy, setTeamBusy] = useState(false);
 
   async function loadAthletes() {
     setAthError('');
@@ -213,6 +216,14 @@ function AdminShell() {
   const current = NAV.find(n => n.id === section);
   const detailAthlete = section === 'athletes' && athleteParam ? roster.find(a => a._id === athleteParam) : null;
   const signOut = () => { clearSession(); navigate('/'); };
+  const toastFn = useToast();
+  async function teamReport() {
+    setTeamBusy(true);
+    await new Promise(r => setTimeout(r, 30)); // paint the busy state before the synchronous build
+    try { downloadTeamReport({ roster, recent: recent || [] }); toastFn('Team report downloaded'); }
+    catch (e) { toastFn(`Couldn't build the team report: ${e.message}`, 'error'); }
+    finally { setTeamBusy(false); }
+  }
   const [findOpen, setFindOpen] = useState(false);
   useEffect(() => {
     const onKey = e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setFindOpen(true); } };
@@ -318,19 +329,22 @@ function AdminShell() {
           {!detailAthlete && (
             section === 'athletes'
               ? <PageHeader eyebrow={`${greeting()}, ${(user?.name || 'Coach').split(' ')[0]} · ${today}`} title="Team overview"
-                            actions={<Button variant="primary" icon="userPlus" onClick={() => go('create')}>New athlete</Button>} />
+                            actions={<>
+                              <Button icon="download" disabled={!recent || teamBusy} onClick={teamReport}>{teamBusy ? 'Building PDF…' : 'Team report'}</Button>
+                              <Button variant="primary" icon="userPlus" onClick={() => go('create')}>New athlete</Button>
+                            </>} />
               : <PageHeader title={current.label} subtitle={current.subtitle} />
           )}
           <ErrorBanner message={athError} onRetry={loadAthletes} />
 
           {section === 'athletes' && (detailAthlete
-            ? <AthleteDetail athlete={detailAthlete} onBack={() => go('athletes')} onSession={setSelSession}
+            ? <AthleteDetail athlete={detailAthlete} onBack={() => go('athletes')} onSession={setSelSession} onReport={setReportFor}
                              initialDay={params.get('day') || null} onAnalytics={() => go('analytics', detailAthlete._id)} />
             : <AthletesOverview roster={roster} recent={recent} loading={athLoading} filter={filterParam}
                                 onFilter={f => go('athletes', null, f)} onOpen={(a, day) => go('athletes', a._id, null, day)}
-                                onChanged={loadAthletes} onCreate={() => go('create')} />)}
+                                onChanged={loadAthletes} onCreate={() => go('create')} onReport={a => setReportFor({ athlete: a })} />)}
           {section === 'sessions'      && <SessionsSection athletes={athletes} onSession={setSelSession} />}
-          {section === 'analytics'     && <AnalyticsSection athletes={roster} athleteId={athleteParam} onSelect={id => go('analytics', id)} onSession={setSelSession} />}
+          {section === 'analytics'     && <AnalyticsSection athletes={roster} athleteId={athleteParam} onSelect={id => go('analytics', id)} onSession={setSelSession} onReport={setReportFor} />}
           {section === 'recovery'      && <RecoverySection athletes={athletes} />}
           {section === 'subscriptions' && <SubscriptionsSection athletes={athletes} />}
           {section === 'create'        && <CreateAthlete onCreated={() => { loadAthletes(); loadRecent(); }} />}
@@ -338,6 +352,8 @@ function AdminShell() {
       </div>
 
       <SessionModal session={selSession} onClose={() => setSelSession(null)} />
+      {reportFor && <ReportDialog athlete={reportFor.athlete} sessions={reportFor.sessions} bodyComposition={reportFor.bodyComposition}
+                                  onClose={() => setReportFor(null)} />}
       {findOpen && <QuickFind roster={roster} onClose={() => setFindOpen(false)}
                               onPick={(a, where) => { setFindOpen(false); go(where, a._id); }} />}
     </div>
@@ -439,7 +455,7 @@ function HeroStat({ label, value, note, noteColor, onClick }) {
   );
 }
 
-function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, onChanged, onCreate }) {
+function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, onChanged, onCreate, onReport }) {
   const [query, setQuery] = useState('');
   const [hover, setHover] = useState(null); // { row, col, x, y, a, d, n }
   const boardRef = useRef(null);
@@ -696,6 +712,10 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
                     <td className="num text-[17px] text-tp">{(a.cond?.readiness ?? a.lastReadiness) != null ? `${Math.round(a.cond?.readiness ?? a.lastReadiness)}%` : '—'}</td>
                     <td className="text-ts whitespace-nowrap" title={fmtDate(a.lastSession)}>{relativeDay(a.lastSession)}</td>
                     <td onClick={e => e.stopPropagation()} className="text-right whitespace-nowrap">
+                      <button onClick={() => onReport(a)} aria-label={`Download ${a.name}'s PDF report`} title="PDF report"
+                              className="inline-flex w-11 h-11 sm:w-9 sm:h-9 align-middle items-center justify-center rounded-md text-ts hover:text-tp hover:bg-card mr-1">
+                        <Icon name="download" className="w-4 h-4" />
+                      </button>
                       <Button variant="ghost" disabled={busyId === a._id} onClick={() => toggleActive(a)}>
                         {busyId === a._id ? 'Saving…' : a.active ? 'Deactivate' : 'Activate'}
                       </Button>
@@ -711,13 +731,12 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
   );
 }
 
-function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay }) {
+function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay, onReport }) {
   const [typeFilter, setTypeFilter] = useState('');
   const [sessions, setSessions] = useState(null);
   const [error, setError] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [reportBusy, setReportBusy] = useState(false);
 
   async function load() {
     setError(''); setSessions(null);
@@ -726,16 +745,6 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay }) 
   }
   useEffect(() => { load(); }, [athlete._id]);
 
-  async function downloadReport() {
-    setReportBusy(true);
-    try {
-      let bodyComposition = null;
-      try { bodyComposition = await api.get(`/admin/athletes/${athlete._id}/body-composition`); } catch {}
-      downloadAthleteReport(athlete, { sessions, bodyComposition });
-    } finally {
-      setReportBusy(false);
-    }
-  }
 
   const log = useMemo(
     () => (sessions || []).filter(s => inRange(s.date, from, to)
@@ -784,8 +793,8 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay }) 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap mt-5 pt-5 border-t border-bdr">
-          <Button variant="primary" icon="download" onClick={downloadReport} disabled={!sessions || reportBusy}>
-            {reportBusy ? 'Preparing PDF…' : 'Download PDF report'}
+          <Button variant="primary" icon="download" onClick={() => onReport({ athlete, sessions })} disabled={!sessions}>
+            Download PDF report
           </Button>
           <Button icon="body" onClick={onAnalytics}>Body composition</Button>
         </div>
@@ -1032,7 +1041,7 @@ function SessionsSection({ athletes, onSession }) {
 }
 
 // ── Analytics — body composition on top, then the Workload Monitor ─────────
-function AnalyticsSection({ athletes, athleteId, onSelect, onSession }) {
+function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }) {
   const athlete = athletes.find(a => a._id === athleteId) || null;
   const [sessions, setSessions] = useState(null);
   const [body, setBody] = useState(undefined);
@@ -1065,6 +1074,10 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession }) {
               {athlete.sport || 'General'} · last session {fmtDate(athlete.lastSession)}
             </div>
           </div>
+        )}
+        {athlete && (
+          <Button icon="download" className="sm:ml-auto" disabled={!sessions || body === undefined}
+                  onClick={() => onReport({ athlete, sessions, bodyComposition: body })}>PDF report</Button>
         )}
       </FilterBar>
 
@@ -1592,7 +1605,7 @@ function BodyCompositionCard({ data }) {
                     { ...lineDataset('Skeletal muscle', pts.map(p => (p.smm == null ? null : Number(p.smm.toFixed(1)))), SERIES_BC.smm), unit: '%', pointRadius: 4, hidden: !!hiddenBc.smm },
                   ] }}
                   titles={pts.map(p => fullDate(p.date))}
-                  options={chartOptions({ yTitle: '% of body weight' })} />
+                  options={chartOptions({ yTitle: '% of body weight', zero: false })} />
               </>
             )}
             <div className="overflow-x-auto mt-5 -mx-5 border-t border-bdr">
