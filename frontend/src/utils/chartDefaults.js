@@ -21,11 +21,15 @@ export const CHART_OPTS = {
       borderColor: '#30363D',
       borderWidth: 1,
       titleColor: '#E6EDF3',
-      bodyColor: '#8B949E',
+      bodyColor: '#C9D1D9',
+      padding: 10,
+      mode: 'index',
+      intersect: false,
     },
   },
+  interaction: { mode: 'index', intersect: false },
   scales: {
-    x: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
+    x: { ticks: { color: '#8B949E', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
     y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
   },
 };
@@ -38,7 +42,7 @@ export const ACWR_OPTS = {
     annotation: undefined,
   },
   scales: {
-    x: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { color: '#21262D' } },
+    x: { ticks: { color: '#8B949E', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
     y: {
       ticks: { color: '#8B949E', font: { size: 10 } },
       grid: { color: '#21262D' },
