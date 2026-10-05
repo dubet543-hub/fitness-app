@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Line, Bar } from 'react-chartjs-2';
 import Badge, { readinessColor } from '../components/Badge';
 import SessionModal from '../components/SessionModal';
-import WorkloadMonitor from '../components/WorkloadMonitor';
+import WorkloadMonitor, { exertionStatus } from '../components/WorkloadMonitor';
+import InteractiveChart, { LegendToggle } from '../components/InteractiveChart';
 import {
   Icon, Button, PageHeader, Card, FilterBar, Field, AthleteSelect, Avatar,
   EmptyState, ErrorBanner, TableSkeleton, Skeleton, Metric, useSort, SortTh,
-  ToastProvider, useToast, downloadCsv, ConditionChip, Sparkline, Ring,
+  ToastProvider, useToast, downloadCsv, ConditionChip, Sparkline, Ring, Segmented,
 } from '../components/ui';
 import { api, clearSession, getUser } from '../api';
 import { athleteCondition, relativeDay, CONDITION } from '../utils/athleteStatus';
@@ -40,6 +40,8 @@ const ATHLETE_SORT = {
   acwr: a => a.cond?.acwr ?? null, readiness: a => a.cond?.readiness ?? a.lastReadiness,
   last: a => (a.lastSession ? +new Date(a.lastSession) : null), status: a => (a.active ? 1 : 0),
 };
+// Body-composition progress lines: categorical slots 1 and 3 (validated pair).
+const SERIES_BC = { bf: '#d95926', smm: '#3987e5' };
 const ROSTER_WINDOW_DAYS = 42; // 28-day chronic load + two weeks of warm-up
 
 const greeting = () => {
@@ -63,8 +65,59 @@ const RECOVERY_CSV = [
   ['Sleep efficiency %', s => s.sleepEfficiency?.toFixed(0)], ['Readiness %', s => s.readinessPercent?.toFixed(0)],
 ];
 
+const fullDate = d => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const keyToDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+
+// Period presets shared by Sessions and Recovery (dates in local YYYY-MM-DD).
+const PERIODS = [
+  { value: '7', label: '7 days' }, { value: '14', label: '14 days' }, { value: '28', label: '28 days' },
+  { value: '90', label: '90 days' }, { value: 'all', label: 'All' }, { value: 'custom', label: 'Custom' },
+];
+const periodFrom = p => (p === 'all' || p === 'custom' ? '' : dayKey(Date.now() - (Number(p) - 1) * 864e5));
+
+const readinessTone = v => (v == null ? null : v >= 70 ? STATUS.good : v >= 50 ? STATUS.warning : STATUS.critical);
+
+// Number with a small status dot — colour supports, the number carries it.
+function ToneNum({ value, color, suffix = '' }) {
+  if (value == null) return <span className="text-ts">—</span>;
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color || 'transparent' }} aria-hidden="true" />
+      <span className="num text-[16px] text-tp">{value}{suffix}</span>
+    </span>
+  );
+}
+
+function PeriodFilter({ f, setF, onLoad, busy, idPrefix }) {
+  return (
+    <>
+      <Field label="Period" htmlFor={`${idPrefix}-period`}>
+        <Segmented label="Period" size="md" value={f.period} options={PERIODS}
+                   onChange={v => { const q = { ...f, period: v, from: v === 'custom' ? f.from : periodFrom(v), to: v === 'custom' ? f.to : '' }; setF(q); if (v !== 'custom') onLoad(q); }} />
+      </Field>
+      {f.period === 'custom' && (
+        <>
+          <Field label="From" htmlFor={`${idPrefix}-from`}><input id={`${idPrefix}-from`} type="date" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} className="!w-auto h-11 sm:h-10" /></Field>
+          <Field label="To" htmlFor={`${idPrefix}-to`}><input id={`${idPrefix}-to`} type="date" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} className="!w-auto h-11 sm:h-10" /></Field>
+          <Button variant="primary" className="sm:!h-10" onClick={() => onLoad(f)} disabled={busy}>{busy ? 'Loading…' : 'Apply'}</Button>
+        </>
+      )}
+    </>
+  );
+}
+
+function FilterChip({ label, onClear }) {
+  return (
+    <span className="inline-flex items-center gap-1 pl-3 pr-1 h-8 rounded-full bg-accent/10 border border-accent/40 text-[13px] text-tp">
+      {label}
+      <button onClick={onClear} aria-label={`Clear filter: ${label}`} className="w-7 h-7 rounded-full flex items-center justify-center text-ts hover:text-tp">
+        <Icon name="x" className="w-3.5 h-3.5" />
+      </button>
+    </span>
+  );
+}
+
 const errMsg = (e, what) => `Couldn't load ${what}${e?.message ? ` — ${e.message}` : ''}.`;
-const gradeBadge = g => (g == null ? null : <Badge color={g >= 7 ? 'red' : g >= 4 ? 'yellow' : 'green'}>{g.toFixed(1)}</Badge>);
 const readinessBadge = v => (v == null ? '—' : <Badge color={readinessColor(v)}>{v.toFixed(0)}%</Badge>);
 const sessionTypes = s => [...(s.primaryTypes || []), ...(s.skillTypes || [])].join(', ') || '—';
 const inRange = (date, from, to) => {
@@ -86,10 +139,11 @@ function AdminShell() {
   const [sideOpen, setSideOpen] = useState(false);
 
   // Section, athlete and roster filter live in the URL so refresh / back keep your place.
-  const go = (id, athlete, filter) => {
+  const go = (id, athlete, filter, day) => {
     const next = { section: id };
     if (athlete) next.athlete = athlete;
     if (filter && filter !== 'all') next.filter = filter;
+    if (day) next.day = day;
     setParams(next);
     setSideOpen(false);
     window.scrollTo({ top: 0 });
@@ -134,6 +188,12 @@ function AdminShell() {
   const current = NAV.find(n => n.id === section);
   const detailAthlete = section === 'athletes' && athleteParam ? roster.find(a => a._id === athleteParam) : null;
   const signOut = () => { clearSession(); navigate('/'); };
+  const [findOpen, setFindOpen] = useState(false);
+  useEffect(() => {
+    const onKey = e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setFindOpen(true); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const sidebar = (
     <div className="flex flex-col h-full">
@@ -143,6 +203,14 @@ function AdminShell() {
           <div className="display text-[20px] text-tp">Solidcore</div>
           <div className="text-[11px] font-semibold tracking-[0.2em] uppercase text-ts mt-1">Coach console</div>
         </div>
+      </div>
+      <div className="px-3 pt-4">
+        <button onClick={() => { setFindOpen(true); setSideOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 min-h-[40px] rounded-md bg-bg border border-bdr text-sm text-ts hover:text-tp hover:border-[#3a3a40] transition-colors">
+          <Icon name="search" className="w-4 h-4" />
+          <span className="flex-1 text-left">Find athlete</span>
+          <kbd className="text-[11px] font-semibold border border-bdr rounded px-1.5 py-0.5">Ctrl K</kbd>
+        </button>
       </div>
       <nav className="px-3 py-4 space-y-0.5 flex-1" aria-label="Admin sections">
         {NAV.map(n => {
@@ -216,12 +284,12 @@ function AdminShell() {
 
           {section === 'athletes' && (detailAthlete
             ? <AthleteDetail athlete={detailAthlete} onBack={() => go('athletes')} onSession={setSelSession}
-                             onAnalytics={() => go('analytics', detailAthlete._id)} />
+                             initialDay={params.get('day') || null} onAnalytics={() => go('analytics', detailAthlete._id)} />
             : <AthletesOverview roster={roster} recent={recent} loading={athLoading} filter={filterParam}
-                                onFilter={f => go('athletes', null, f)} onOpen={a => go('athletes', a._id)}
+                                onFilter={f => go('athletes', null, f)} onOpen={(a, day) => go('athletes', a._id, null, day)}
                                 onChanged={loadAthletes} onCreate={() => go('create')} />)}
           {section === 'sessions'      && <SessionsSection athletes={athletes} onSession={setSelSession} />}
-          {section === 'analytics'     && <AnalyticsSection athletes={roster} athleteId={athleteParam} onSelect={id => go('analytics', id)} />}
+          {section === 'analytics'     && <AnalyticsSection athletes={roster} athleteId={athleteParam} onSelect={id => go('analytics', id)} onSession={setSelSession} />}
           {section === 'recovery'      && <RecoverySection athletes={athletes} />}
           {section === 'subscriptions' && <SubscriptionsSection athletes={athletes} />}
           {section === 'create'        && <CreateAthlete onCreated={() => { loadAthletes(); loadRecent(); }} />}
@@ -229,6 +297,66 @@ function AdminShell() {
       </div>
 
       <SessionModal session={selSession} onClose={() => setSelSession(null)} />
+      {findOpen && <QuickFind roster={roster} onClose={() => setFindOpen(false)}
+                              onPick={(a, where) => { setFindOpen(false); go(where, a._id); }} />}
+    </div>
+  );
+}
+
+// Ctrl/Cmd+K: type a name, arrows to move, Enter opens the profile.
+function QuickFind({ roster, onClose, onPick }) {
+  const [q, setQ] = useState('');
+  const [i, setI] = useState(0);
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  const ql = q.trim().toLowerCase();
+  // Best match first: name starts with the query, then a word in it does, then anywhere.
+  const score = a => {
+    const n = (a.name || '').toLowerCase();
+    if (!ql) return 0;
+    if (n.startsWith(ql)) return 0;
+    if (n.split(/\s+/).some(w => w.startsWith(ql))) return 1;
+    return 2;
+  };
+  const hits = roster.filter(a => !ql || [a.name, a.email, a.sport].some(v => v?.toLowerCase().includes(ql)))
+    .sort((a, b) => score(a) - score(b) || (a.cond?.rank ?? 9) - (b.cond?.rank ?? 9) || a.name.localeCompare(b.name)).slice(0, 8);
+  const onKey = e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setI(x => Math.min(hits.length - 1, x + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setI(x => Math.max(0, x - 1)); }
+    else if (e.key === 'Enter' && hits[i]) { e.preventDefault(); onPick(hits[i], e.shiftKey ? 'analytics' : 'athletes'); }
+    else if (e.key === 'Escape') onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-[12vh] px-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Find athlete" onClick={e => e.stopPropagation()}
+           className="w-full max-w-lg rounded-xl border border-bdr bg-surface shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-4 border-b border-bdr">
+          <Icon name="search" className="w-4 h-4 text-ts" />
+          <input ref={inputRef} value={q} onChange={e => { setQ(e.target.value); setI(0); }} onKeyDown={onKey}
+                 placeholder="Find an athlete by name, email or sport" aria-label="Find athlete"
+                 className="!border-0 !bg-transparent h-14 !px-0 text-[15px] focus:!border-0" />
+          <kbd className="text-[11px] text-ts border border-bdr rounded px-1.5 py-0.5">Esc</kbd>
+        </div>
+        <ul role="listbox" aria-label="Athletes" className="max-h-[50vh] overflow-y-auto py-1">
+          {hits.map((a, idx) => (
+            <li key={a._id} role="option" aria-selected={idx === i}>
+              <button onMouseEnter={() => setI(idx)} onClick={() => onPick(a, 'athletes')}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left ${idx === i ? 'bg-card' : ''}`}>
+                <Avatar name={a.name} size="w-8 h-8 text-[11px]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm text-tp font-medium truncate">{a.name}</span>
+                  <span className="block text-xs text-ts truncate">{a.sport || 'General'} · {relativeDay(a.lastSession)}</span>
+                </span>
+                {a.cond && <ConditionChip condition={a.active ? a.cond : { ...CONDITION.nodata, label: 'Inactive' }} />}
+              </button>
+            </li>
+          ))}
+          {hits.length === 0 && <li className="px-4 py-6 text-sm text-ts text-center">No athletes match “{q}”.</li>}
+        </ul>
+        <div className="px-4 py-2.5 border-t border-bdr text-[11px] text-ts flex gap-4">
+          <span><kbd className="font-semibold">↑ ↓</kbd> move</span><span><kbd className="font-semibold">Enter</kbd> open profile</span><span><kbd className="font-semibold">Shift+Enter</kbd> analytics</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -254,6 +382,11 @@ function dailyLoads(sessions, n) {
   });
 }
 
+function SparkFor({ sessions, name, ...rest }) {
+  const days = dailyLoads(sessions, SPARK_DAYS);
+  return <Sparkline values={days.map(d => d.load)} dates={days.map(d => d.date)} unit="AU" label={`${name}, load over ${SPARK_DAYS} days`} {...rest} />;
+}
+
 function HeroStat({ label, value, note, noteColor, onClick }) {
   const Tag = onClick ? 'button' : 'div';
   return (
@@ -267,6 +400,8 @@ function HeroStat({ label, value, note, noteColor, onClick }) {
 
 function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, onChanged, onCreate }) {
   const [query, setQuery] = useState('');
+  const [hover, setHover] = useState(null); // { row, col, x, y, a, d, n }
+  const boardRef = useRef(null);
   const [busyId, setBusyId] = useState(null);
   const toast = useToast();
 
@@ -361,7 +496,20 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
           {!ready ? <Skeleton className="h-56 w-full" /> : boardRows.length === 0 ? (
             <EmptyState icon="activity" title="No active athletes" />
           ) : (
-            <div className="overflow-x-auto" ref={el => { if (el) el.scrollLeft = el.scrollWidth; }}>
+            <div className="overflow-x-auto relative" ref={el => { boardRef.current = el; if (el && !el.dataset.scrolled) { el.scrollLeft = el.scrollWidth; el.dataset.scrolled = '1'; } }}
+                 onMouseLeave={() => setHover(null)}>
+              {hover && (
+                <div className="chart-tip !opacity-100" style={{ left: hover.x, top: hover.y }} aria-hidden="true">
+                  <div className="chart-tip-title">{hover.d.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+                  <div className="text-[13px] font-semibold text-tp">{hover.a.name}</div>
+                  <div className="chart-tip-row">
+                    <span className="chart-tip-box" style={{ background: shade(hover.d.load) || '#2c2c31' }} />
+                    <span className="chart-tip-val">{hover.d.load ? `${Math.round(hover.d.load)} AU` : 'Rest day'}</span>
+                    {hover.n > 0 && <span className="chart-tip-lab">{hover.n} session{hover.n === 1 ? '' : 's'}</span>}
+                  </div>
+                  {hover.d.load > 0 && <div className="text-[11px] text-ts mt-1">Click to open this day</div>}
+                </div>
+              )}
               <div className="grid gap-x-[3px] gap-y-[5px] items-center min-w-[520px]"
                    style={{ gridTemplateColumns: `minmax(110px, 150px) repeat(${BOARD_DAYS}, minmax(12px, 1fr)) 52px` }}
                    role="table" aria-label="Daily load per athlete, last 21 days">
@@ -371,8 +519,9 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
                   const mark = isToday || i % 7 === 6;
                   return (
                     <div key={i} role="columnheader" className="relative h-4">
-                      {mark && (
-                        <span className={`absolute right-0 bottom-0 text-[11px] font-semibold whitespace-nowrap ${isToday ? 'text-accent' : 'text-ts'}`}>
+                      {(hover ? hover.col === i : mark) && (
+                        <span className={`absolute right-0 bottom-0 text-[11px] font-semibold whitespace-nowrap px-0.5 rounded
+                          ${hover?.col === i ? 'text-tp bg-card z-10' : isToday ? 'text-accent' : 'text-ts'}`}>
                           {isToday ? 'Today' : d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                         </span>
                       )}
@@ -381,18 +530,30 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
                 })}
                 <div className="label-caps text-right" role="columnheader">ACWR</div>
 
-                {boardData.map(({ a, days }) => (
+                {boardData.map(({ a, days }, row) => (
                   <React.Fragment key={a._id}>
                     <button onClick={() => onOpen(a)} role="rowheader"
-                            className="flex items-center gap-2 min-w-0 text-left text-[13px] text-tp hover:underline h-11 sm:h-7">
+                            className={`flex items-center gap-2 min-w-0 text-left text-[13px] hover:underline h-11 sm:h-7 ${hover?.row === row ? 'text-accent font-semibold' : 'text-tp'}`}>
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: a.cond?.color }} />
                       <span className="truncate">{a.name}</span>
                     </button>
-                    {days.map((d, i) => (
-                      <div key={i} role="cell" className="h-11 sm:h-7 rounded-[3px]"
-                           style={{ background: shade(d.load) || 'rgb(var(--c-card))' }}
-                           title={`${a.name} · ${d.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${d.load ? `${Math.round(d.load)} AU` : 'rest day'}`} />
-                    ))}
+                    {days.map((d, i) => {
+                      const dim = hover && hover.row !== row && hover.col !== i;
+                      return (
+                        <div key={i} role="cell"
+                             aria-label={`${a.name}, ${d.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}: ${d.load ? `${Math.round(d.load)} AU` : 'rest day'}`}
+                             className={`h-11 sm:h-7 rounded-[3px] transition-opacity duration-100 ${d.load ? 'cursor-pointer' : ''} ${hover?.row === row && hover?.col === i ? 'ring-2 ring-tp ring-offset-1 ring-offset-surface' : ''}`}
+                             style={{ background: shade(d.load) || 'rgb(var(--c-card))', opacity: dim ? 0.45 : 1 }}
+                             onMouseEnter={e => {
+                               const box = boardRef.current.getBoundingClientRect();
+                               const c = e.currentTarget.getBoundingClientRect();
+                               const n = (byAthlete.get(a._id) || []).filter(s => dayKey(s.date) === dayKey(d.date)).length;
+                               const left = c.left - box.left + boardRef.current.scrollLeft;
+                               setHover({ row, col: i, a, d, n, x: left > box.width - 200 ? left - 190 : left + c.width + 8, y: c.top - box.top - 4 });
+                             }}
+                             onClick={() => d.load && onOpen(a, dayKey(d.date))} />
+                      );
+                    })}
                     <div role="cell" className="num text-[17px] text-tp text-right">{a.cond?.acwr != null ? a.cond.acwr.toFixed(2) : '—'}</div>
                   </React.Fragment>
                 ))}
@@ -419,8 +580,7 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
                         </div>
                         <div className="text-[13px] text-ts mt-0.5 truncate">{a.cond.reasons.join(' · ')}</div>
                       </div>
-                      <Sparkline values={dailyLoads(byAthlete.get(a._id) || [], SPARK_DAYS).map(d => d.load)} color={a.cond.color}
-                                 width={84} label={`${a.name}, load over ${SPARK_DAYS} days`} />
+                      <SparkFor sessions={byAthlete.get(a._id) || []} color={a.cond.color} width={84} name={a.name} />
                     </button>
                   </li>
                 ))}
@@ -490,7 +650,7 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
                       </div>
                     </td>
                     <td>{a.cond ? <ConditionChip condition={a.active ? a.cond : { ...CONDITION.nodata, label: 'Inactive' }} /> : <Skeleton className="h-4 w-16" />}</td>
-                    <td>{ready && <Sparkline values={dailyLoads(byAthlete.get(a._id) || [], SPARK_DAYS).map(d => d.load)} label={`${a.name}, load over ${SPARK_DAYS} days`} />}</td>
+                    <td onClick={e => e.stopPropagation()}>{ready && <SparkFor sessions={byAthlete.get(a._id) || []} name={a.name} />}</td>
                     <td className="num text-[17px] text-tp">{a.cond?.acwr != null ? a.cond.acwr.toFixed(2) : '—'}</td>
                     <td className="num text-[17px] text-tp">{(a.cond?.readiness ?? a.lastReadiness) != null ? `${Math.round(a.cond?.readiness ?? a.lastReadiness)}%` : '—'}</td>
                     <td className="text-ts whitespace-nowrap" title={fmtDate(a.lastSession)}>{relativeDay(a.lastSession)}</td>
@@ -510,7 +670,8 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
   );
 }
 
-function AthleteDetail({ athlete, onBack, onSession, onAnalytics }) {
+function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay }) {
+  const [typeFilter, setTypeFilter] = useState('');
   const [sessions, setSessions] = useState(null);
   const [error, setError] = useState('');
   const [from, setFrom] = useState('');
@@ -536,9 +697,12 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics }) {
   }
 
   const log = useMemo(
-    () => (sessions || []).filter(s => inRange(s.date, from, to)).sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [sessions, from, to],
+    () => (sessions || []).filter(s => inRange(s.date, from, to)
+      && (!typeFilter || [...(s.primaryTypes || []), ...(s.secondaryTypes || []), ...(s.skillTypes || []), ...(s.skillSubTypes || [])].includes(typeFilter)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [sessions, from, to, typeFilter],
   );
+  const logRef = useRef(null);
 
   return (
     <div className="space-y-6">
@@ -590,9 +754,11 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics }) {
 
       {!sessions ? <Skeleton className="h-96 w-full" /> : (
         <>
-          <WorkloadMonitor athlete={athlete} sessions={sessions} />
-          <TrendsRow sessions={sessions} />
+          <WorkloadMonitor athlete={athlete} sessions={sessions} onSession={onSession} initialDay={initialDay} />
+          <TrendsRow sessions={sessions} onSession={onSession} activeType={typeFilter}
+                     onType={t => { setTypeFilter(cur => (cur === t ? '' : t)); setTimeout(() => logRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }} />
 
+          <div ref={logRef} className="scroll-mt-6" />
           <Card title="Session log" subtitle={`${log.length} of ${sessions.length} sessions · select a row for full details`} bodyClassName="p-0"
                 actions={
                   <div className="flex items-end gap-2 flex-wrap">
@@ -602,18 +768,19 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics }) {
                     {(from || to) && <Button variant="ghost" className="sm:!h-8" onClick={() => { setFrom(''); setTo(''); }}>Clear</Button>}
                   </div>
                 }>
+            {typeFilter && <div className="px-5 pt-4"><FilterChip label={`Type: ${typeFilter}`} onClear={() => setTypeFilter('')} /></div>}
             {log.length === 0 ? <EmptyState icon="list" title="No sessions in this range" /> : (
               <div className="overflow-x-auto max-h-[480px]">
                 <table>
-                  <thead><tr>{['Date', 'Types', 'Total load', 'Grade', 'Readiness'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['Date', 'Types', 'Load', 'Exertion', 'Readiness'].map(h => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {log.map(s => (
                       <tr key={s._id} onClick={() => onSession(s)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && onSession(s)}>
                         <td className="whitespace-nowrap text-tp">{fmtDate(s.date)}</td>
-                        <td className="text-ts">{sessionTypes(s)}</td>
-                        <td className="text-tp">{fmtNum(s.totalLoad)}</td>
-                        <td>{gradeBadge(s.scaledGrade) ?? '—'}</td>
-                        <td>{readinessBadge(s.readinessPercent)}</td>
+                        <td><TypeTags s={s} /></td>
+                        <td className="num text-[16px] text-tp">{fmtNum(s.totalLoad)}</td>
+                        <td><ToneNum value={s.scaledGrade != null ? s.scaledGrade.toFixed(1) : null} color={s.scaledGrade != null ? exertionStatus(s.scaledGrade).color : null} /></td>
+                        <td><ToneNum value={s.readinessPercent != null ? Math.round(s.readinessPercent) : null} suffix="%" color={readinessTone(s.readinessPercent)} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -627,8 +794,18 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics }) {
   );
 }
 
+function TypeTags({ s }) {
+  const t = [...(s.primaryTypes || []), ...(s.skillTypes || [])];
+  if (!t.length) return <span className="text-ts">—</span>;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {t.map(x => <span key={x} className="text-xs text-ts border border-bdr rounded px-1.5 py-0.5 whitespace-nowrap">{x}</span>)}
+    </span>
+  );
+}
+
 // Readiness over time + the mix of session types, shared by detail & analytics.
-function TrendsRow({ sessions }) {
+function TrendsRow({ sessions, onSession, onType, activeType }) {
   const sorted = useMemo(() => [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date)), [sessions]);
   const mix = useMemo(() => {
     const c = {};
@@ -637,29 +814,30 @@ function TrendsRow({ sessions }) {
     return Object.entries(c).sort((a, b) => b[1] - a[1]);
   }, [sessions]);
   const hasReadiness = sorted.some(s => s.readinessPercent != null);
+  const activeIdx = activeType ? mix.findIndex(([t]) => t === activeType) : -1;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card title="Readiness trend" subtitle="Readiness % from each wellness check-in" className="lg:col-span-2">
+      <Card title="Readiness trend" subtitle={`Readiness % from each wellness check-in${onSession ? ' · click a point to open that session' : ''}`} className="lg:col-span-2">
         {hasReadiness ? (
-          <div className="h-60">
-            <Line
-              data={{ labels: sorted.map(s => shortDate(s.date)), datasets: [lineDataset('Readiness %', sorted.map(s => (s.readinessPercent == null ? null : Math.round(s.readinessPercent))), SINGLE, { fill: true })] }}
-              options={chartOptions({ yMin: 0, yMax: 100 })}
-              role="img" aria-label="Readiness trend chart; values are in the session log"
-            />
-          </div>
+          <InteractiveChart type="line" height="h-60" label="Readiness trend chart"
+            data={{ labels: sorted.map(s => shortDate(s.date)),
+                    datasets: [{ ...lineDataset('Readiness', sorted.map(s => (s.readinessPercent == null ? null : Math.round(s.readinessPercent))), SINGLE, { fill: true }), unit: '%', pointRadius: 2 }] }}
+            titles={sorted.map(s => `${fullDate(s.date)} · ${sessionTypes(s)}`)}
+            options={chartOptions({ yMin: 0, yMax: 100 })}
+            onPick={onSession ? i => onSession(sorted[i]) : undefined} />
         ) : <EmptyState icon="chart" title="No readiness data yet" />}
       </Card>
-      <Card title="Training mix" subtitle="Sessions logged per type">
+      <Card title="Training mix" subtitle={onType ? 'Sessions per type · click a bar to filter the log' : 'Sessions logged per type'}>
         {mix.length ? (
-          <div style={{ height: Math.max(120, mix.length * 34 + 24) }}>
-            <Bar
-              data={{ labels: mix.map(([t]) => t), datasets: [barDataset('sessions', mix.map(([, n]) => n), SINGLE, { horizontal: true })] }}
-              options={chartOptions({ horizontal: true, yMin: 0 })}
-              role="img" aria-label={mix.map(([t, n]) => `${t}: ${n}`).join(', ')}
-            />
-          </div>
+          <div style={{ height: Math.max(140, mix.length * 36 + 30) }}><InteractiveChart type="bar" horizontal height="h-full" label="Training mix chart"
+            data={{ labels: mix.map(([t]) => t),
+                    datasets: [{ ...barDataset('sessions', mix.map(([, n]) => n), SINGLE, { horizontal: true }),
+                                 backgroundColor: ctx => (activeIdx < 0 || ctx.dataIndex === activeIdx ? SINGLE : `${SINGLE}55`), tipColor: SINGLE }] }}
+            titles={mix.map(([t]) => t)}
+            options={{ ...chartOptions({ horizontal: true, yMin: 0 }), maintainAspectRatio: false }}
+            onPick={onType ? i => onType(mix[i][0]) : undefined}
+            selected={activeIdx >= 0 ? activeIdx : null} /></div>
         ) : <EmptyState icon="chart" title="No session types logged" />}
       </Card>
     </div>
@@ -671,12 +849,14 @@ function SessionsSection({ athletes, onSession }) {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [f, setF] = useState({ athlete: '', from: '', to: '' });
+  const [f, setF] = useState({ athlete: '', period: '28', from: periodFrom('28'), to: '' });
+  const [query, setQuery] = useState('');
+  const [day, setDay] = useState(null);
 
   // Refetch keeps the previous rows on screen (dimmed) instead of flashing a skeleton.
   async function load(q = f) {
-    setError(''); setBusy(true);
-    let url = '/admin/sessions?limit=300';
+    setError(''); setBusy(true); setDay(null);
+    let url = '/admin/sessions?limit=2000';
     if (q.from) url += `&from=${q.from}`;
     if (q.to) url += `&to=${q.to}`;
     if (q.athlete) url += `&athleteId=${q.athlete}`;
@@ -684,60 +864,131 @@ function SessionsSection({ athletes, onSession }) {
     catch (e) { setError(errMsg(e, 'sessions')); setRows(r => r || []); }
     finally { setBusy(false); }
   }
-  const { sorted, sort, toggle } = useSort(rows || [], SESSION_SORT, 'date', 'desc');
   useEffect(() => { load(); }, []);
 
-  const clear = () => { const empty = { athlete: '', from: '', to: '' }; setF(empty); load(empty); };
-  const filtered = f.athlete || f.from || f.to;
+  const all = rows || [];
+  const ql = query.trim().toLowerCase();
+  const visible = useMemo(() => all.filter(s =>
+    (!day || dayKey(s.date) === day) &&
+    (!ql || [s.athlete?.name, s.athlete?.sport, sessionTypes(s)].some(v => v?.toLowerCase().includes(ql)))), [rows, day, ql]);
+  const { sorted, sort, toggle } = useSort(visible, SESSION_SORT, 'date', 'desc');
+  const maxLoad = Math.max(1, ...visible.map(s => s.totalLoad || 0));
+
+  // Daily totals for the chart (search applies, day filter doesn't — the chart is how you pick a day).
+  const daily = useMemo(() => {
+    const m = new Map();
+    all.filter(s => !ql || [s.athlete?.name, s.athlete?.sport, sessionTypes(s)].some(v => v?.toLowerCase().includes(ql)))
+      .forEach(s => { const k = dayKey(s.date); const v = m.get(k) || { load: 0, n: 0 }; v.load += s.totalLoad || 0; v.n += 1; m.set(k, v); });
+    return [...m.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => ({ key: k, ...v }));
+  }, [rows, ql]);
+  const dayIdx = day ? daily.findIndex(d => d.key === day) : -1;
+
+  const athletesIn = new Set(visible.map(s => s.athlete?._id)).size;
+  const avg = key => { const v = visible.map(s => s[key]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const avgEx = avg('scaledGrade'), avgReady = avg('readinessPercent');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <FilterBar>
         <Field label="Athlete" htmlFor="sess-ath">
-          <AthleteSelect id="sess-ath" athletes={athletes} value={f.athlete} onChange={v => setF({ ...f, athlete: v })} allLabel="All athletes" />
+          <AthleteSelect id="sess-ath" athletes={athletes} value={f.athlete} allLabel="All athletes"
+                         onChange={v => { const q = { ...f, athlete: v }; setF(q); load(q); }} />
         </Field>
-        <Field label="From" htmlFor="sess-from"><input id="sess-from" type="date" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
-        <Field label="To" htmlFor="sess-to"><input id="sess-to" type="date" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
-        <Button variant="primary" onClick={() => load()} disabled={busy}>{busy ? 'Loading…' : 'Apply'}</Button>
-        {filtered && <Button variant="ghost" onClick={clear} disabled={busy}>Clear</Button>}
+        <PeriodFilter f={f} setF={setF} onLoad={load} busy={busy} idPrefix="sess" />
+        <div className="relative ml-auto w-full sm:w-64">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ts"><Icon name="search" /></span>
+          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search athlete or type"
+                 aria-label="Search sessions" className="!pl-9 h-11 sm:h-10" />
+        </div>
       </FilterBar>
 
       <ErrorBanner message={error} onRetry={() => load()} />
 
-      <Card title="Sessions" subtitle={rows ? `${rows.length} session${rows.length === 1 ? '' : 's'}${rows.length >= 300 ? ' (latest 300)' : ''} · select a row for full details` : 'Loading…'} bodyClassName="p-0"
-            actions={rows?.length ? <Button icon="download" onClick={() => downloadCsv('sessions.csv', SESSION_CSV, sorted)}>Export CSV</Button> : null}>
-        {!rows ? <TableSkeleton rows={8} /> : rows.length === 0 ? (
-          <EmptyState icon="list" title="No sessions found" hint={filtered ? 'Try widening the date range or choosing all athletes.' : 'Sessions appear here once athletes log them in the app.'} />
-        ) : (
-          <div className={`overflow-x-auto max-h-[640px] transition-opacity ${busy ? 'opacity-50' : ''}`} aria-busy={busy}>
-            <table>
-              <thead><tr>
-                {[['Date', 'date'], ['Athlete', 'athlete'], ['Sport', 'sport'], ['Types', null], ['Load', 'load'], ['Grade', 'grade'], ['Readiness', 'readiness']]
-                  .map(([h, k]) => <SortTh key={h} label={h} sortKey={k} sort={sort} onSort={toggle} />)}
-              </tr></thead>
-              <tbody>
-                {sorted.map(s => (
-                  <tr key={s._id} onClick={() => onSession(s)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && onSession(s)}>
-                    <td className="whitespace-nowrap text-tp">{fmtDate(s.date)}</td>
-                    <td className="text-tp">{s.athlete?.name || '—'}</td>
-                    <td className="text-ts">{s.athlete?.sport || '—'}</td>
-                    <td className="text-ts">{sessionTypes(s)}</td>
-                    <td className="text-tp">{fmtNum(s.totalLoad)}</td>
-                    <td>{gradeBadge(s.scaledGrade) ?? '—'}</td>
-                    <td>{readinessBadge(s.readinessPercent)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {!rows ? <Skeleton className="h-96 w-full" /> : (
+        <div className={`space-y-6 transition-opacity ${busy ? 'opacity-50' : ''}`} aria-busy={busy}>
+          <section className="card rounded-xl grid grid-cols-2 lg:grid-cols-5 divide-x divide-bdr [&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 [&>*:nth-child(3)]:border-l-0 lg:[&>*:nth-child(3)]:border-l border-bdr overflow-hidden">
+            <HeroStat label="Sessions" value={visible.length} note={day ? fullDate(keyToDate(day)) : PERIODS.find(p => p.value === f.period)?.label} />
+            <HeroStat label="Athletes" value={athletesIn} note="logged in this view" />
+            <HeroStat label="Total load" value={Math.round(visible.reduce((a, s) => a + (s.totalLoad || 0), 0)).toLocaleString('en-IN')} note="AU" />
+            <HeroStat label="Avg exertion" value={avgEx != null ? avgEx.toFixed(1) : '—'} note={avgEx != null ? exertionStatus(avgEx).label : 'No data'}
+                      noteColor={avgEx != null ? exertionStatus(avgEx).color : undefined} />
+            <HeroStat label="Avg readiness" value={avgReady != null ? `${Math.round(avgReady)}%` : '—'}
+                      note={avgReady == null ? 'No check-ins' : avgReady >= 70 ? 'Fresh' : avgReady >= 50 ? 'Some fatigue' : 'Fatigued'}
+                      noteColor={readinessTone(avgReady) || undefined} />
+          </section>
+
+          {daily.length > 1 && (
+            <Card title="Load per day" subtitle="Total load logged each day across the athletes in view · click a day to list its sessions">
+              <InteractiveChart type="bar" height="h-48" label="Load per day chart"
+                data={{ labels: daily.map(d => shortDate(keyToDate(d.key))),
+                        datasets: [{ ...barDataset('Total load', daily.map(d => Math.round(d.load)), SINGLE), unit: 'AU', tipColor: SINGLE,
+                                     backgroundColor: ctx => (dayIdx < 0 || ctx.dataIndex === dayIdx ? SINGLE : `${SINGLE}55`) }] }}
+                titles={daily.map(d => `${fullDate(keyToDate(d.key))} · ${d.n} session${d.n === 1 ? '' : 's'}`)}
+                options={chartOptions({ xTicks: 10 })}
+                onPick={i => setDay(cur => (cur === daily[i].key ? null : daily[i].key))}
+                selected={dayIdx >= 0 ? dayIdx : null} />
+            </Card>
+          )}
+
+          <Card title="Sessions" subtitle={`${visible.length} session${visible.length === 1 ? '' : 's'} · select a row for full details`} bodyClassName="p-0"
+                actions={visible.length ? <Button icon="download" onClick={() => downloadCsv('sessions.csv', SESSION_CSV, sorted)}>Export CSV</Button> : null}>
+            {(day || ql) && (
+              <div className="flex gap-2 flex-wrap px-5 pt-4">
+                {day && <FilterChip label={fullDate(keyToDate(day))} onClear={() => setDay(null)} />}
+                {ql && <FilterChip label={`“${query}”`} onClear={() => setQuery('')} />}
+              </div>
+            )}
+            {visible.length === 0 ? (
+              <EmptyState icon="list" title="No sessions found" hint="Try a longer period, all athletes, or clearing the search." />
+            ) : (
+              <div className="overflow-x-auto max-h-[640px]">
+                <table>
+                  <thead><tr>
+                    {[['Date', 'date'], ['Athlete', 'athlete'], ['Types', null], ['Load', 'load'], ['Exertion', 'grade'], ['Readiness', 'readiness']]
+                      .map(([h, k]) => <SortTh key={h} label={h} sortKey={k} sort={sort} onSort={toggle} />)}
+                  </tr></thead>
+                  <tbody>
+                    {sorted.map(s => (
+                      <tr key={s._id} onClick={() => onSession(s)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && onSession(s)}>
+                        <td className="whitespace-nowrap">
+                          <div className="text-tp">{fmtDate(s.date)}</div>
+                          <div className="text-xs text-ts">{relativeDay(s.date)}</div>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-2.5">
+                            <Avatar name={s.athlete?.name} size="w-7 h-7 text-[10px]" />
+                            <div className="min-w-0">
+                              <div className="text-tp truncate">{s.athlete?.name || '—'}</div>
+                              <div className="text-xs text-ts truncate">{s.athlete?.sport || 'General'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td><TypeTags s={s} /></td>
+                        <td className="min-w-[140px]">
+                          <div className="flex items-center gap-3">
+                            <span className="num text-[16px] text-tp w-10 text-right">{fmtNum(s.totalLoad)}</span>
+                            <span className="flex-1 h-1.5 rounded-full bg-card overflow-hidden" aria-hidden="true">
+                              <span className="block h-full rounded-full" style={{ width: `${((s.totalLoad || 0) / maxLoad) * 100}%`, background: SINGLE }} />
+                            </span>
+                          </div>
+                        </td>
+                        <td><ToneNum value={s.scaledGrade != null ? s.scaledGrade.toFixed(1) : null} color={s.scaledGrade != null ? exertionStatus(s.scaledGrade).color : null} /></td>
+                        <td><ToneNum value={s.readinessPercent != null ? Math.round(s.readinessPercent) : null} suffix="%" color={readinessTone(s.readinessPercent)} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Analytics — body composition on top, then the Workload Monitor ─────────
-function AnalyticsSection({ athletes, athleteId, onSelect }) {
+function AnalyticsSection({ athletes, athleteId, onSelect, onSession }) {
   const athlete = athletes.find(a => a._id === athleteId) || null;
   const [sessions, setSessions] = useState(null);
   const [body, setBody] = useState(undefined);
@@ -795,11 +1046,17 @@ function AnalyticsSection({ athletes, athleteId, onSelect }) {
       ) : (
         <>
           <ErrorBanner message={error} onRetry={load} />
-          {body === undefined ? <Skeleton className="h-72 w-full" /> : <BodyCompositionCard data={body} />}
+          <nav aria-label="On this page" className="sticky top-0 md:top-0 z-20 -mx-4 sm:-mx-10 px-4 sm:px-10 py-2 bg-bg/90 backdrop-blur border-b border-bdr flex gap-1 overflow-x-auto">
+            {[['an-body', 'Body composition'], ['an-workload', 'Workload'], ['an-trends', 'Readiness & training mix']].map(([id, l]) => (
+              <a key={id} href={`#${id}`} onClick={e => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+                 className="px-3 min-h-[40px] inline-flex items-center rounded-md text-sm text-ts hover:text-tp hover:bg-card whitespace-nowrap">{l}</a>
+            ))}
+          </nav>
+          <div id="an-body" className="scroll-mt-20">{body === undefined ? <Skeleton className="h-72 w-full" /> : <BodyCompositionCard data={body} />}</div>
           {!sessions ? <Skeleton className="h-96 w-full" /> : (
             <>
-              <WorkloadMonitor athlete={athlete} sessions={sessions} />
-              {sessions.length > 0 && <TrendsRow sessions={sessions} />}
+              <div id="an-workload" className="scroll-mt-20"><WorkloadMonitor athlete={athlete} sessions={sessions} onSession={onSession} /></div>
+              {sessions.length > 0 && <div id="an-trends" className="scroll-mt-20"><TrendsRow sessions={sessions} onSession={onSession} /></div>}
             </>
           )}
         </>
@@ -829,12 +1086,13 @@ function RecoverySection({ athletes }) {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [f, setF] = useState({ athlete: '', from: '', to: '' });
+  const [f, setF] = useState({ athlete: '', period: '28', from: periodFrom('28'), to: '' });
   const [shownFor, setShownFor] = useState('');
+  const [day, setDay] = useState(null);
 
   async function load(q = f) {
-    setError(''); setBusy(true);
-    let url = q.athlete ? `/admin/athletes/${q.athlete}/sessions?limit=300` : '/admin/sessions?limit=300';
+    setError(''); setBusy(true); setDay(null);
+    let url = q.athlete ? `/admin/athletes/${q.athlete}/sessions?limit=2000` : '/admin/sessions?limit=2000';
     if (q.from) url += `&from=${q.from}`;
     if (q.to) url += `&to=${q.to}`;
     try { setRows(await api.get(url)); setShownFor(q.athlete); }
@@ -843,11 +1101,11 @@ function RecoverySection({ athletes }) {
   }
   useEffect(() => { load(); }, []);
 
-  const clear = () => { const empty = { athlete: '', from: '', to: '' }; setF(empty); load(empty); };
   // Team mode follows the data on screen, not the unsaved dropdown.
   const team = !shownFor;
   const data = rows || [];
-  const log = useMemo(() => [...data].sort((a, b) => new Date(b.date) - new Date(a.date)), [rows]);
+  const log = useMemo(() => [...data].filter(r => !day || dayKey(r.date) === day).sort((a, b) => new Date(b.date) - new Date(a.date)), [rows, day]);
+  const logRef = useRef(null);
 
   // Charts plot one point per day; across the whole roster that's the daily average.
   const daily = useMemo(() => {
@@ -857,6 +1115,9 @@ function RecoverySection({ athletes }) {
       date: k, ...Object.fromEntries(REC_FIELDS.map(fl => [fl.key, mean(rs, fl.key)])),
     }));
   }, [rows]);
+
+  const dayIdx = day ? daily.findIndex(d => d.date === day) : -1;
+  const pickDay = i => { setDay(cur => (cur === daily[i].date ? null : daily[i].date)); };
 
   const perAthlete = useMemo(() => {
     const byAth = new Map();
@@ -872,12 +1133,10 @@ function RecoverySection({ athletes }) {
     <div className="space-y-6">
       <FilterBar>
         <Field label="Athlete" htmlFor="rec-ath">
-          <AthleteSelect id="rec-ath" athletes={athletes} value={f.athlete} onChange={v => setF({ ...f, athlete: v })} allLabel="All athletes (team averages)" />
+          <AthleteSelect id="rec-ath" athletes={athletes} value={f.athlete} allLabel="All athletes (team averages)"
+                         onChange={v => { const q = { ...f, athlete: v }; setF(q); load(q); }} />
         </Field>
-        <Field label="From" htmlFor="rec-from"><input id="rec-from" type="date" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
-        <Field label="To" htmlFor="rec-to"><input id="rec-to" type="date" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} className="!w-auto h-11 sm:h-9" /></Field>
-        <Button variant="primary" onClick={() => load()} disabled={busy}>{busy ? 'Loading…' : 'Apply'}</Button>
-        {(f.athlete || f.from || f.to) && <Button variant="ghost" onClick={clear} disabled={busy}>Clear</Button>}
+        <PeriodFilter f={f} setF={setF} onLoad={load} busy={busy} idPrefix="rec" />
       </FilterBar>
 
       <ErrorBanner message={error} onRetry={() => load()} />
@@ -895,18 +1154,19 @@ function RecoverySection({ athletes }) {
             </div>
           </div>
 
-          <Card title="Wellness ratings" subtitle={`1 = best, 5 = worst · higher on the chart is better${team ? ' · daily team average' : ''}`}>
+          <Card title="Wellness ratings" subtitle={`1 = best, 5 = worst · higher on the chart is better${team ? ' · daily team average' : ''} · hover to compare, click a day to see its check-ins`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
               {REC_FIELDS.slice(0, 4).map(fl => (
-                <MiniTrend key={fl.key} title={fl.label} daily={daily} field={fl.key} opts={{ yMin: 1, yMax: 5, yStep: 1, reverse: true }} dec={1} />
+                <MiniTrend key={fl.key} title={fl.label} daily={daily} field={fl.key} opts={{ yMin: 1, yMax: 5, yStep: 1, reverse: true }} dec={1}
+                           selected={dayIdx >= 0 ? dayIdx : null} onPick={pickDay} />
               ))}
             </div>
           </Card>
 
           <Card title="Sleep" subtitle={`From the sleep check-in${team ? ' · daily team average' : ''}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <MiniTrend title="Duration (hours)" daily={daily} field="sleepDuration" opts={{ yMin: 0, yMax: 12, yStep: 2 }} dec={1} tall />
-              <MiniTrend title="Efficiency (%)" daily={daily} field="sleepEfficiency" opts={{ yMin: 0, yMax: 100 }} dec={0} tall />
+              <MiniTrend title="Duration" unit="h" daily={daily} field="sleepDuration" opts={{ yMin: 0, yMax: 12, yStep: 2 }} dec={1} tall selected={dayIdx >= 0 ? dayIdx : null} onPick={pickDay} />
+              <MiniTrend title="Efficiency" unit="%" daily={daily} field="sleepEfficiency" opts={{ yMin: 0, yMax: 100 }} dec={0} tall selected={dayIdx >= 0 ? dayIdx : null} onPick={pickDay} />
             </div>
           </Card>
 
@@ -917,11 +1177,15 @@ function RecoverySection({ athletes }) {
                   <thead><tr>{['Athlete', 'Check-ins', ...REC_FIELDS.map(fl => fl.label)].map(h => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {perAthlete.map(p => (
-                      <tr key={p.id}>
+                      <tr key={p.id} className="!cursor-pointer" tabIndex={0} title={`Show only ${p.name}`}
+                          onClick={() => { const q = { ...f, athlete: p.id }; setF(q); load(q); }}
+                          onKeyDown={e => { if (e.key === 'Enter') { const q = { ...f, athlete: p.id }; setF(q); load(q); } }}>
                         <td><div className="flex items-center gap-2"><Avatar name={p.name} size="w-6 h-6 text-[11px]" /><span className="text-tp">{p.name}</span></div></td>
                         <td>{p.count}</td>
                         {REC_FIELDS.map(fl => (
-                          <td key={fl.key}>{fl.key === 'readinessPercent' ? readinessBadge(p[fl.key]) : fmtAvg(p[fl.key], fl.dec)}</td>
+                          <td key={fl.key}>{fl.key === 'readinessPercent'
+                            ? <ToneNum value={p[fl.key] != null ? Math.round(p[fl.key]) : null} suffix="%" color={readinessTone(p[fl.key])} />
+                            : fmtAvg(p[fl.key], fl.dec)}</td>
                         ))}
                       </tr>
                     ))}
@@ -931,8 +1195,10 @@ function RecoverySection({ athletes }) {
             </Card>
           )}
 
+          <div ref={logRef} />
           <Card title="Recovery log" subtitle={`${log.length} check-in${log.length === 1 ? '' : 's'} · table view of the charts above`} bodyClassName="p-0"
                 actions={<Button icon="download" onClick={() => downloadCsv('recovery-log.csv', RECOVERY_CSV, log)}>Export CSV</Button>}>
+            {day && <div className="px-5 pt-4"><FilterChip label={fullDate(keyToDate(day))} onClear={() => setDay(null)} /></div>}
             <div className="overflow-x-auto max-h-[560px]">
               <table className="static">
                 <thead><tr>{[...(team ? ['Athlete'] : []), 'Date', 'Sleep', 'Wellness', 'Soreness', 'Fatigue', 'Sleep dur.', 'Sleep eff.', 'Readiness'].map(h => <th key={h}>{h}</th>)}</tr></thead>
@@ -947,7 +1213,7 @@ function RecoverySection({ athletes }) {
                       <td>{s.fatigue ?? '—'}</td>
                       <td>{s.sleepDuration != null ? `${s.sleepDuration.toFixed(1)}h` : '—'}</td>
                       <td>{s.sleepEfficiency != null ? `${Math.round(s.sleepEfficiency)}%` : '—'}</td>
-                      <td>{readinessBadge(s.readinessPercent)}</td>
+                      <td><ToneNum value={s.readinessPercent != null ? Math.round(s.readinessPercent) : null} suffix="%" color={readinessTone(s.readinessPercent)} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -961,22 +1227,32 @@ function RecoverySection({ athletes }) {
 }
 
 // One measure over time — a small multiple, so each chart has a single scale.
-function MiniTrend({ title, daily, field, opts, dec, tall = false }) {
+// All small multiples share a hover group, so the crosshair moves across them together.
+// Hover shows the value in the header instead of a floating tooltip, so the
+// whole row of small multiples reads out the same day at once.
+function MiniTrend({ title, daily, field, opts, dec, tall = false, unit = '', selected, onPick }) {
+  const [hi, setHi] = useState(null);
   const pts = daily.map(d => (d[field] == null ? null : Number(d[field].toFixed(dec))));
   const vals = pts.filter(v => v != null);
   const latest = vals.length ? vals[vals.length - 1] : null;
+  const showIdx = hi ?? selected;
+  const shown = showIdx != null ? pts[showIdx] : latest;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2 mb-2">
-        <div className="text-xs font-semibold text-tp">{title}</div>
-        <div className="text-xs text-ts">latest <span className="text-tp font-semibold">{latest ?? '—'}</span></div>
+        <div className="text-xs font-semibold text-tp">{title}{unit && <span className="text-ts font-normal"> ({unit})</span>}</div>
+        <div className={`text-xs ${showIdx != null ? 'text-accent' : 'text-ts'}`}>
+          {showIdx != null ? shortDate(keyToDate(daily[showIdx].date)) : 'latest'}{' '}
+          <span className="num text-[16px] text-tp">{shown ?? '—'}{shown != null ? unit : ''}</span>
+        </div>
       </div>
-      <div className={tall ? 'h-48' : 'h-36'}>
-        {vals.length ? (
-          <Line data={{ labels: daily.map(d => shortDate(d.date)), datasets: [lineDataset(title, pts, SINGLE)] }}
-                options={chartOptions({ xTicks: tall ? 6 : 3, ...opts })} role="img" aria-label={`${title} trend; values are in the recovery log`} />
-        ) : <div className="h-full flex items-center justify-center text-xs text-ts">No data</div>}
-      </div>
+      {vals.length ? (
+        <InteractiveChart type="line" height={tall ? 'h-48' : 'h-36'} group="recovery" label={`${title} trend`}
+          data={{ labels: daily.map(d => shortDate(keyToDate(d.date))), datasets: [{ ...lineDataset(title, pts, SINGLE), unit }] }}
+          titles={daily.map(d => fullDate(keyToDate(d.date)))}
+          options={chartOptions({ xTicks: tall ? 6 : 3, ...opts })}
+          selected={selected} onPick={onPick} tooltip={false} onHover={setHi} />
+      ) : <div className={`${tall ? 'h-48' : 'h-36'} flex items-center justify-center text-xs text-ts`}>No data</div>}
     </div>
   );
 }
@@ -1078,6 +1354,8 @@ function GradePill({ grade }) {
 }
 
 function BodyCompositionCard({ data }) {
+  const [hoverLayer, setHoverLayer] = useState(null);
+  const [hiddenBc, setHiddenBc] = useState({});
   const latest = data?.latest;
   const fmt = (v, d = 1) => (v == null || Number.isNaN(v) ? '—' : Number(v).toFixed(d));
 
@@ -1157,15 +1435,18 @@ function BodyCompositionCard({ data }) {
           <div className="flex gap-[2px] h-7 rounded-lg overflow-hidden mb-3" role="img"
                aria-label={layers.map(l => `${l.label} ${fmt(l.pct)}%`).join(', ')}>
             {layers.map(l => (
-              <div key={l.label} style={{ width: `${l.pct}%`, background: l.color }} title={`${l.label}: ${fmt(l.pct)}%`}
-                   className="flex items-center justify-center text-[11px] font-bold text-bg overflow-hidden">
+              <div key={l.label} style={{ width: `${l.pct}%`, background: l.color, opacity: hoverLayer && hoverLayer !== l.label ? 0.35 : 1 }}
+                   title={`${l.label}: ${fmt(l.pct)}% · ${fmt(l.kg)} kg`}
+                   onMouseEnter={() => setHoverLayer(l.label)} onMouseLeave={() => setHoverLayer(null)}
+                   className="flex items-center justify-center text-[11px] font-bold text-bg overflow-hidden transition-opacity cursor-default">
                 {l.pct >= 8 ? `${fmt(l.pct, 0)}%` : ''}
               </div>
             ))}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4">
             {layers.map(l => (
-              <span key={l.label} className="inline-flex items-center gap-1.5 text-xs text-ts">
+              <span key={l.label} onMouseEnter={() => setHoverLayer(l.label)} onMouseLeave={() => setHoverLayer(null)}
+                    className={`inline-flex items-center gap-1.5 text-xs transition-colors ${hoverLayer === l.label ? 'text-tp' : 'text-ts'}`}>
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ background: l.color }} />
                 {l.label} <span className="text-tp font-semibold tabular-nums">{fmt(l.pct)}%</span>
               </span>
@@ -1218,27 +1499,66 @@ function BodyCompositionCard({ data }) {
         </div>
       </Card>
 
-      {history.length > 0 && (
-        <Card title="Earlier measurements" subtitle="Newest first · the latest estimate is shown above" bodyClassName="p-0">
-          <div className="overflow-x-auto">
-            <table className="static">
-              <thead><tr>{['Date', 'Body fat', 'Lean mass', 'Skeletal muscle', 'FFMI', 'Weight'].map(h => <th key={h}>{h}</th>)}</tr></thead>
-              <tbody>
-                {history.map(({ h, c }) => (
-                  <tr key={h._id}>
-                    <td className="text-tp whitespace-nowrap">{fmtDate(h.date)}</td>
-                    <td>{fmt(h.bfPercent ?? c?.bfPercent)}%</td>
-                    <td>{fmt(h.lbm ?? c?.lbm)} kg</td>
-                    <td>{fmt(h.smmPercent ?? c?.smmPercent)}%</td>
-                    <td>{fmt(h.ffmi ?? c?.ffmi)}</td>
-                    <td>{fmt(h.weightKg)} kg</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      {history.length > 0 && (() => {
+        const pts = [{ h: latest, c: r }, ...history].map(({ h, c }) => ({
+          date: h.date, bf: h.bfPercent ?? c?.bfPercent, smm: h.smmPercent ?? c?.smmPercent, lbm: h.lbm ?? c?.lbm, w: h.weightKg,
+        })).sort((a, b) => new Date(a.date) - new Date(b.date));
+        const first = pts[0], last = pts[pts.length - 1];
+        const delta = (a, b, unit, goodDown) => {
+          if (a == null || b == null) return null;
+          const d = b - a;
+          const good = goodDown ? d < 0 : d > 0;
+          return <span style={{ color: Math.abs(d) < 0.05 ? 'rgb(var(--c-ts))' : good ? STATUS.good : STATUS.warning }}>{d > 0 ? '▲' : d < 0 ? '▼' : '•'} {Math.abs(d).toFixed(1)}{unit}</span>;
+        };
+        return (
+          <Card title="Progress" subtitle={`${pts.length} measurements · ${fmtDate(first.date)} → ${fmtDate(last.date)}`}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+              {[['Body fat', first.bf, last.bf, '%', true], ['Skeletal muscle', first.smm, last.smm, '%', false],
+                ['Lean mass', first.lbm, last.lbm, ' kg', false], ['Weight', first.w, last.w, ' kg', null]].map(([l, a, b, u, gd]) => (
+                <div key={l} className="card-inset rounded-xl px-4 py-3">
+                  <div className="label-caps">{l}</div>
+                  <div className="num text-[24px] text-tp mt-1">{b != null ? `${Number(b).toFixed(1)}${u}` : '—'}</div>
+                  <div className="text-xs font-semibold mt-0.5">{gd === null ? <span className="text-ts">{b != null && a != null ? `${b - a >= 0 ? '+' : ''}${(b - a).toFixed(1)}${u} since first` : ''}</span> : delta(a, b, u, gd)}<span className="text-ts font-normal"> since first</span></div>
+                </div>
+              ))}
+            </div>
+            {pts.length >= 2 && (
+              <>
+                <div className="flex justify-end mb-2">
+                  <LegendToggle items={[
+                    { key: 'bf', label: 'Body fat %', color: SERIES_BC.bf, on: !hiddenBc.bf, onToggle: () => setHiddenBc(h => ({ ...h, bf: !h.bf })) },
+                    { key: 'smm', label: 'Skeletal muscle %', color: SERIES_BC.smm, on: !hiddenBc.smm, onToggle: () => setHiddenBc(h => ({ ...h, smm: !h.smm })) },
+                  ]} />
+                </div>
+                <InteractiveChart type="line" height="h-56" label="Body composition progress chart"
+                  data={{ labels: pts.map(p => shortDate(p.date)), datasets: [
+                    { ...lineDataset('Body fat', pts.map(p => (p.bf == null ? null : Number(p.bf.toFixed(1)))), SERIES_BC.bf), unit: '%', pointRadius: 4, hidden: !!hiddenBc.bf },
+                    { ...lineDataset('Skeletal muscle', pts.map(p => (p.smm == null ? null : Number(p.smm.toFixed(1)))), SERIES_BC.smm), unit: '%', pointRadius: 4, hidden: !!hiddenBc.smm },
+                  ] }}
+                  titles={pts.map(p => fullDate(p.date))}
+                  options={chartOptions({ yTitle: '% of body weight' })} />
+              </>
+            )}
+            <div className="overflow-x-auto mt-5 -mx-5 border-t border-bdr">
+              <table className="static">
+                <thead><tr>{['Date', 'Body fat', 'Lean mass', 'Skeletal muscle', 'FFMI', 'Weight'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {history.map(({ h, c }) => (
+                    <tr key={h._id}>
+                      <td className="text-tp whitespace-nowrap">{fmtDate(h.date)}</td>
+                      <td>{fmt(h.bfPercent ?? c?.bfPercent)}%</td>
+                      <td>{fmt(h.lbm ?? c?.lbm)} kg</td>
+                      <td>{fmt(h.smmPercent ?? c?.smmPercent)}%</td>
+                      <td>{fmt(h.ffmi ?? c?.ffmi)}</td>
+                      <td>{fmt(h.weightKg)} kg</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        );
+      })()}
     </div>
   );
 }

@@ -177,7 +177,7 @@ export default function SessionModal({ session: s, onClose }) {
                 {s.sleepDuration != null && (
                   <div className="text-center">
                     <div className="text-[10px] text-ts">Duration</div>
-                    <div className="text-sm font-bold text-tp">{s.sleepDuration} hrs</div>
+                    <div className="text-sm font-bold text-tp">{Number(s.sleepDuration).toFixed(1)} hrs</div>
                   </div>
                 )}
               </div>

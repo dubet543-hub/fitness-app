@@ -39,6 +39,13 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { border-color: #FF6B35; }
 
+/* Checkboxes / radios keep their natural size — the rule above would stretch
+   them to full width and push their labels away. */
+input[type="checkbox"], input[type="radio"] {
+  width: 16px; height: 16px; padding: 0; margin: 0; flex: none;
+  accent-color: #FF6B35; cursor: pointer;
+}
+
 table { border-collapse: separate; border-spacing: 0; width: 100%; }
 thead th { background: #1C2333; position: sticky; top: 0; z-index: 1; padding: 10px 16px; font-size: 11px; color: #8B949E; font-weight: 500; text-align: left; }
 tbody tr { border-bottom: 1px solid #21262D; transition: background .1s; cursor: pointer; }

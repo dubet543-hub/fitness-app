@@ -65,3 +65,22 @@
 
 /* Load board cells — the sequential ramp lives in utils/adminCharts.js. */
 .admin-root .board-cell { width: 100%; aspect-ratio: 1 / 1; border-radius: 3px; }
+
+/* Interactive chart tooltip (built by components/InteractiveChart.jsx). */
+.admin-root .chart-frame { outline: none; border-radius: 8px; }
+.admin-root .chart-frame:focus-visible { box-shadow: 0 0 0 2px rgb(var(--c-accent)); }
+.admin-root .chart-tip {
+  position: absolute; pointer-events: none; z-index: 5; opacity: 0;
+  transition: opacity .12s ease-out, left .08s ease-out;
+  min-width: 150px; padding: 10px 12px; border-radius: 8px;
+  background: rgb(14 14 16 / 0.96); border: 1px solid rgb(var(--c-bdr));
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / .8);
+  font-size: 12px; color: rgb(var(--c-tp));
+}
+.admin-root .chart-tip-title { color: rgb(var(--c-ts)); font-weight: 500; margin-bottom: 6px; white-space: nowrap; }
+.admin-root .chart-tip-row { display: flex; align-items: center; gap: 8px; line-height: 1.7; white-space: nowrap; }
+.admin-root .chart-tip-line { width: 12px; height: 2px; border-radius: 2px; flex: none; }
+.admin-root .chart-tip-box { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.admin-root .chart-tip-val { font-family: 'Barlow Condensed', 'Barlow', sans-serif; font-weight: 600; font-size: 15px; min-width: 44px; }
+.admin-root .chart-tip-lab { color: rgb(var(--c-ts)); }
+@media (prefers-reduced-motion: reduce) { .admin-root .chart-tip { transition: none; } }

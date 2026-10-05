@@ -295,8 +295,10 @@ export function ConditionChip({ condition, size = 'sm' }) {
   );
 }
 
-// Tiny trend line for table rows; the last point is marked.
-export function Sparkline({ values, width = 96, height = 28, color = 'rgb(var(--c-ts))', label }) {
+// Tiny trend line for table rows; the last point is marked. Hover (or focus +
+// arrow keys) reads out each day's value.
+export function Sparkline({ values, dates, unit = '', width = 96, height = 28, color = 'rgb(var(--c-ts))', label }) {
+  const [hi, setHi] = useState(null);
   const pts = values.map(v => (v == null ? 0 : v));
   if (pts.length < 2 || pts.every(v => v === 0)) {
     return <span className="text-xs text-ts">—</span>;
@@ -305,13 +307,33 @@ export function Sparkline({ values, width = 96, height = 28, color = 'rgb(var(--
   const step = width / (pts.length - 1);
   const y = v => height - 3 - (v / max) * (height - 6);
   const d = pts.map((v, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const lx = (pts.length - 1) * step, ly = y(pts[pts.length - 1]);
+  const idx = hi ?? pts.length - 1;
+  const fmtD = dt => (dt ? new Date(dt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
+  const onMove = e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setHi(Math.max(0, Math.min(pts.length - 1, Math.round(((e.clientX - r.left) / r.width) * (pts.length - 1)))));
+  };
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} className="overflow-visible">
-      <path d={`${d} L${lx},${height} L0,${height} Z`} fill={color} opacity="0.08" />
-      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={lx} cy={ly} r="2.5" fill={color} />
-    </svg>
+    <span className="relative inline-block align-middle" onMouseLeave={() => setHi(null)}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible block" onMouseMove={onMove}
+           tabIndex={0} role="img" aria-label={label}
+           onFocus={() => setHi(pts.length - 1)} onBlur={() => setHi(null)}
+           onKeyDown={e => {
+             if (e.key === 'ArrowLeft') { e.preventDefault(); setHi(Math.max(0, idx - 1)); }
+             if (e.key === 'ArrowRight') { e.preventDefault(); setHi(Math.min(pts.length - 1, idx + 1)); }
+           }}>
+        <path d={`${d} L${(pts.length - 1) * step},${height} L0,${height} Z`} fill={color} opacity="0.08" />
+        <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        {hi != null && <line x1={idx * step} x2={idx * step} y1="0" y2={height} stroke="rgb(var(--c-tp))" strokeOpacity="0.3" />}
+        <circle cx={idx * step} cy={y(pts[idx])} r={hi != null ? 3.5 : 2.5} fill={color} stroke="rgb(var(--c-surface))" strokeWidth={hi != null ? 2 : 0} />
+      </svg>
+      {hi != null && (
+        <span className="absolute z-10 -top-8 -translate-x-1/2 whitespace-nowrap rounded-md border border-bdr bg-bg px-2 py-1 text-[11px] text-tp pointer-events-none"
+              style={{ left: Math.min(Math.max(idx * step, 30), width - 10) }} role="status">
+          <span className="text-ts">{fmtD(dates?.[idx])}</span> <span className="font-semibold">{pts[idx] ? `${Math.round(pts[idx])}${unit ? ` ${unit}` : ''}` : 'rest'}</span>
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -331,6 +353,80 @@ export function Ring({ value, size = 132, stroke = 10, color = 'rgb(var(--c-acce
         <span className="num text-[38px] leading-none text-tp">{value == null ? '—' : Math.round(value)}<span className="text-lg text-ts">{value == null ? '' : '%'}</span></span>
         {caption && <span className="label-caps mt-1">{caption}</span>}
       </div>
+    </div>
+  );
+}
+
+// ── Form controls ─────────────────────────────────────────────────────────────
+// Checkbox row: box and label always aligned on one line, whole row clickable.
+export function Checkbox({ checked, onChange, label, hint, disabled }) {
+  return (
+    <label className={`flex items-start gap-3 py-1.5 min-h-[36px] ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
+      <input type="checkbox" className="peer sr-only" checked={checked} disabled={disabled}
+             onChange={e => onChange(e.target.checked)} />
+      <span aria-hidden="true"
+            className={`mt-0.5 w-[18px] h-[18px] shrink-0 rounded-[5px] border flex items-center justify-center transition-colors
+              peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-bg
+              ${checked ? 'bg-accent border-accent text-white' : 'border-[#3a3a40] bg-bg'}`}>
+        {checked && <Icon name="check" className="w-3 h-3" strokeWidth={3} />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm text-tp leading-snug">{label}</span>
+        {hint && <span className="block text-xs text-ts mt-0.5">{hint}</span>}
+      </span>
+    </label>
+  );
+}
+
+// On/off switch with its label to the left.
+export function Switch({ checked, onChange, label }) {
+  return (
+    <label className="inline-flex items-center gap-3 cursor-pointer min-h-[36px]">
+      <span className="text-sm text-ts">{label}</span>
+      <input type="checkbox" role="switch" className="peer sr-only" checked={checked} onChange={e => onChange(e.target.checked)} />
+      <span aria-hidden="true"
+            className={`relative w-10 h-6 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent
+              ${checked ? 'bg-accent' : 'bg-[#2c2c31]'}`}>
+        <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : ''}`} />
+      </span>
+    </label>
+  );
+}
+
+// Segmented choice (radio group). options: [{ value, label }]
+export function Segmented({ value, onChange, options, label, size = 'sm' }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="inline-flex p-0.5 rounded-lg bg-bg border border-bdr">
+      {options.map(o => {
+        const on = o.value === value;
+        return (
+          <button key={o.value} type="button" role="radio" aria-checked={on} onClick={() => onChange(o.value)}
+                  className={`px-3 ${size === 'sm' ? 'h-8' : 'h-11 sm:h-10'} rounded-md text-xs font-semibold whitespace-nowrap transition-colors
+                    ${on ? (o.tone ? '' : 'bg-card text-tp') : 'text-ts hover:text-tp'}`}
+                  style={on && o.tone ? { background: `${o.tone}26`, color: o.tone } : undefined}>
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Underline tabs used for in-page sections.
+export function Tabs({ value, onChange, tabs, label }) {
+  return (
+    <div role="tablist" aria-label={label} className="flex gap-6 border-b border-bdr overflow-x-auto">
+      {tabs.map(t => {
+        const on = t.value === value;
+        return (
+          <button key={t.value} role="tab" aria-selected={on} onClick={() => onChange(t.value)}
+                  className={`relative min-h-[44px] text-[15px] whitespace-nowrap transition-colors ${on ? 'text-tp font-semibold' : 'text-ts hover:text-tp'}`}>
+            {t.label}
+            {t.count != null && <span className="num text-[15px] text-ts ml-1.5">{t.count}</span>}
+            {on && <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-accent" />}
+          </button>
+        );
+      })}
     </div>
   );
 }
