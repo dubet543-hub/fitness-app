@@ -945,6 +945,20 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
 }
 
 // ── Sessions ────────────────────────────────────────────────────────────────
+const READINESS_BANDS = [
+  { value: 'fresh',   label: 'Fresh (≥70%)' },
+  { value: 'monitor', label: 'Some fatigue (50–69%)' },
+  { value: 'risk',    label: 'Fatigued (<50%)' },
+  { value: 'none',    label: 'No check-in' },
+];
+const matchesReadiness = (s, band) => {
+  if (!band) return true;
+  const r = s.readinessPercent;
+  if (band === 'none') return r == null;
+  if (r == null) return false;
+  return band === 'fresh' ? r >= 70 : band === 'monitor' ? r >= 50 && r < 70 : r < 50;
+};
+
 function SessionsSection({ athletes, onSession }) {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -952,6 +966,9 @@ function SessionsSection({ athletes, onSession }) {
   const [f, setF] = useState({ athlete: '', period: '28', from: periodFrom('28'), to: '' });
   const [query, setQuery] = useState('');
   const [day, setDay] = useState(null);
+  const [training, setTraining] = useState('');
+  const [skill, setSkill] = useState('');
+  const [readyBand, setReadyBand] = useState('');
 
   // Refetch keeps the previous rows on screen (dimmed) instead of flashing a skeleton.
   async function load(q = f) {
@@ -968,9 +985,15 @@ function SessionsSection({ athletes, onSession }) {
 
   const all = rows || [];
   const ql = query.trim().toLowerCase();
+  const trainingOptions = useMemo(() => [...new Set(all.flatMap(s => [...(s.primaryTypes || []), ...(s.secondaryTypes || [])]))].sort(), [rows]);
+  const skillOptions = useMemo(() => [...new Set(all.flatMap(s => [...(s.skillTypes || []), ...(s.skillSubTypes || [])]))].sort(), [rows]);
   const visible = useMemo(() => all.filter(s =>
     (!day || dayKey(s.date) === day) &&
-    (!ql || [s.athlete?.name, s.athlete?.sport, sessionTypes(s)].some(v => v?.toLowerCase().includes(ql)))), [rows, day, ql]);
+    (!training || [...(s.primaryTypes || []), ...(s.secondaryTypes || [])].includes(training)) &&
+    (!skill || [...(s.skillTypes || []), ...(s.skillSubTypes || [])].includes(skill)) &&
+    matchesReadiness(s, readyBand) &&
+    (!ql || [s.athlete?.name, s.athlete?.sport, sessionTypes(s)].some(v => v?.toLowerCase().includes(ql)))),
+    [rows, day, ql, training, skill, readyBand]);
   const { sorted, sort, toggle } = useSort(visible, SESSION_SORT, 'date', 'desc');
   const maxLoad = Math.max(1, ...visible.map(s => s.totalLoad || 0));
 
@@ -995,6 +1018,24 @@ function SessionsSection({ athletes, onSession }) {
                          onChange={v => { const q = { ...f, athlete: v }; setF(q); load(q); }} />
         </Field>
         <PeriodFilter f={f} setF={setF} onLoad={load} busy={busy} idPrefix="sess" />
+        <Field label="Training" htmlFor="sess-training">
+          <select id="sess-training" value={training} onChange={e => setTraining(e.target.value)} className="!w-auto h-11 sm:h-10">
+            <option value="">All training</option>
+            {trainingOptions.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
+        <Field label="Skill" htmlFor="sess-skill">
+          <select id="sess-skill" value={skill} onChange={e => setSkill(e.target.value)} className="!w-auto h-11 sm:h-10">
+            <option value="">All skills</option>
+            {skillOptions.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
+        <Field label="Readiness" htmlFor="sess-readiness">
+          <select id="sess-readiness" value={readyBand} onChange={e => setReadyBand(e.target.value)} className="!w-auto h-11 sm:h-10">
+            <option value="">All readiness</option>
+            {READINESS_BANDS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+          </select>
+        </Field>
         <div className="relative ml-auto w-full sm:w-64">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ts"><Icon name="search" /></span>
           <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search athlete or type"
@@ -1033,14 +1074,17 @@ function SessionsSection({ athletes, onSession }) {
 
           <Card title="Sessions" subtitle={`${visible.length} session${visible.length === 1 ? '' : 's'} · select a row for full details`} bodyClassName="p-0"
                 actions={visible.length ? <Button icon="download" onClick={() => downloadCsv('sessions.csv', SESSION_CSV, sorted)}>Export CSV</Button> : null}>
-            {(day || ql) && (
+            {(day || ql || training || skill || readyBand) && (
               <div className="flex gap-2 flex-wrap px-5 pt-4">
                 {day && <FilterChip label={fullDate(keyToDate(day))} onClear={() => setDay(null)} />}
+                {training && <FilterChip label={`Training: ${training}`} onClear={() => setTraining('')} />}
+                {skill && <FilterChip label={`Skill: ${skill}`} onClear={() => setSkill('')} />}
+                {readyBand && <FilterChip label={READINESS_BANDS.find(b => b.value === readyBand)?.label} onClear={() => setReadyBand('')} />}
                 {ql && <FilterChip label={`“${query}”`} onClear={() => setQuery('')} />}
               </div>
             )}
             {visible.length === 0 ? (
-              <EmptyState icon="list" title="No sessions found" hint="Try a longer period, all athletes, or clearing the search." />
+              <EmptyState icon="list" title="No sessions found" hint="Try a longer period, all athletes, or clearing the filters." />
             ) : (
               <div className="overflow-x-auto max-h-[640px]">
                 <table>
