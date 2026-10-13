@@ -339,7 +339,8 @@ function AdminShell() {
 
           {section === 'athletes' && (detailAthlete
             ? <AthleteDetail athlete={detailAthlete} onBack={() => go('athletes')} onSession={setSelSession} onReport={setReportFor}
-                             initialDay={params.get('day') || null} onAnalytics={() => go('analytics', detailAthlete._id)} />
+                             initialDay={params.get('day') || null} onAnalytics={() => go('analytics', detailAthlete._id)}
+                             onDeleted={() => { go('athletes'); loadAthletes(); }} />
             : <AthletesOverview roster={roster} recent={recent} loading={athLoading} filter={filterParam}
                                 onFilter={f => go('athletes', null, f)} onOpen={(a, day) => go('athletes', a._id, null, day)}
                                 onChanged={loadAthletes} onCreate={() => go('create')} onReport={a => setReportFor({ athlete: a })} />)}
@@ -751,12 +752,30 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
   );
 }
 
-function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay, onReport }) {
+function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay, onReport, onDeleted }) {
   const [typeFilter, setTypeFilter] = useState('');
   const [sessions, setSessions] = useState(null);
   const [error, setError] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
+
+  async function handleDelete() {
+    if (!window.confirm(
+      `Permanently delete ${athlete.name}? This erases their account and every training session, ` +
+      `body-composition reading, and subscription record. This cannot be undone.`
+    )) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/admin/athletes/${athlete._id}/permanent`);
+      toast(`${athlete.name} was permanently deleted.`);
+      onDeleted();
+    } catch (e) {
+      toast(`Couldn't delete ${athlete.name}: ${e.message || 'please try again.'}`, 'error');
+      setDeleting(false);
+    }
+  }
 
   async function load() {
     setError(''); setSessions(null);
@@ -817,6 +836,9 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay, on
             Download PDF report
           </Button>
           <Button icon="body" onClick={onAnalytics}>Body composition</Button>
+          <Button variant="danger" icon="trash" disabled={deleting} onClick={handleDelete} className="sm:ml-auto">
+            {deleting ? 'Deleting…' : 'Delete athlete'}
+          </Button>
         </div>
       </section>
 
