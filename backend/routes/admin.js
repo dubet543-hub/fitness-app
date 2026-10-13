@@ -1,7 +1,10 @@
-const router          = require('express').Router();
-const User            = require('../models/User');
-const TrainingSession = require('../models/TrainingSession');
-const BodyComposition = require('../models/BodyComposition');
+const router            = require('express').Router();
+const User              = require('../models/User');
+const TrainingSession   = require('../models/TrainingSession');
+const BodyComposition   = require('../models/BodyComposition');
+const Subscription      = require('../models/Subscription');
+const SubscriptionAudit = require('../models/SubscriptionAudit');
+const PaymentOrder      = require('../models/PaymentOrder');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const M                = require('../utils/metrics');
 
@@ -99,6 +102,28 @@ router.delete('/athletes/:id', async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.params.id, { active: false });
     res.json({ message: 'Athlete deactivated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/athletes/:id/permanent  — erases the athlete and every
+// record tied to them (sessions, body composition, subscriptions). Cannot be undone.
+router.delete('/athletes/:id/permanent', async (req, res) => {
+  try {
+    const athlete = await User.findOne({ _id: req.params.id, role: 'athlete' });
+    if (!athlete) return res.status(404).json({ error: 'Athlete not found' });
+
+    await Promise.all([
+      TrainingSession.deleteMany({ athlete: athlete._id }),
+      BodyComposition.deleteMany({ athlete: athlete._id }),
+      Subscription.deleteMany({ user: athlete._id }),
+      SubscriptionAudit.deleteMany({ user: athlete._id }),
+      PaymentOrder.deleteMany({ user: athlete._id }),
+    ]);
+    await athlete.deleteOne();
+
+    res.json({ message: 'Athlete permanently deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

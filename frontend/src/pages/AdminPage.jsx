@@ -505,6 +505,23 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
     }
   }
 
+  async function deleteAthlete(a) {
+    if (!window.confirm(
+      `Permanently delete ${a.name}? This erases their account and every training session, ` +
+      `body-composition reading, and subscription record. This cannot be undone.`
+    )) return;
+    setBusyId(a._id);
+    try {
+      await api.delete(`/admin/athletes/${a._id}/permanent`);
+      await onChanged();
+      toast(`${a.name} was permanently deleted.`);
+    } catch (e) {
+      toast(`Couldn't delete ${a.name}: ${e.message || 'please try again.'}`, 'error');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   // Load board: one row per active athlete, worst condition first.
   const boardRows = active.slice().sort((a, b) => (a.cond?.rank ?? 9) - (b.cond?.rank ?? 9) || a.name.localeCompare(b.name));
   const boardData = boardRows.map(a => ({ a, days: dailyLoads(byAthlete.get(a._id) || [], BOARD_DAYS) }));
@@ -718,6 +735,9 @@ function AthletesOverview({ roster, recent, loading, filter, onFilter, onOpen, o
                       </button>
                       <Button variant="ghost" disabled={busyId === a._id} onClick={() => toggleActive(a)}>
                         {busyId === a._id ? 'Saving…' : a.active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                      <Button variant="danger" disabled={busyId === a._id} onClick={() => deleteAthlete(a)} className="ml-1">
+                        Delete
                       </Button>
                     </td>
                   </tr>
