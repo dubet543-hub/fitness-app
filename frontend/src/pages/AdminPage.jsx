@@ -78,10 +78,16 @@ const keyToDate = k => { const [y, m, d] = k.split('-').map(Number); return new 
 
 // Period presets shared by Sessions and Recovery (dates in local YYYY-MM-DD).
 const PERIODS = [
+  { value: 'today', label: 'Today' },
   { value: '7', label: '7 days' }, { value: '14', label: '14 days' }, { value: '28', label: '28 days' },
   { value: '90', label: '90 days' }, { value: 'all', label: 'All' }, { value: 'custom', label: 'Custom' },
 ];
-const periodFrom = p => (p === 'all' || p === 'custom' ? '' : dayKey(Date.now() - (Number(p) - 1) * 864e5));
+const periodFrom = p => {
+  if (p === 'all' || p === 'custom') return '';
+  if (p === 'today') return dayKey(Date.now());
+  return dayKey(Date.now() - (Number(p) - 1) * 864e5);
+};
+const periodTo = p => (p === 'today' ? dayKey(Date.now()) : '');
 
 const readinessTone = v => (v == null ? null : v >= 70 ? STATUS.good : v >= 50 ? STATUS.warning : STATUS.critical);
 
@@ -101,7 +107,7 @@ function PeriodFilter({ f, setF, onLoad, busy, idPrefix }) {
     <>
       <Field label="Period" htmlFor={`${idPrefix}-period`}>
         <Segmented label="Period" size="md" value={f.period} options={PERIODS}
-                   onChange={v => { const q = { ...f, period: v, from: v === 'custom' ? f.from : periodFrom(v), to: v === 'custom' ? f.to : '' }; setF(q); if (v !== 'custom') onLoad(q); }} />
+                   onChange={v => { const q = { ...f, period: v, from: v === 'custom' ? f.from : periodFrom(v), to: v === 'custom' ? f.to : periodTo(v) }; setF(q); if (v !== 'custom') onLoad(q); }} />
       </Field>
       {f.period === 'custom' && (
         <>
