@@ -147,10 +147,15 @@ function externalTooltip(titles, unitFor) {
     const hostW = host.clientWidth;
     el.style.opacity = '1';
     const tipW = el.offsetWidth;
+    const tipH = el.offsetHeight;
     let left = tooltip.caretX + 14;
     if (left + tipW > hostW - 4) left = tooltip.caretX - tipW - 14;
     el.style.left = `${Math.max(4, left)}px`;
-    el.style.top = `${chart.options.indexAxis === 'y' ? Math.max(0, tooltip.caretY - 20) : chartArea.top}px`;
+    // Follow the point's actual height instead of pinning to the top of the
+    // chart — a value chart (e.g. readiness swinging 50–100) otherwise shows
+    // the tooltip floating away from wherever the line actually dips.
+    const top = chart.options.indexAxis === 'y' ? tooltip.caretY - 20 : tooltip.caretY - tipH - 14;
+    el.style.top = `${Math.max(chartArea.top, Math.min(top, chartArea.bottom - tipH))}px`;
   };
 }
 
