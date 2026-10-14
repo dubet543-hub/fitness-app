@@ -913,10 +913,21 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
   }, [sessions]);
   const hasReadiness = sorted.some(s => s.readinessPercent != null);
   const activeIdx = activeType ? mix.findIndex(([t]) => t === activeType) : -1;
+  const todayKey = dayKey(Date.now());
+  const todaySession = [...sorted].reverse().find(s => dayKey(s.date) === todayKey && s.readinessPercent != null);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card title="Readiness trend" subtitle={`Readiness % from each wellness check-in${onSession ? ' · click a point to open that session' : ''}`} className="lg:col-span-2">
+      <Card title="Readiness trend" subtitle={`Readiness % from each wellness check-in${onSession ? ' · click a point to open that session' : ''}`}
+            className="lg:col-span-2"
+            actions={
+              <div className="text-right shrink-0">
+                <div className="text-xs text-ts uppercase tracking-wider">Today</div>
+                {todaySession
+                  ? <ToneNum value={Math.round(todaySession.readinessPercent)} suffix="%" color={readinessTone(todaySession.readinessPercent)} />
+                  : <span className="text-sm text-ts">No check-in</span>}
+              </div>
+            }>
         {hasReadiness ? (
           <InteractiveChart type="line" height="h-60" title="Readiness trend" subtitle="Readiness % from each wellness check-in"
             pickLabel="Open this session"
