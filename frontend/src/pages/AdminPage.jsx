@@ -133,6 +133,12 @@ function FilterChip({ label, onClear }) {
 
 const errMsg = (e, what) => `Couldn't load ${what}${e?.message ? ` — ${e.message}` : ''}.`;
 const sessionTypes = s => [...(s.primaryTypes || []), ...(s.skillTypes || [])].join(', ') || '—';
+// Wellness sliders default to 3 in the app, so a session where every rating
+// is still exactly 3 means the check-in was left untouched, not a genuine
+// "average" day — admin treats it as no reading rather than a flat 50%.
+const realReadiness = s => (
+  s.sleep === 3 && s.wellness === 3 && s.soreness === 3 && s.fatigue === 3 ? null : s.readinessPercent
+);
 const inRange = (date, from, to) => {
   const k = dayKey(date);
   return (!from || k >= from) && (!to || k <= to);
@@ -911,10 +917,10 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
       .forEach(t => { c[t] = (c[t] || 0) + 1; }));
     return Object.entries(c).sort((a, b) => b[1] - a[1]);
   }, [sessions]);
-  const hasReadiness = sorted.some(s => s.readinessPercent != null);
+  const hasReadiness = sorted.some(s => realReadiness(s) != null);
   const activeIdx = activeType ? mix.findIndex(([t]) => t === activeType) : -1;
   const todayKey = dayKey(Date.now());
-  const todaySession = [...sorted].reverse().find(s => dayKey(s.date) === todayKey && s.readinessPercent != null);
+  const todaySession = [...sorted].reverse().find(s => dayKey(s.date) === todayKey && realReadiness(s) != null);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -924,7 +930,7 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
               <div className="text-right shrink-0">
                 <div className="text-xs text-ts uppercase tracking-wider">Today</div>
                 {todaySession
-                  ? <ToneNum value={Math.round(todaySession.readinessPercent)} suffix="%" color={readinessTone(todaySession.readinessPercent)} />
+                  ? <ToneNum value={Math.round(realReadiness(todaySession))} suffix="%" color={readinessTone(realReadiness(todaySession))} />
                   : <span className="text-sm text-ts">No check-in</span>}
               </div>
             }>
@@ -932,7 +938,7 @@ function TrendsRow({ sessions, onSession, onType, activeType }) {
           <InteractiveChart type="line" height="h-60" title="Readiness trend" subtitle="Readiness % from each wellness check-in"
             pickLabel="Open this session"
             data={{ labels: sorted.map(s => shortDate(s.date)),
-                    datasets: [{ ...lineDataset('Readiness', sorted.map(s => (s.readinessPercent == null ? null : Math.round(s.readinessPercent))), SERIES.load, { fill: true }), unit: '%', pointRadius: 2 }] }}
+                    datasets: [{ ...lineDataset('Readiness', sorted.map(s => { const r = realReadiness(s); return r == null ? null : Math.round(r); }), SERIES.load, { fill: true }), unit: '%', pointRadius: 2 }] }}
             titles={sorted.map(s => `${fullDate(s.date)} · ${sessionTypes(s)}`)}
             options={chartOptions({ yMin: 0, yMax: 100 })}
             onPick={onSession ? i => onSession(sorted[i]) : undefined} />
