@@ -133,12 +133,16 @@ function FilterChip({ label, onClear }) {
 
 const errMsg = (e, what) => `Couldn't load ${what}${e?.message ? ` — ${e.message}` : ''}.`;
 const sessionTypes = s => [...(s.primaryTypes || []), ...(s.skillTypes || [])].join(', ') || '—';
-// Wellness sliders default to 3 in the app, so a session where every rating
-// is still exactly 3 means the check-in was left untouched, not a genuine
-// "average" day — admin treats it as no reading rather than a flat 50%.
-const realReadiness = s => (
-  s.sleep === 3 && s.wellness === 3 && s.soreness === 3 && s.fatigue === 3 ? null : s.readinessPercent
-);
+// Wellness sliders default to 3 in the app, and a session logged without
+// opening the wellness screen at all (e.g. a skill-only entry) stores these
+// as missing — the backend defaults either case to 3 before scoring. Admin
+// treats "every rating missing or still 3" as no real check-in rather than
+// a flat 50%.
+const realReadiness = s => {
+  const untouched = v => v == null || v === 3;
+  return untouched(s.sleep) && untouched(s.wellness) && untouched(s.soreness) && untouched(s.fatigue)
+    ? null : s.readinessPercent;
+};
 const inRange = (date, from, to) => {
   const k = dayKey(date);
   return (!from || k >= from) && (!to || k <= to);
