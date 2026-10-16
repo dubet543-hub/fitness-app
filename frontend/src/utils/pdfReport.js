@@ -486,3 +486,55 @@ export function downloadTeamReport({ roster = [], recent = [], days = 21 } = {})
   footers(doc, 'Team report');
   doc.save(`SOLIDCORE_team_report_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+
+// ── Recovery report ──────────────────────────────────────────────────────────
+// data: sessions for the current filter, with readinessPercent already
+// corrected (null for untouched/missing check-ins) by the caller.
+// perAthlete / kpiItems come pre-built from the same REC_FIELDS the Recovery
+// screen renders with, so the PDF always matches what's on screen.
+export function downloadRecoveryReport({ data = [], perAthlete = [], team = true, periodLabel: periodLbl, athleteName, kpiItems = [] } = {}) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const who = team ? 'Team' : (athleteName || 'Athlete');
+
+  let y = header(doc, 'Recovery report', `${who} · ${periodLbl || 'Selected period'} · ${dfmt(new Date())}`);
+
+  if (kpiItems.length) {
+    y = withLightPalette(() => kpis(doc, y, kpiItems.map(k => ({ label: k.label, value: k.value, note: k.sub }))));
+  }
+
+  if (team && perAthlete.length > 1) {
+    y = ensure(doc, y, 30);
+    y = section(doc, y, 'Athlete comparison', 'Averages per athlete for the selected period, lowest readiness first');
+    autoTable(doc, {
+      ...tableStyle, startY: y,
+      head: [['Athlete', 'Check-ins', 'Sleep', 'Wellness', 'Soreness', 'Fatigue', 'Sleep dur.', 'Sleep eff.', 'Readiness']],
+      body: perAthlete.map(p => [
+        clean(p.name), p.count, n1(p.sleep), n1(p.wellness), n1(p.soreness), n1(p.fatigue),
+        p.sleepDuration != null ? `${n1(p.sleepDuration)}h` : '—', p.sleepEfficiency != null ? `${n0(p.sleepEfficiency)}%` : '—',
+        p.readinessPercent != null ? `${n0(p.readinessPercent)}%` : '—',
+      ]),
+      columnStyles: { 0: { fontStyle: 'bold' } },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  const log = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (log.length) {
+    y = ensure(doc, y, 30);
+    y = section(doc, y, 'Recovery log', `${log.length} check-in${log.length === 1 ? '' : 's'} · newest first`);
+    autoTable(doc, {
+      ...tableStyle, startY: y,
+      head: [[...(team ? ['Athlete'] : []), 'Date', 'Sleep', 'Wellness', 'Soreness', 'Fatigue', 'Sleep dur.', 'Sleep eff.', 'Readiness']],
+      body: log.map(s => [
+        ...(team ? [clean(s.athlete?.name) || '—'] : []), dfmt(s.date),
+        s.sleep ?? '—', s.wellness ?? '—', s.soreness ?? '—', s.fatigue ?? '—',
+        s.sleepDuration != null ? `${n1(s.sleepDuration)}h` : '—', s.sleepEfficiency != null ? `${n0(s.sleepEfficiency)}%` : '—',
+        s.readinessPercent != null ? `${n0(s.readinessPercent)}%` : '—',
+      ]),
+      alternateRowStyles: { fillColor: [251, 251, 250] },
+    });
+  }
+
+  footers(doc, 'Recovery report');
+  doc.save(`recovery_report_${slug(who)}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}

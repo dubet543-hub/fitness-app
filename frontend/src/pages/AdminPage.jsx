@@ -12,7 +12,7 @@ import {
 import { api, clearSession, getUser } from '../api';
 import { athleteCondition, relativeDay, CONDITION } from '../utils/athleteStatus';
 import './admin.css';
-import { downloadTeamReport } from '../utils/pdfReport';
+import { downloadTeamReport, downloadRecoveryReport } from '../utils/pdfReport';
 import ReportDialog from '../components/ReportDialog';
 import { dayKey } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
@@ -1259,6 +1259,8 @@ function RecoverySection({ athletes }) {
   const [f, setF] = useState({ athlete: '', period: '28', from: periodFrom('28'), to: '' });
   const [shownFor, setShownFor] = useState('');
   const [day, setDay] = useState(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const toast = useToast();
 
   async function load(q = f) {
     setError(''); setBusy(true); setDay(null);
@@ -1273,7 +1275,10 @@ function RecoverySection({ athletes }) {
 
   // Team mode follows the data on screen, not the unsaved dropdown.
   const team = !shownFor;
-  const data = rows || [];
+  // Substitute the corrected readiness (null when the check-in was never
+  // really answered) so every average, chart and table below — and the PDF
+  // export — agrees with the Readiness trend chart elsewhere in admin.
+  const data = useMemo(() => (rows || []).map(r => ({ ...r, readinessPercent: realReadiness(r) })), [rows]);
   const log = useMemo(() => [...data].filter(r => !day || dayKey(r.date) === day).sort((a, b) => new Date(b.date) - new Date(a.date)), [rows, day]);
   const logRef = useRef(null);
 
@@ -1301,6 +1306,24 @@ function RecoverySection({ athletes }) {
     })).sort((a, b) => (a.readinessPercent ?? 101) - (b.readinessPercent ?? 101));
   }, [rows, athletes]);
 
+  function downloadPdf() {
+    setPdfBusy(true);
+    try {
+      const periodLbl = f.period === 'custom'
+        ? (f.from || f.to) ? `${f.from ? fullDate(keyToDate(f.from)) : 'Start'} – ${f.to ? fullDate(keyToDate(f.to)) : 'Now'}` : 'Custom range'
+        : PERIODS.find(p => p.value === f.period)?.label;
+      downloadRecoveryReport({
+        data, perAthlete, team, periodLbl,
+        athleteName: team ? undefined : athletes.find(a => a._id === shownFor)?.name,
+        kpiItems: REC_FIELDS.map(fl => ({ label: fl.label, value: fmtAvg(mean(data, fl.key), fl.dec), sub: fl.sub })),
+      });
+      toast('Recovery report downloaded');
+    } catch (e) {
+      toast(`Couldn't build the PDF: ${e.message || 'please try again.'}`, 'error');
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -1310,6 +1333,9 @@ function RecoverySection({ athletes }) {
                          onChange={v => { const q = { ...f, athlete: v }; setF(q); load(q); }} />
         </Field>
         <PeriodFilter f={f} setF={setF} onLoad={load} busy={busy} idPrefix="rec" />
+        <Button icon="download" className="ml-auto" disabled={!rows || !data.length || pdfBusy} onClick={downloadPdf}>
+          {pdfBusy ? 'Building PDF…' : 'Download PDF'}
+        </Button>
       </FilterBar>
 
       <ErrorBanner message={error} onRetry={() => load()} />
