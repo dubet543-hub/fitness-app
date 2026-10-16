@@ -1313,7 +1313,7 @@ function RecoverySection({ athletes }) {
         ? (f.from || f.to) ? `${f.from ? fullDate(keyToDate(f.from)) : 'Start'} – ${f.to ? fullDate(keyToDate(f.to)) : 'Now'}` : 'Custom range'
         : PERIODS.find(p => p.value === f.period)?.label;
       downloadRecoveryReport({
-        data, perAthlete, team, periodLbl,
+        data, perAthlete, daily, team, periodLbl,
         athleteName: team ? undefined : athletes.find(a => a._id === shownFor)?.name,
         kpiItems: REC_FIELDS.map(fl => ({ label: fl.label, value: fmtAvg(mean(data, fl.key), fl.dec), sub: fl.sub })),
       });

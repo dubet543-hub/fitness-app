@@ -492,7 +492,7 @@ export function downloadTeamReport({ roster = [], recent = [], days = 21 } = {})
 // corrected (null for untouched/missing check-ins) by the caller.
 // perAthlete / kpiItems come pre-built from the same REC_FIELDS the Recovery
 // screen renders with, so the PDF always matches what's on screen.
-export function downloadRecoveryReport({ data = [], perAthlete = [], team = true, periodLabel: periodLbl, athleteName, kpiItems = [] } = {}) {
+export function downloadRecoveryReport({ data = [], perAthlete = [], daily = [], team = true, periodLabel: periodLbl, athleteName, kpiItems = [] } = {}) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const who = team ? 'Team' : (athleteName || 'Athlete');
 
@@ -500,6 +500,35 @@ export function downloadRecoveryReport({ data = [], perAthlete = [], team = true
 
   if (kpiItems.length) {
     y = withLightPalette(() => kpis(doc, y, kpiItems.map(k => ({ label: k.label, value: k.value, note: k.sub }))));
+  }
+
+  const daysWithSleep = daily.filter(d => d.sleepDuration != null || d.sleepEfficiency != null);
+  if (daysWithSleep.length) {
+    const imgs = withLightPalette(() => ({
+      duration: chartImage({
+        type: 'line',
+        data: { labels: daily.map(d => dshort(d.date)), datasets: [lineDataset('Duration', daily.map(d => d.sleepDuration), SERIES.load, { fill: true })] },
+        options: chartOptions({ yMin: 0, yMax: 12, yStep: 2, xTicks: 8 }),
+        w: 380, h: 210,
+      }),
+      efficiency: chartImage({
+        type: 'line',
+        data: { labels: daily.map(d => dshort(d.date)), datasets: [lineDataset('Efficiency', daily.map(d => d.sleepEfficiency), SERIES.load, { fill: true })] },
+        options: chartOptions({ yMin: 0, yMax: 100, xTicks: 8 }),
+        w: 380, h: 210,
+      }),
+    }));
+    y = ensure(doc, y, 64);
+    y = section(doc, y, 'Sleep', `From the sleep check-in${team ? ' · daily team average' : ''}`);
+    const mw = (CONTENT_W - 4) / 2, mh = mw * (210 / 380);
+    [['Duration (h)', imgs.duration, mean(daily, 'sleepDuration'), n1], ['Efficiency (%)', imgs.efficiency, mean(daily, 'sleepEfficiency'), n0]]
+      .forEach(([label, img, avg, fmt], i) => {
+        const x = M + i * (mw + 4);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(label, x, y + 3);
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(...MUTED); doc.text(`avg ${fmt(avg)}`, x + mw, y + 3, { align: 'right' });
+        doc.addImage(img, 'PNG', x, y + 4.5, mw, mh, undefined, 'FAST');
+      });
+    y += mh + 12;
   }
 
   if (team && perAthlete.length > 1) {
