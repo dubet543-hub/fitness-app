@@ -266,7 +266,7 @@ export function downloadAthleteReport(athlete, { sessions = [], bodyComposition 
       minis: fields.map(([key]) => chartImage({
         type: 'line',
         data: { labels: days.map(([k]) => dshort(k)), datasets: [lineDataset(key, days.map(([, rs]) => mean(rs, key)), SERIES.load)] },
-        options: chartOptions({ yMin: 1, yMax: 5, yStep: 1, reverse: true, xTicks: 4 }),
+        options: chartOptions({ yMin: 1, yMax: 5, yStep: 1, xTicks: 4 }),
         w: 380, h: 210,
       })),
       sleepDuration: chartImage({
@@ -286,7 +286,7 @@ export function downloadAthleteReport(athlete, { sessions = [], bodyComposition 
     y = section(doc, y, 'Readiness', 'Readiness % from each wellness check-in');
     y = image(doc, y, imgs.readiness, 44);
     y = ensure(doc, y, 92);
-    y = section(doc, y, 'Wellness ratings', 'Daily average · 1 = best, 5 = worst · higher on the chart is better');
+    y = section(doc, y, 'Wellness ratings', 'Daily average · 1 = best, 5 = worst');
     const mw = (CONTENT_W - 4) / 2, mh = mw * (210 / 380);
     fields.forEach(([key, label], i) => {
       const x = M + (i % 2) * (mw + 4), yy = y + Math.floor(i / 2) * (mh + 8);

@@ -1353,10 +1353,10 @@ function RecoverySection({ athletes }) {
             </div>
           </div>
 
-          <Card title="Wellness ratings" subtitle={`1 = best, 5 = worst · higher on the chart is better${team ? ' · daily team average' : ''} · hover to compare, click a day to see its check-ins`}>
+          <Card title="Wellness ratings" subtitle={`1 = best, 5 = worst${team ? ' · daily team average' : ''} · hover to compare, click a day to see its check-ins`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
               {REC_FIELDS.slice(0, 4).map(fl => (
-                <MiniTrend key={fl.key} title={fl.label} daily={daily} field={fl.key} opts={{ yMin: 1, yMax: 5, yStep: 1, reverse: true }} dec={1}
+                <MiniTrend key={fl.key} title={fl.label} daily={daily} field={fl.key} opts={{ yMin: 1, yMax: 5, yStep: 1 }} dec={1}
                            selected={dayIdx >= 0 ? dayIdx : null} onPick={pickDay} />
               ))}
             </div>
