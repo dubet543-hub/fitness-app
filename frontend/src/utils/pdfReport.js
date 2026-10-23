@@ -84,7 +84,7 @@ function header(doc, title, subtitle, right) {
   doc.setFillColor(...BAND); doc.rect(0, 0, PAGE_W, 26, 'F');
   doc.setFillColor(...BRAND); doc.rect(0, 26, PAGE_W, 1.2, 'F');
   doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text('SOLIDCORE', M, 12);
+  doc.text('SOLIDCORE AMS', M, 12);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(190, 190, 195);
   doc.text('COACH CONSOLE', M, 17.5);
   doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
@@ -101,7 +101,7 @@ function footers(doc, who) {
     doc.setPage(i);
     doc.setDrawColor(...HAIR); doc.setLineWidth(0.2); doc.line(M, PAGE_H - 13, PAGE_W - M, PAGE_H - 13);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-    doc.text(`SOLIDCORE Coach Console · ${who} · Generated ${new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, M, PAGE_H - 8);
+    doc.text(`SOLIDCORE AMS Coach Console · ${who} · Generated ${new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, M, PAGE_H - 8);
     doc.text(`Page ${i} of ${pages}`, PAGE_W - M, PAGE_H - 8, { align: 'right' });
     doc.setFontSize(6.5);
     doc.text('Training-load and wellness estimates for coaching use only — not a medical assessment.', M, PAGE_H - 4.5);
@@ -269,6 +269,18 @@ export function downloadAthleteReport(athlete, { sessions = [], bodyComposition 
         options: chartOptions({ yMin: 1, yMax: 5, yStep: 1, reverse: true, xTicks: 4 }),
         w: 380, h: 210,
       })),
+      sleepDuration: chartImage({
+        type: 'line',
+        data: { labels: days.map(([k]) => dshort(k)), datasets: [lineDataset('Duration', days.map(([, rs]) => mean(rs, 'sleepDuration')), SERIES.load, { fill: true })] },
+        options: chartOptions({ yMin: 0, yMax: 12, yStep: 2, xTicks: 4 }),
+        w: 380, h: 210,
+      }),
+      sleepEfficiency: chartImage({
+        type: 'line',
+        data: { labels: days.map(([k]) => dshort(k)), datasets: [lineDataset('Efficiency', days.map(([, rs]) => mean(rs, 'sleepEfficiency')), SERIES.load, { fill: true })] },
+        options: chartOptions({ yMin: 0, yMax: 100, xTicks: 4 }),
+        w: 380, h: 210,
+      }),
     }));
     y = ensure(doc, y, 64);
     y = section(doc, y, 'Readiness', 'Readiness % from each wellness check-in');
@@ -283,6 +295,16 @@ export function downloadAthleteReport(athlete, { sessions = [], bodyComposition 
       doc.addImage(imgs.minis[i], 'PNG', x, yy + 4.5, mw, mh, undefined, 'FAST');
     });
     y += 2 * (mh + 8) + 2;
+    y = ensure(doc, y, 92);
+    y = section(doc, y, 'Sleep', 'Daily average · duration in hours, efficiency in %');
+    [['Duration (h)', imgs.sleepDuration, mean(pSessions, 'sleepDuration'), n1], ['Efficiency (%)', imgs.sleepEfficiency, mean(pSessions, 'sleepEfficiency'), n0]]
+      .forEach(([label, img, avg, fmt], i) => {
+        const x = M + i * (mw + 4);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(label, x, y + 3);
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(...MUTED); doc.text(`avg ${fmt(avg)}`, x + mw, y + 3, { align: 'right' });
+        doc.addImage(img, 'PNG', x, y + 4.5, mw, mh, undefined, 'FAST');
+      });
+    y += mh + 10;
     y = ensure(doc, y, 26);
     autoTable(doc, {
       ...tableStyle, startY: y,

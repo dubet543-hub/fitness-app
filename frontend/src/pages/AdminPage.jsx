@@ -252,7 +252,7 @@ function AdminShell() {
       <div className="px-5 h-20 flex items-center gap-3 border-b border-bdr">
         <img src="/logo.png" alt="" className="h-8 w-auto" />
         <div className="leading-none">
-          <div className="display text-[20px] text-tp">Solidcore</div>
+          <div className="display text-[20px] text-tp">Solidcore AMS</div>
           <div className="text-[11px] font-semibold tracking-[0.2em] uppercase text-ts mt-1">Coach console</div>
         </div>
       </div>
@@ -330,7 +330,7 @@ function AdminShell() {
                 className="w-11 h-11 rounded-md flex items-center justify-center text-tp">
           <Icon name="menu" className="w-5 h-5" />
         </button>
-        <span className="display text-lg">Solidcore</span>
+        <span className="display text-lg">Solidcore AMS</span>
       </header>
 
       <div className="flex">
