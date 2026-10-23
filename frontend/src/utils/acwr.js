@@ -23,17 +23,20 @@ export function sessionSkillLoad(s) {
     + (num(s.skillSubDuration) * num(s.skillSubRpe));
 }
 
-export function buildDailyRecords(sessions) {
+// Bucketed onto a contiguous per-calendar-day grid — one record per day from
+// the first session through `now`, zero-load rest days included — so the
+// chronic EWMA below decays through idle days exactly like the app
+// (lib/services/dashboard_metrics.dart) and backend/utils/metrics.js. Without
+// this, skipping straight from one training day's index to the next
+// (ignoring the rest days between them) steps the EWMA once per *session*
+// instead of once per *day*, so it converges far faster than it should for
+// any athlete who doesn't train every single day.
+export function buildDailyRecords(sessions, now = new Date()) {
+  if (!sessions.length) return [];
   const byDay = new Map();
   sessions.forEach(s => {
     const key = dayKey(s.date);
-    const rec = byDay.get(key) || {
-      date: s.date,
-      trainingLoad: 0,
-      skillLoad: 0,
-      totalLoad: 0,
-      readinessPercent: null,
-    };
+    const rec = byDay.get(key) || { trainingLoad: 0, skillLoad: 0, totalLoad: 0, readinessPercent: null };
     const trainingLoad = sessionTrainingLoad(s);
     const skillLoad = sessionSkillLoad(s);
     rec.trainingLoad += trainingLoad;
@@ -42,7 +45,25 @@ export function buildDailyRecords(sessions) {
     if (s.readinessPercent != null) rec.readinessPercent = s.readinessPercent;
     byDay.set(key, rec);
   });
-  return [...byDay.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const firstKey = [...byDay.keys()].sort()[0];
+  const [fy, fm, fd] = firstKey.split('-').map(Number);
+  const cursor = new Date(fy, fm - 1, fd);
+  const last = new Date(now); last.setHours(0, 0, 0, 0);
+
+  const days = [];
+  for (; cursor <= last; cursor.setDate(cursor.getDate() + 1)) {
+    const key = dayKey(cursor);
+    const rec = byDay.get(key);
+    days.push({
+      date: new Date(cursor),
+      trainingLoad: rec?.trainingLoad || 0,
+      skillLoad: rec?.skillLoad || 0,
+      totalLoad: rec?.totalLoad || 0,
+      readinessPercent: rec?.readinessPercent ?? null,
+    });
+  }
+  return days;
 }
 
 export function scaledGrade(load) {
@@ -133,12 +154,15 @@ export function computeStats(sessions) {
   const lastLoad = records[records.length - 1].totalLoad;
 
   const zScore = sigma === 0 ? 0 : (lastLoad - chronic) / sigma;
+  // The grid now runs through today even if nothing's logged yet today, so
+  // scan back for the most recent day that actually has a reading.
+  const lastReadiness = [...records].reverse().find(r => r.readinessPercent != null)?.readinessPercent ?? null;
 
   return {
     acuteLoad: Math.round(acute * 10) / 10,
     chronicLoad: Math.round(chronic * 10) / 10,
     acwr: chronic > 0 ? Math.round((acute / chronic) * 100) / 100 : 0,
-    lastReadiness: records[records.length - 1]?.readinessPercent ?? null,
+    lastReadiness,
     zScore: Math.round(zScore * 100) / 100,
     stdDev: Math.round(sigma * 10) / 10,
     targetLow: Math.round(chronic * 0.8),
