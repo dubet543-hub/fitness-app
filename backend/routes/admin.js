@@ -210,6 +210,18 @@ router.put('/athletes/:id/body-composition/:recordId', async (req, res) => {
   }
 });
 
+// DELETE /api/admin/athletes/:id/body-composition/:recordId  — removes one
+// reading, e.g. a stray duplicate left over from a mismatched upsert.
+router.delete('/athletes/:id/body-composition/:recordId', async (req, res) => {
+  try {
+    const result = await BodyComposition.deleteOne({ _id: req.params.recordId, athlete: req.params.id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Reading not found' });
+    res.json({ message: 'Reading deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Sessions ───────────────────────────────────────────────────────────────────
 
 // GET /api/admin/athletes/:id/sessions

@@ -1161,6 +1161,7 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }
   const [body, setBody] = useState(undefined);
   const [error, setError] = useState('');
   const [editingBody, setEditingBody] = useState(false);
+  const toast = useToast();
 
   async function load() {
     if (!athleteId) return;
@@ -1176,6 +1177,16 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }
   useEffect(() => { load(); }, [athleteId]);
   async function loadBody() {
     try { setBody(await api.get(`/admin/athletes/${athleteId}/body-composition`)); } catch { /* keep showing the previous data */ }
+  }
+  async function deleteBodyReading(recordId, dateLabel) {
+    if (!window.confirm(`Delete the body-composition reading from ${dateLabel}? This can't be undone.`)) return;
+    try {
+      await api.delete(`/admin/athletes/${athleteId}/body-composition/${recordId}`);
+      toast('Reading deleted.');
+      loadBody();
+    } catch (e) {
+      toast(`Couldn't delete that reading: ${e.message || 'please try again.'}`, 'error');
+    }
   }
 
   return (
@@ -1228,7 +1239,9 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }
             ))}
           </nav>
           <div id="an-body" className="scroll-mt-20">
-            {body === undefined ? <Skeleton className="h-72 w-full" /> : <BodyCompositionCard data={body} onEdit={() => setEditingBody(true)} />}
+            {body === undefined ? <Skeleton className="h-72 w-full" /> : (
+              <BodyCompositionCard data={body} onEdit={() => setEditingBody(true)} onDelete={deleteBodyReading} />
+            )}
           </div>
           {!sessions ? <Skeleton className="h-96 w-full" /> : (
             <>
@@ -1566,7 +1579,7 @@ function GradePill({ grade }) {
 }
 
 
-function BodyCompositionCard({ data, onEdit }) {
+function BodyCompositionCard({ data, onEdit, onDelete }) {
   const [hoverLayer, setHoverLayer] = useState(null);
   const [hiddenBc, setHiddenBc] = useState({});
   const latest = data?.latest;
@@ -1635,6 +1648,7 @@ function BodyCompositionCard({ data, onEdit }) {
                   {ip.overallLabel}
                 </span>
                 {onEdit && <Button variant="ghost" onClick={onEdit}>Edit</Button>}
+                {onDelete && <Button variant="danger" onClick={() => onDelete(latest._id, fmtDate(latest.date))}>Delete</Button>}
               </div>
             }>
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -1763,7 +1777,7 @@ function BodyCompositionCard({ data, onEdit }) {
             )}
             <div className="overflow-x-auto mt-5 -mx-5 border-t border-bdr">
               <table className="static">
-                <thead><tr>{['Date', 'Body fat', 'Lean mass', 'Skeletal muscle', 'FFMI', 'Weight'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <thead><tr>{['Date', 'Body fat', 'Lean mass', 'Skeletal muscle', 'FFMI', 'Weight', ''].map(h => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   {history.map(({ h, c }) => (
                     <tr key={h._id}>
@@ -1773,6 +1787,9 @@ function BodyCompositionCard({ data, onEdit }) {
                       <td>{fmt(h.smmPercent ?? c?.smmPercent)}%</td>
                       <td>{fmt(h.ffmi ?? c?.ffmi)}</td>
                       <td>{fmt(h.weightKg)} kg</td>
+                      <td className="text-right">
+                        {onDelete && <Button variant="ghost" onClick={() => onDelete(h._id, fmtDate(h.date))}>Delete</Button>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
