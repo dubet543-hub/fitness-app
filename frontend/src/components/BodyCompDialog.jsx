@@ -4,12 +4,21 @@ import { computeBCA } from '../utils/bodyComposition';
 import { Avatar, Button, Field, Icon, Segmented, useToast } from './ui';
 
 const SEX_OPTIONS = [{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }];
-const todayStr = () => new Date().toISOString().slice(0, 10);
+// Local calendar date (not UTC) — matches how every date input/display else-
+// where in admin treats "today", so the date shown here is the one the coach
+// actually expects, regardless of the stored timestamp's exact UTC time.
+const toDateInput = d => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
+const todayStr = () => toDateInput(new Date());
 
 // Lets a coach enter/correct an athlete's body-composition measurements
 // directly, for athletes who can't or haven't run the analysis themselves in
 // the app. Uses the same formulae (computeBCA) so the stored estimate is
 // identical to what the app would have computed from the same inputs.
+// Editing an existing reading (initial._id set) updates that exact document;
+// adding a fresh one creates a new reading dated today.
 export default function BodyCompDialog({ athlete, initial, onClose, onSaved }) {
   const [form, setForm] = useState({
     sex: initial?.isMale === false ? 'female' : 'male',
@@ -18,7 +27,7 @@ export default function BodyCompDialog({ athlete, initial, onClose, onSaved }) {
     neckCm: initial?.neckCm ?? '',
     abdomenCm: initial?.abdomenCm ?? '',
     hipCm: initial?.hipCm ?? '',
-    date: todayStr(),
+    date: initial?.date ? toDateInput(initial.date) : todayStr(),
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -53,13 +62,18 @@ export default function BodyCompDialog({ athlete, initial, onClose, onSaved }) {
     if (!preview) { setError("Those measurements don't produce a valid estimate — double-check them."); return; }
     setBusy(true); setError('');
     try {
-      await api.post(`/admin/athletes/${athlete._id}/body-composition`, {
+      const payload = {
         date: form.date,
         isMale, weightKg: preview.weightKg, heightCm: preview.heightCm,
         neckCm: preview.neckCm, abdomenCm: preview.abdomenCm, hipCm: isMale ? undefined : preview.hipCm,
         bfPercent: preview.bfPercent, bfKg: preview.bfKg, lbm: preview.lbm,
         smmPercent: preview.smmPercent, smi: preview.smi, ffmi: preview.ffmi,
-      });
+      };
+      if (initial?._id) {
+        await api.put(`/admin/athletes/${athlete._id}/body-composition/${initial._id}`, payload);
+      } else {
+        await api.post(`/admin/athletes/${athlete._id}/body-composition`, payload);
+      }
       toast(`${athlete.name}'s body composition was saved.`);
       onSaved();
     } catch (e) {

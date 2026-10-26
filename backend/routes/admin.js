@@ -184,6 +184,32 @@ router.post('/athletes/:id/body-composition', async (req, res) => {
   }
 });
 
+// PUT /api/admin/athletes/:id/body-composition/:recordId  — update one
+// existing reading directly by its id. The create route above upserts by
+// matching (athlete, date) exactly, which silently misses an entry that
+// isn't at precise UTC midnight (e.g. one the app itself synced with a
+// real timestamp) — editing by id always hits the right document.
+router.put('/athletes/:id/body-composition/:recordId', async (req, res) => {
+  try {
+    const { date: rawDate, ...fields } = req.body;
+    const update = { ...fields };
+    if (rawDate) {
+      const date = new Date(rawDate);
+      if (isNaN(date)) return res.status(400).json({ error: 'Invalid date' });
+      update.date = date;
+    }
+    const entry = await BodyComposition.findOneAndUpdate(
+      { _id: req.params.recordId, athlete: req.params.id },
+      { $set: update },
+      { new: true, runValidators: true },
+    );
+    if (!entry) return res.status(404).json({ error: 'Reading not found' });
+    res.json(entry);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ── Sessions ───────────────────────────────────────────────────────────────────
 
 // GET /api/admin/athletes/:id/sessions
