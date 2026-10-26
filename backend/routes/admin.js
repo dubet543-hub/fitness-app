@@ -159,6 +159,31 @@ router.get('/athletes/:id/body-composition', async (req, res) => {
   }
 });
 
+// POST /api/admin/athletes/:id/body-composition  — a coach enters/corrects a
+// measurement on the athlete's behalf (e.g. relayed over phone/WhatsApp,
+// rather than the athlete running the analysis themselves in the app).
+// Upserts on (athlete, date) like the athlete's own sync route, so
+// re-submitting the same day's entry corrects it instead of duplicating.
+router.post('/athletes/:id/body-composition', async (req, res) => {
+  try {
+    const athlete = await User.findOne({ _id: req.params.id, role: 'athlete' });
+    if (!athlete) return res.status(404).json({ error: 'Athlete not found' });
+
+    const { date: rawDate, ...fields } = req.body;
+    const date = rawDate ? new Date(rawDate) : new Date();
+    if (isNaN(date)) return res.status(400).json({ error: 'Invalid date' });
+
+    const entry = await BodyComposition.findOneAndUpdate(
+      { athlete: athlete._id, date },
+      { $set: { ...fields, date, athlete: athlete._id } },
+      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
+    );
+    res.status(201).json(entry);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ── Sessions ───────────────────────────────────────────────────────────────────
 
 // GET /api/admin/athletes/:id/sessions

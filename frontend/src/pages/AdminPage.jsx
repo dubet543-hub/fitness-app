@@ -14,6 +14,7 @@ import { athleteCondition, relativeDay, CONDITION } from '../utils/athleteStatus
 import './admin.css';
 import { downloadTeamReport, downloadRecoveryReport } from '../utils/pdfReport';
 import ReportDialog from '../components/ReportDialog';
+import BodyCompDialog from '../components/BodyCompDialog';
 import { dayKey } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
 import { SERIES, STATUS, loadRamp, themeName, setChartTheme, shortDate, chartOptions, lineDataset, barDataset } from '../utils/adminCharts';
@@ -1159,6 +1160,7 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }
   const [sessions, setSessions] = useState(null);
   const [body, setBody] = useState(undefined);
   const [error, setError] = useState('');
+  const [editingBody, setEditingBody] = useState(false);
 
   async function load() {
     if (!athleteId) return;
@@ -1172,6 +1174,9 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }
     if (s.status === 'rejected') setError(errMsg(s.reason, 'sessions'));
   }
   useEffect(() => { load(); }, [athleteId]);
+  async function loadBody() {
+    try { setBody(await api.get(`/admin/athletes/${athleteId}/body-composition`)); } catch { /* keep showing the previous data */ }
+  }
 
   return (
     <div className="space-y-6">
@@ -1222,7 +1227,9 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }
                  className="px-3 min-h-[40px] inline-flex items-center rounded-md text-sm text-ts hover:text-tp hover:bg-card whitespace-nowrap">{l}</a>
             ))}
           </nav>
-          <div id="an-body" className="scroll-mt-20">{body === undefined ? <Skeleton className="h-72 w-full" /> : <BodyCompositionCard data={body} />}</div>
+          <div id="an-body" className="scroll-mt-20">
+            {body === undefined ? <Skeleton className="h-72 w-full" /> : <BodyCompositionCard data={body} onEdit={() => setEditingBody(true)} />}
+          </div>
           {!sessions ? <Skeleton className="h-96 w-full" /> : (
             <>
               <div id="an-workload" className="scroll-mt-20"><WorkloadMonitor athlete={athlete} sessions={sessions} onSession={onSession} /></div>
@@ -1230,6 +1237,10 @@ function AnalyticsSection({ athletes, athleteId, onSelect, onSession, onReport }
             </>
           )}
         </>
+      )}
+      {editingBody && (
+        <BodyCompDialog athlete={athlete} initial={body?.latest} onClose={() => setEditingBody(false)}
+                         onSaved={() => { setEditingBody(false); loadBody(); }} />
       )}
     </div>
   );
@@ -1555,7 +1566,7 @@ function GradePill({ grade }) {
 }
 
 
-function BodyCompositionCard({ data }) {
+function BodyCompositionCard({ data, onEdit }) {
   const [hoverLayer, setHoverLayer] = useState(null);
   const [hiddenBc, setHiddenBc] = useState({});
   const latest = data?.latest;
@@ -1566,9 +1577,9 @@ function BodyCompositionCard({ data }) {
 
   if (!latest || !r) {
     return (
-      <Card title="Body composition">
+      <Card title="Body composition" actions={onEdit && <Button icon="body" onClick={onEdit}>Enter measurements</Button>}>
         <EmptyState icon="body" title="No body-composition estimate yet"
-                    hint="It appears here after the athlete runs a body-composition analysis in the app." />
+                    hint="It appears here once the athlete runs an analysis in the app, or a coach enters their measurements directly." />
       </Card>
     );
   }
@@ -1618,10 +1629,13 @@ function BodyCompositionCard({ data }) {
     <div className="space-y-4">
       <Card title={`Body composition · ${male ? 'Male' : 'Female'}`} subtitle={`Latest estimate ${fmtDate(latest.date)}${history.length ? ` · ${history.length} earlier` : ''}`}
             actions={
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-tp whitespace-nowrap">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: ip.overallColor }} aria-hidden="true" />
-                {ip.overallLabel}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-tp whitespace-nowrap">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: ip.overallColor }} aria-hidden="true" />
+                  {ip.overallLabel}
+                </span>
+                {onEdit && <Button variant="ghost" onClick={onEdit}>Edit</Button>}
+              </div>
             }>
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
           <Metric label="Body fat"        value={`${fmt(r.bfPercent)}%`}  sub={`${fmt(r.bfKg)} kg`}           color="#F87171" />
