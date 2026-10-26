@@ -97,6 +97,25 @@ router.put('/athletes/:id', async (req, res) => {
   }
 });
 
+// POST /api/admin/athletes/:id/reset-password  — set a new password for an
+// athlete who's lost/forgotten theirs. Goes through .save() rather than
+// findByIdAndUpdate, since only the pre('save') hook hashes it.
+router.post('/athletes/:id/reset-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+    const athlete = await User.findOne({ _id: req.params.id, role: 'athlete' });
+    if (!athlete) return res.status(404).json({ error: 'Athlete not found' });
+    athlete.password = password;
+    await athlete.save();
+    res.json({ message: 'Password reset' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // DELETE /api/admin/athletes/:id  — soft delete
 router.delete('/athletes/:id', async (req, res) => {
   try {

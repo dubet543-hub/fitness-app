@@ -15,6 +15,7 @@ import './admin.css';
 import { downloadTeamReport, downloadRecoveryReport } from '../utils/pdfReport';
 import ReportDialog from '../components/ReportDialog';
 import BodyCompDialog from '../components/BodyCompDialog';
+import ResetPasswordDialog from '../components/ResetPasswordDialog';
 import { dayKey } from '../utils/acwr';
 import { fmtDate, fmtNum } from '../utils/fmt';
 import { SERIES, STATUS, loadRamp, themeName, setChartTheme, shortDate, chartOptions, lineDataset, barDataset } from '../utils/adminCharts';
@@ -776,6 +777,7 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay, on
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [resettingPw, setResettingPw] = useState(false);
   const toast = useToast();
 
   async function handleDelete() {
@@ -853,11 +855,13 @@ function AthleteDetail({ athlete, onBack, onSession, onAnalytics, initialDay, on
             Download PDF report
           </Button>
           <Button icon="body" onClick={onAnalytics}>Body composition</Button>
+          <Button onClick={() => setResettingPw(true)}>Reset password</Button>
           <Button variant="danger" icon="trash" disabled={deleting} onClick={handleDelete} className="sm:ml-auto">
             {deleting ? 'Deleting…' : 'Delete athlete'}
           </Button>
         </div>
       </section>
+      {resettingPw && <ResetPasswordDialog athlete={athlete} onClose={() => setResettingPw(false)} />}
 
       <ErrorBanner message={error} onRetry={load} />
 
